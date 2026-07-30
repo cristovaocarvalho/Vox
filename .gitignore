@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-electron/
+.vite/
+*.local
+.env
+.env.*
+!.env.example

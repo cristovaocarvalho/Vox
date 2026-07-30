@@ -1,0 +1,30 @@
+appId: com.vox.app
+productName: Vox
+directories:
+  output: dist-build
+files:
+  - "out/**/*"
+extraResources:
+  - from: resources/binaries/
+    to: binaries/
+    filter: ["**/*"]
+  - from: resources/models/
+    to: models/
+    filter: ["**/*"]
+  - from: src/favicon.png
+    to: favicon.png
+win:
+  target:
+    - nsis
+    - portable
+mac:
+  target:
+    - dmg
+    - zip
+linux:
+  target:
+    - AppImage
+    - deb
+asar: true
+asarUnpack:
+  - "node_modules/better-sqlite3/**/*"
