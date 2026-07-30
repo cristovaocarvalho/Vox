@@ -23,6 +23,9 @@
 
 > Pense nele como um ditado de sistema operacional: você está no VS Code, no Word, em um formulário web, no Slack — não importa. Aperta `F9`, fala, solta, e o texto aparece onde o cursor estava.
 
+> **Vox é uma alternativa open-source ao [WhisperFlow](https://whisperflow.app)** — com a mesma proposta de ditado por voz com IA, mas com controle total sobre modelos, atalhos, pipeline de correção e injeção de texto via Win32 nativo.
+
+
 ---
 
 ## ◈ Para que serve
