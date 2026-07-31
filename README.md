@@ -17,6 +17,12 @@
 
 ---
 
+<div align="center">
+  <img src="src/assets/preview.png" alt="Vox Interface Preview" width="850" />
+</div>
+
+<br />
+
 ## ◈ O que é o Vox
 
 **Vox** é um assistente de ditado por voz nativo para Windows, construído com Electron. Ele fica silenciosamente na bandeja do sistema e, quando acionado por atalho global (`F9`/`F10`) ou pela palavra de ativação (**"Vox"**), grava sua fala, encerra automaticamente ao detectar silêncio, transcreve via **Whisper Large V3 Turbo**, corrige automaticamente a pontuação via LLM e injeta o texto **diretamente no cursor ativo** de qualquer aplicação, sem precisar que a aplicação tenha suporte especial.
