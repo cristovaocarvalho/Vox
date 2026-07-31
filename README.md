@@ -10,7 +10,7 @@
 [![React](https://img.shields.io/badge/React-18-black?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-black?style=flat-square&logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Groq](https://img.shields.io/badge/Groq-Whisper%20V3%20Turbo-black?style=flat-square)](https://groq.com)
-[![Platform](https://img.shields.io/badge/Platform-Windows-black?style=flat-square&logo=windows&logoColor=white)](https://microsoft.com/windows)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-black?style=flat-square&logo=electron&logoColor=white)](https://electronjs.org)
 [![License](https://img.shields.io/badge/License-MIT-black?style=flat-square)](LICENSE)
 
 </div>
@@ -25,18 +25,18 @@
 
 ## ◈ O que é o Vox
 
-**Vox** é um assistente de ditado por voz nativo para Windows, construído com Electron. Ele fica silenciosamente na bandeja do sistema e, quando acionado por atalho global (`F9`/`F10`) ou pela palavra de ativação (**"Vox"**), grava sua fala, encerra automaticamente ao detectar silêncio, transcreve via **Whisper Large V3 Turbo**, corrige automaticamente a pontuação via LLM e injeta o texto **diretamente no cursor ativo** de qualquer aplicação, sem precisar que a aplicação tenha suporte especial.
+**Vox** é um assistente de ditado por voz multiplataforma (Windows, macOS e Linux), construído com Electron. Ele fica silenciosamente na bandeja do sistema e, quando acionado por atalho global (`F9`/`F10`) ou pela palavra de ativação (**"Vox"**), grava sua fala, encerra automaticamente ao detectar silêncio, transcreve via **Whisper Large V3 Turbo**, corrige automaticamente a pontuação via LLM e injeta o texto **diretamente no cursor ativo** de qualquer aplicação, sem precisar que a aplicação tenha suporte especial.
 
 > Pense nele como um ditado de sistema operacional: você está no VS Code, no Word, em um formulário web, no Slack, não importa. Fale *"Vox"*, diga seu texto e, ao parar de falar, a transcrição aparece onde o cursor estava.
 
-> **Vox é uma alternativa open-source ao [Wispr Flow](https://wisprflow.ai)**, com a mesma proposta de ditado por voz com IA, suporte a atalhos globais, comando de voz hands-free, pipeline de correção e injeção de texto via Win32 nativo.
+> **Vox é uma alternativa open-source ao [Wispr Flow](https://wisprflow.ai)**, com a mesma proposta de ditado por voz com IA, suporte a atalhos globais, comando de voz hands-free, pipeline de correção e injeção de texto via Win32 e APIS nativas.
 
 
 ---
 
 ## ◈ Comparativo: Vox vs Wispr Flow
 
-O **Wispr Flow** é uma solução comercial proprietária que oferece um plano gratuito restrito (limitado a uma cota de 2.000 palavras por semana) e planos pagos por assinatura mensal ($9/mês a $29+/mês). O **Vox** foi criado como uma alternativa aberta, 100% gratuita no uso diário com provedores como a Groq (que oferece um plano gratuito generoso com milhares de requisições por dia), nativa para Windows, focada em privacidade e controle do usuário.
+O **Wispr Flow** é uma solução comercial proprietária que oferece um plano gratuito restrito (limitado a uma cota de 2.000 palavras por semana) e planos pagos por assinatura mensal ($9/mês a $29+/mês). O **Vox** foi criado como uma alternativa aberta, 100% gratuita no uso diário com provedores como a Groq (que oferece um plano gratuito generoso com milhares de requisições por dia), multiplataforma, focada em privacidade e controle do usuário.
 
 ### Tabela Comparativa
 
@@ -47,7 +47,7 @@ O **Wispr Flow** é uma solução comercial proprietária que oferece um plano g
 | **Wake Word (Comando de Voz)** | Sim, "Vox" (100% offline via ONNX) | Depende de atalhos/nuvem |
 | **Privacidade** | Áudio processado via API direta, sem intermediários | Processamento em nuvem proprietária |
 | **Transcrição de Mídias (YouTube/Arquivos)** | Sim (com exportação em SRT, VTT, TXT, MD, JSON) | Focado apenas em ditado |
-| **Plataformas** | Windows 10/11 (Nativo) | Mac, Windows, iOS |
+| **Plataformas** | Windows (.exe), macOS (.dmg) e Linux (.AppImage) | Mac, Windows, iOS |
 | **Encerramento Automático (VAD)** | Sim, encerra e cola automaticamente ao silenciar | Sim |
 
 ### 🟢 Vantagens do Vox
@@ -62,7 +62,7 @@ O **Wispr Flow** é uma solução comercial proprietária que oferece um plano g
 
 * **Necessita de Chave de API**: Exige que o usuário insira sua própria API Key nas configurações (ex: obtida gratuitamente na Groq).
 * **Modelos STT/LLM Fixos**: O provedor de API deve obrigatoriamente disponibilizar os modelos `whisper-large-v3-turbo` e `openai/gpt-oss-20b`.
-* **Exclusivo para Windows**: Atualmente disponível nativamente apenas para Windows 10/11 (o Wispr Flow possui aplicativo para Mac e dispositivos móveis).
+* **Dispositivos Móveis**: Atualmente focado em sistemas de desktop (Windows, macOS e Linux), sem aplicativo dedicado para iOS/Android.
 
 
 ---
@@ -310,7 +310,7 @@ STT:             Whisper Large V3 Turbo (via provedor de API)
 LLM:             openai/gpt-oss-20b (via provedor de API)
 Download:        yt-dlp (binário bundled)
 Injeção:         PowerShell + Win32 API (SetForegroundWindow, SendKeys)
-Build:           electron-builder (NSIS installer + portable)
+Build:           electron-builder (Windows .exe, macOS .dmg, Linux .AppImage)
 ```
 
 ---
@@ -358,7 +358,7 @@ vox/
 ### Pré-requisitos
 - **Node.js** 20+
 - **npm** 10+
-- **Windows** 10/11 (64-bit)
+- **Sistema Operacional**: Windows 10/11, macOS ou Linux
 
 ### Desenvolvimento
 
@@ -373,11 +373,11 @@ npm run dev
 ### Build de produção
 
 ```bash
-# Compilar
+# Compilar projeto
 npm run build
 
-# Empacotar (gera installer NSIS + portable)
-npx electron-builder
+# Empacotar executáveis (gera Windows .exe, macOS .dmg e Linux .AppImage)
+npx electron-builder --win --mac --linux
 # Output em: dist-build/
 ```
 
@@ -448,6 +448,6 @@ SOFTWARE.
 
 <div align="center">
 
-Cristóvão Carvalho &nbsp;·&nbsp; **Vox** &nbsp;·&nbsp;
+Cristóvão Carvalho &nbsp;·&nbsp; **Vox**
 
 </div>
