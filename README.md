@@ -4,7 +4,7 @@
 
 # Vox
 
-**Ditado por voz com precisão diretamente no seu cursor**
+**Ditado por voz com precisão, diretamente no seu cursor**
 
 [![Electron](https://img.shields.io/badge/Electron-33-black?style=flat-square&logo=electron&logoColor=white)](https://electronjs.org)
 [![React](https://img.shields.io/badge/React-18-black?style=flat-square&logo=react&logoColor=white)](https://react.dev)
@@ -19,11 +19,11 @@
 
 ## ◈ O que é o Vox
 
-**Vox** é um assistente de ditado por voz nativo para Windows, construído com Electron. Ele fica silenciosamente na bandeja do sistema e, quando acionado por atalho global (`F9`/`F10`) ou pela palavra de ativação (**"Vox"**), grava sua fala, encerra automaticamente ao detectar silêncio, transcreve via **Whisper Large V3 Turbo** (Groq API), corrige automaticamente a pontuação via LLM e injeta o texto **diretamente no cursor ativo** de qualquer aplicação — sem precisar que a aplicação tenha suporte especial.
+**Vox** é um assistente de ditado por voz nativo para Windows, construído com Electron. Ele fica silenciosamente na bandeja do sistema e, quando acionado por atalho global (`F9`/`F10`) ou pela palavra de ativação (**"Vox"**), grava sua fala, encerra automaticamente ao detectar silêncio, transcreve via **Whisper Large V3 Turbo** (Groq API), corrige automaticamente a pontuação via LLM e injeta o texto **diretamente no cursor ativo** de qualquer aplicação, sem precisar que a aplicação tenha suporte especial.
 
-> Pense nele como um ditado de sistema operacional: você está no VS Code, no Word, em um formulário web, no Slack — não importa. Fale *"Vox"*, diga seu texto e, ao parar de falar, a transcrição aparece onde o cursor estava.
+> Pense nele como um ditado de sistema operacional: você está no VS Code, no Word, em um formulário web, no Slack, não importa. Fale *"Vox"*, diga seu texto e, ao parar de falar, a transcrição aparece onde o cursor estava.
 
-> **Vox é uma alternativa open-source ao [WhisperFlow](https://whisperflow.app)** — com a mesma proposta de ditado por voz com IA, suporte a atalhos globais, comando de voz hands-free, pipeline de correção e injeção de texto via Win32 nativo.
+> **Vox é uma alternativa open-source ao [WhisperFlow](https://whisperflow.app)**, com a mesma proposta de ditado por voz com IA, suporte a atalhos globais, comando de voz hands-free, pipeline de correção e injeção de texto via Win32 nativo.
 
 
 ---
@@ -53,7 +53,7 @@
 ◆  Suporte a arquivos locais (MP4, MP3, WAV, MKV, MOV, M4A...)
 ◆  Exportação em SRT, VTT, TXT, MD, JSON
 ◆  Inicia automaticamente com o Windows
-◆  Vive na bandeja do sistema — atalhos e comando de voz funcionam mesmo com app "fechado"
+◆  Vive na bandeja do sistema, atalhos e comando de voz funcionam mesmo com app "fechado"
 ◆  Configurações persistidas em SQLite local
 ◆  Design premium com glassmorphism, beams animados e micro-animações
 ```
@@ -107,7 +107,7 @@ O Vox segue a arquitetura padrão do Electron com separação clara entre **proc
 
 ## ◈ Módulos do Processo Principal
 
-### `electron/main.ts` — Orquestrador
+### `electron/main.ts`, Orquestrador
 Ponto de entrada do processo principal. Gerencia:
 - Criação e ciclo de vida das janelas (`MainWindow`, `DockWindow`)
 - Registro dos atalhos globais (`F9`, `F10`)
@@ -116,28 +116,28 @@ Ponto de entrada do processo principal. Gerencia:
 - Captura do HWND da janela ativa antes de iniciar a gravação
 - Todos os handlers IPC (`ipcMain.handle`)
 
-### `electron/modules/recorder.ts` — Gravador de Áudio
+### `electron/modules/recorder.ts`, Gravador de Áudio
 `AudioRecorder` estende `EventEmitter`. Recebe chunks PCM 16kHz mono do renderer via IPC, calcula energia RMS (Voice Activity Detection) e monta o buffer WAV completo com header RIFF ao parar a gravação.
 
 ```
 PCM chunks (IPC) → RMS VAD → Buffer WAV (header + dados)
 ```
 
-### `electron/modules/stt.ts` — Speech-to-Text
+### `electron/modules/stt.ts`, Speech-to-Text
 Transcreve o buffer WAV usando a **Groq API** com modelo `whisper-large-v3-turbo`. Detecta automaticamente se o áudio é WebM ou WAV. Possui filtro de alucinações comuns do Whisper (ex: "Obrigado por assistir").
 
 ```
 Buffer WAV → FormData → Groq API (Whisper V3 Turbo) → texto bruto
 ```
 
-### `electron/modules/corrector.ts` — Corretor LLM
+### `electron/modules/corrector.ts`, Corretor LLM
 Passa o texto transcrito por um LLM via Groq Chat API para corrigir pontuação, maiúsculas e ortografia **sem alterar o idioma original**. Modelo padrão: `openai/gpt-oss-20b`.
 
 ```
 texto bruto → Groq LLM (system prompt estrito) → texto revisado
 ```
 
-### `electron/modules/injector.ts` — Injetor de Texto
+### `electron/modules/injector.ts`, Injetor de Texto
 Injeta o texto no cursor ativo de qualquer aplicação Windows:
 
 1. Copia o texto para a área de transferência (`clipboard.writeText`)
@@ -151,14 +151,14 @@ O HWND é capturado no momento exato em que `F9`/`F10` é pressionado, antes de 
 clipboard → SetForegroundWindow(hwnd) → SendWait('^v') → texto no cursor
 ```
 
-### `electron/modules/downloader.ts` — Downloader de Mídia
+### `electron/modules/downloader.ts`, Downloader de Mídia
 Usa `yt-dlp` (binário bundled) para baixar áudio de URLs do YouTube, TikTok e Instagram. Suporta autenticação via cookies do browser (Chrome, Edge, Firefox, Brave). Emite progresso em tempo real via IPC.
 
 ```
 URL → yt-dlp → arquivo de áudio local → transcrição
 ```
 
-### `electron/modules/db.ts` — Persistência
+### `electron/modules/db.ts`, Persistência
 Banco de dados SQLite via `better-sqlite3`. Armazena configurações do usuário (`apiKey`, modelos, atalhos, cookies). Possui fallback para JSON caso o módulo nativo não carregue.
 
 ```
@@ -167,7 +167,7 @@ Configurações → SQLite (userData) | fallback JSON
 
 ---
 
-## ◈ Interface — Design System
+## ◈ Interface, Design System
 
 O Vox usa um design system proprietário construído em React + CSS puro com inspiração em glassmorphism e interfaces de alta tecnologia.
 
@@ -212,7 +212,7 @@ Destaque de fala:      verde (#22c55e) durante gravação
 - HUD flutuante no centro-inferior da tela
 - Aparece apenas durante a gravação
 - Exibe visualizador de energia de voz em tempo real
-- `showInactive()` — não rouba o foco de nenhuma janela
+- `showInactive()`, não rouba o foco de nenhuma janela
 
 ---
 
@@ -267,8 +267,8 @@ Animações:       Framer Motion 12, GSAP 3, Three.js, @react-three/fiber
 Estado:          Zustand 5
 Banco de dados:  better-sqlite3 (SQLite nativo)
 Wake Word:       openWakeWord ONNX (onnxruntime-node)
-STT:             Groq API — whisper-large-v3-turbo (fixo)
-LLM:             Groq API — openai/gpt-oss-20b (fixo)
+STT:             Groq API, whisper-large-v3-turbo (fixo)
+LLM:             Groq API, openai/gpt-oss-20b (fixo)
 Download:        yt-dlp (binário bundled)
 Injeção:         PowerShell + Win32 API (SetForegroundWindow, SendKeys)
 Build:           electron-builder (NSIS installer + portable)
@@ -354,7 +354,7 @@ GROQ_API_KEY=gsk_...          # Chave da API Groq (obrigatória)
 
 | Configuração | Padrão | Descrição |
 |---|---|---|
-| API Key | — | Chave da API Groq (obrigatória para STT e LLM) |
+| API Key | N/A | Chave da API Groq (obrigatória para STT e LLM) |
 | Wake Word | `Ativado ("Vox")` | Acionamento por comando de voz "Vox" hands-free em background |
 | Sensibilidade | `50%` | Sensibilidade de detecção da palavra "Vox" |
 | Atalho Toggle | `F10` | Ativar/desativar gravação manualmente |
