@@ -23,6 +23,10 @@ export interface VoxState {
   setShortcutPushToTalk: (shortcut: string) => void
   browserCookies: 'none' | 'chrome' | 'edge' | 'firefox' | 'brave'
   setBrowserCookies: (cookies: 'none' | 'chrome' | 'edge' | 'firefox' | 'brave') => void
+  wakeWordEnabled: boolean
+  setWakeWordEnabled: (enabled: boolean) => void
+  wakeWordSensitivity: number
+  setWakeWordSensitivity: (sensitivity: number) => void
 }
 
 export const useVoxStore = create<VoxState>((set) => ({
@@ -48,5 +52,9 @@ export const useVoxStore = create<VoxState>((set) => ({
   setShortcutPushToTalk: (shortcutPushToTalk) => set({ shortcutPushToTalk }),
   browserCookies: 'chrome',
   setBrowserCookies: (browserCookies) => set({ browserCookies }),
+  wakeWordEnabled: false,
+  setWakeWordEnabled: (wakeWordEnabled) => set({ wakeWordEnabled }),
+  wakeWordSensitivity: 0.5,
+  setWakeWordSensitivity: (wakeWordSensitivity) => set({ wakeWordSensitivity }),
 }))
 

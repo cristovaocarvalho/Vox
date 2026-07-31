@@ -8,6 +8,7 @@ import { correctTranscription } from './modules/corrector'
 import { injectText } from './modules/injector'
 import downloader from './modules/downloader'
 import { initDatabase, getAllSettings, setSetting } from './modules/db'
+import wakewordDetector from './modules/wakeword'
 import fs from 'fs'
 import { execFileSync } from 'child_process'
 
@@ -178,7 +179,11 @@ function setupIpcHandlers() {
 
   ipcMain.on('vox:audio-chunk', (_event: unknown, chunk: ArrayBuffer) => {
     if (chunk) {
-      recorder.processAudioChunk(Buffer.from(chunk))
+      const buf = Buffer.from(chunk)
+      recorder.processAudioChunk(buf)
+      if (wakewordDetector.isListening()) {
+        wakewordDetector.processAudioChunk(buf)
+      }
     }
   })
 
@@ -322,6 +327,15 @@ function setupIpcHandlers() {
         for (const [key, value] of Object.entries(settings)) {
           setSetting(key, String(value))
         }
+
+        if (settings.wakeWordSensitivity) {
+          wakewordDetector.setSensitivity(parseFloat(settings.wakeWordSensitivity))
+        }
+        if (settings.wakeWordEnabled === 'true') {
+          wakewordDetector.start()
+        } else if (settings.wakeWordEnabled === 'false') {
+          wakewordDetector.stop()
+        }
       }
       return { success: true }
     } catch (err) {
@@ -378,11 +392,59 @@ function handleGlobalPushToTalk() {
   }, 180)
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   initDatabase()
   createMainWindow()
   createDockWindow()
   setupIpcHandlers()
+
+  // Inicializa o módulo Wake Word
+  const settings = getAllSettings()
+  const sensitivity = parseFloat(settings.wakeWordSensitivity || '0.5')
+  await wakewordDetector.init(undefined, sensitivity)
+
+  // Acionamento por comando de voz "Vox"
+  wakewordDetector.on('detected', () => {
+    console.log('[Main] 🎙️ Wake Word "Vox" detectada! Capturando janela ativa e iniciando ditado por voz...')
+    captureActiveWindow()
+    showDock()
+    recorder.startRecording({ autoStopOnSilence: true })
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('vox:toggle-recording', true)
+    }
+  })
+
+  // Encerramento automático quando o usuário para de falar (silêncio pós-fala)
+  recorder.on('auto-stop', async () => {
+    console.log('[Main] Finalizando gravação por encerramento de fala...')
+    hideDock()
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('vox:toggle-recording', false)
+    }
+
+    const buffer = recorder.stopRecording()
+    if (!buffer || buffer.length === 0) return
+
+    const result = await transcribeAudio(buffer)
+    console.log('[Main] Transcrição bruta:', result.text)
+
+    if (result.text && !result.text.startsWith('[Erro')) {
+      result.text = await correctTranscription(result.text)
+      console.log('[Main] Transcrição corrigida:', result.text)
+    }
+
+    if (result.text) {
+      console.log('[Main] Injetando texto no cursor da janela ativa (HWND:', targetWindowHwnd, ')...')
+      await injectText(result.text, 'clipboard', 100, targetWindowHwnd ?? undefined)
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('vox:transcript-result', result.text)
+      }
+    }
+  })
+
+  if (settings.wakeWordEnabled !== 'false') {
+    wakewordDetector.start()
+  }
 
   try {
     app.setLoginItemSettings({

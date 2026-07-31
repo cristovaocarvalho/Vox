@@ -4,7 +4,7 @@
 
 # Vox
 
-**Ditado por voz com precisão — diretamente no seu cursor**
+**Ditado por voz com precisão diretamente no seu cursor**
 
 [![Electron](https://img.shields.io/badge/Electron-33-black?style=flat-square&logo=electron&logoColor=white)](https://electronjs.org)
 [![React](https://img.shields.io/badge/React-18-black?style=flat-square&logo=react&logoColor=white)](https://react.dev)
@@ -376,14 +376,8 @@ LLM_MODEL=openai/gpt-oss-20b
 
 ---
 
-## ◈ Licença
-
-MIT — veja [LICENSE](LICENSE) para detalhes.
-
----
-
 <div align="center">
 
-Feito com precisão &nbsp;·&nbsp; **Vox** &nbsp;·&nbsp; v1.5.0
+Cristóvão Carvalho &nbsp;·&nbsp; **Vox** &nbsp;·&nbsp; v1.5.0
 
 </div>

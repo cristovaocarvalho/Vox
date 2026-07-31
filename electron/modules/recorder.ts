@@ -4,11 +4,21 @@ export class AudioRecorder extends EventEmitter {
   private isRecording = false
   private chunks: Buffer[] = []
   private vadThreshold = 0.02 // Limiar de energia RMS para fala
+  private autoStopOnSilence = false
+  private hasSpoken = false
+  private silenceTimer: NodeJS.Timeout | null = null
+  private silenceDurationMs = 1300 // 1.3s de silêncio para encerramento automático
 
-  public startRecording() {
+  public startRecording(options?: { autoStopOnSilence?: boolean }) {
     this.isRecording = true
     this.chunks = []
-    console.log('[Recorder] Iniciando gravação PCM 16kHz mono...')
+    this.autoStopOnSilence = options?.autoStopOnSilence ?? false
+    this.hasSpoken = false
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer)
+      this.silenceTimer = null
+    }
+    console.log('[Recorder] Iniciando gravação PCM 16kHz mono...', options?.autoStopOnSilence ? '(Auto-stop ativo)' : '')
     this.emit('start')
   }
 
@@ -19,12 +29,33 @@ export class AudioRecorder extends EventEmitter {
     const energy = this.calculateRmsEnergy(chunk)
     const isSpeech = energy > this.vadThreshold
 
+    if (this.autoStopOnSilence) {
+      if (isSpeech) {
+        this.hasSpoken = true
+        if (this.silenceTimer) {
+          clearTimeout(this.silenceTimer)
+          this.silenceTimer = null
+        }
+      } else if (this.hasSpoken && !this.silenceTimer) {
+        this.silenceTimer = setTimeout(() => {
+          console.log('[Recorder] 🛑 Silêncio pós-fala detectado, encerrando gravação automaticamente...')
+          this.emit('auto-stop')
+        }, this.silenceDurationMs)
+      }
+    }
+
     this.emit('energy', { energy, isSpeech })
     return { energy, isSpeech }
   }
 
   public stopRecording(): Buffer {
     this.isRecording = false
+    this.autoStopOnSilence = false
+    this.hasSpoken = false
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer)
+      this.silenceTimer = null
+    }
     console.log('[Recorder] Parando gravação...')
     this.emit('stop')
 

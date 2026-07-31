@@ -9,10 +9,21 @@ class AudioRecorder extends events.EventEmitter {
   chunks = [];
   vadThreshold = 0.02;
   // Limiar de energia RMS para fala
-  startRecording() {
+  autoStopOnSilence = false;
+  hasSpoken = false;
+  silenceTimer = null;
+  silenceDurationMs = 1300;
+  // 1.3s de silêncio para encerramento automático
+  startRecording(options) {
     this.isRecording = true;
     this.chunks = [];
-    console.log("[Recorder] Iniciando gravação PCM 16kHz mono...");
+    this.autoStopOnSilence = options?.autoStopOnSilence ?? false;
+    this.hasSpoken = false;
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
+    console.log("[Recorder] Iniciando gravação PCM 16kHz mono...", options?.autoStopOnSilence ? "(Auto-stop ativo)" : "");
     this.emit("start");
   }
   processAudioChunk(chunk) {
@@ -20,11 +31,31 @@ class AudioRecorder extends events.EventEmitter {
     this.chunks.push(chunk);
     const energy = this.calculateRmsEnergy(chunk);
     const isSpeech = energy > this.vadThreshold;
+    if (this.autoStopOnSilence) {
+      if (isSpeech) {
+        this.hasSpoken = true;
+        if (this.silenceTimer) {
+          clearTimeout(this.silenceTimer);
+          this.silenceTimer = null;
+        }
+      } else if (this.hasSpoken && !this.silenceTimer) {
+        this.silenceTimer = setTimeout(() => {
+          console.log("[Recorder] 🛑 Silêncio pós-fala detectado, encerrando gravação automaticamente...");
+          this.emit("auto-stop");
+        }, this.silenceDurationMs);
+      }
+    }
     this.emit("energy", { energy, isSpeech });
     return { energy, isSpeech };
   }
   stopRecording() {
     this.isRecording = false;
+    this.autoStopOnSilence = false;
+    this.hasSpoken = false;
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
     console.log("[Recorder] Parando gravação...");
     this.emit("stop");
     const pcmData = Buffer.concat(this.chunks);
@@ -202,8 +233,24 @@ async function correctTranscription(text) {
     return text;
   }
 }
-async function injectText(text, mode = "clipboard", delayMs = 300) {
-  console.log(`[Injector] Injetando texto via modo '${mode}' com delay de ${delayMs}ms:`, text);
+const { clipboard } = require("electron");
+async function injectText(text, _mode = "clipboard", delayMs = 100, hwnd) {
+  if (!text || text.trim().length === 0) return;
+  try {
+    console.log(`[Injector] Injetando texto no cursor ativo (${text.length} chars)...`);
+    clipboard.writeText(text);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    const psCommand = hwnd && hwnd !== "0" ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${hwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait('^v')` : `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`;
+    child_process.execFile("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", psCommand], (err) => {
+      if (err) {
+        console.error("[Injector] Erro ao colar texto via PowerShell:", err);
+      } else {
+        console.log("[Injector] Texto colado no cursor com sucesso!");
+      }
+    });
+  } catch (err) {
+    console.error("[Injector] Erro no processo de injeção:", err);
+  }
 }
 function detectPlatform(url) {
   if (/youtube\.com|youtu\.be/.test(url)) return "youtube";
@@ -420,9 +467,223 @@ const downloader = {
   getVideoInfo,
   downloadAudio
 };
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, dialog } = require("electron");
+const { app: app$1 } = require("electron");
+let Database = null;
+try {
+  Database = require("better-sqlite3");
+} catch (e) {
+  console.warn("[DB] Módulo nativo better-sqlite3 não encontrado, usando fallback seguro:", e);
+}
+let dbInstance = null;
+let fallbackFile = null;
+function initDatabase() {
+  try {
+    const userDataPath = app$1.getPath("userData");
+    if (!fs.existsSync(userDataPath)) {
+      fs.mkdirSync(userDataPath, { recursive: true });
+    }
+    const dbPath = path.join(userDataPath, "vox_settings.db");
+    fallbackFile = path.join(userDataPath, "vox_settings.json");
+    if (Database) {
+      dbInstance = new Database(dbPath);
+      dbInstance.exec(`
+        CREATE TABLE IF NOT EXISTS settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+      `);
+      console.log("[DB] Banco de dados SQLite pronto em:", dbPath);
+    } else {
+      console.log("[DB] Usando fallback de dados em:", fallbackFile);
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao inicializar banco de dados:", err);
+  }
+}
+function getSetting(key, defaultValue = "") {
+  try {
+    if (dbInstance) {
+      const stmt = dbInstance.prepare("SELECT value FROM settings WHERE key = ?");
+      const row = stmt.get(key);
+      return row ? row.value : defaultValue;
+    }
+    if (fallbackFile && fs.existsSync(fallbackFile)) {
+      const data = JSON.parse(fs.readFileSync(fallbackFile, "utf-8"));
+      return data[key] !== void 0 ? data[key] : defaultValue;
+    }
+  } catch (err) {
+    console.error(`[DB] Erro ao obter configuração (${key}):`, err);
+  }
+  return defaultValue;
+}
+function setSetting(key, value) {
+  try {
+    if (dbInstance) {
+      const stmt = dbInstance.prepare(`
+        INSERT INTO settings (key, value)
+        VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `);
+      stmt.run(key, value);
+      return;
+    }
+    if (fallbackFile) {
+      let data = {};
+      if (fs.existsSync(fallbackFile)) {
+        try {
+          data = JSON.parse(fs.readFileSync(fallbackFile, "utf-8"));
+        } catch {
+          data = {};
+        }
+      }
+      data[key] = value;
+      fs.writeFileSync(fallbackFile, JSON.stringify(data, null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error(`[DB] Erro ao salvar configuração (${key}):`, err);
+  }
+}
+function getAllSettings() {
+  const defaults = {
+    apiKey: "",
+    sttModel: "whisper-large-v3-turbo",
+    llmModel: "openai/gpt-oss-20b",
+    shortcutToggle: "F10",
+    shortcutPushToTalk: "F9",
+    browserCookies: "chrome",
+    wakeWordEnabled: "true",
+    wakeWordSensitivity: "0.5"
+  };
+  const result = { ...defaults };
+  for (const k of Object.keys(defaults)) {
+    const val = getSetting(k, defaults[k]);
+    if (val) result[k] = val;
+  }
+  return result;
+}
+let ort = null;
+try {
+  ort = require("onnxruntime-node");
+} catch (err) {
+  console.warn("[WakeWord] onnxruntime-node não pôde ser carregado:", err);
+}
+class WakeWordDetector extends events.EventEmitter {
+  active = false;
+  session = null;
+  sensitivity = 0.5;
+  lastTriggerTime = 0;
+  cooldownMs = 2500;
+  // Debounce para evitar disparos múltiplos seguidos
+  audioBuffer = [];
+  frameSize = 1280;
+  // ~80ms de áudio em 16kHz
+  constructor() {
+    super();
+  }
+  async init(modelPath, sensitivity = 0.5) {
+    this.sensitivity = sensitivity;
+    const defaultModelPath = path.join(process.cwd(), "resources", "models", "wakeword", "vox.onnx");
+    const finalPath = modelPath || defaultModelPath;
+    if (ort && fs.existsSync(finalPath)) {
+      try {
+        this.session = await ort.InferenceSession.create(finalPath);
+        console.log('[WakeWord] Modelo ONNX "Vox" carregado com sucesso:', finalPath);
+      } catch (err) {
+        console.error('[WakeWord] Erro ao carregar modelo ONNX "Vox":', err);
+        this.session = null;
+      }
+    } else {
+      console.log('[WakeWord] Escuta ativa para a palavra-chave "Vox" inicializada em modo VAD adaptativo (aguardando modelo vox.onnx em resources/models/wakeword/)');
+    }
+  }
+  start() {
+    this.active = true;
+    this.audioBuffer = [];
+    console.log('[WakeWord] Escuta em segundo plano ativa para a palavra "Vox".');
+  }
+  stop() {
+    this.active = false;
+    this.audioBuffer = [];
+    console.log("[WakeWord] Escuta de Wake Word parada.");
+  }
+  setSensitivity(value) {
+    this.sensitivity = Math.max(0.1, Math.min(1, value));
+  }
+  isListening() {
+    return this.active;
+  }
+  async processAudioChunk(chunk) {
+    if (!this.active) return;
+    const samplesCount = Math.floor(chunk.length / 2);
+    for (let i = 0; i < samplesCount; i++) {
+      const sample = chunk.readInt16LE(i * 2) / 32768;
+      this.audioBuffer.push(sample);
+    }
+    while (this.audioBuffer.length >= this.frameSize) {
+      const frame = this.audioBuffer.splice(0, this.frameSize);
+      await this.evaluateFrame(frame);
+    }
+  }
+  async evaluateFrame(samples) {
+    const now = Date.now();
+    if (now - this.lastTriggerTime < this.cooldownMs) return;
+    if (this.session && ort) {
+      try {
+        const tensor = new ort.Tensor("float32", Float32Array.from(samples), [1, samples.length]);
+        const feeds = {};
+        const inputName = this.session.inputNames[0] || "input";
+        feeds[inputName] = tensor;
+        const results = await this.session.run(feeds);
+        const outputName = this.session.outputNames[0] || "output";
+        const outputTensor = results[outputName];
+        if (outputTensor && outputTensor.data) {
+          const score = outputTensor.data[0];
+          if (score >= this.sensitivity) {
+            this.triggerDetection(score);
+          }
+        }
+      } catch (err) {
+        console.error("[WakeWord] Erro durante a inferência ONNX:", err);
+      }
+    } else {
+      let sumSq = 0;
+      for (let i = 0; i < samples.length; i++) {
+        sumSq += samples[i] * samples[i];
+      }
+      const rms = Math.sqrt(sumSq / samples.length);
+      const dynamicThreshold = 0.25 * (1.1 - this.sensitivity);
+      if (rms > dynamicThreshold) {
+        this.triggerDetection(rms);
+      }
+    }
+  }
+  triggerDetection(confidence) {
+    const now = Date.now();
+    this.lastTriggerTime = now;
+    console.log(`[WakeWord] 🎙️ Palavra de ativação "Vox" detectada! Confiança: ${confidence.toFixed(2)}`);
+    this.emit("detected", { keyword: "Vox", confidence, timestamp: now });
+  }
+}
+const wakewordDetector = new WakeWordDetector();
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, dialog, Tray, Menu, nativeImage } = require("electron");
 let mainWindow = null;
 let dockWindow = null;
+let tray = null;
+let targetWindowHwnd = null;
+function captureActiveWindow() {
+  try {
+    const result = child_process.execFileSync("powershell", [
+      "-NoProfile",
+      "-WindowStyle",
+      "Hidden",
+      "-Command",
+      `(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();' -Name FGW -Namespace VOX -PassThru)::GetForegroundWindow()`
+    ], { timeout: 1500, encoding: "utf8" });
+    targetWindowHwnd = result.trim() || null;
+  } catch {
+    targetWindowHwnd = null;
+  }
+}
 const getDevUrl = () => process.env["ELECTRON_RENDERER_URL"] || process.env["VITE_DEV_SERVER_URL"];
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -536,7 +797,7 @@ function setupIpcHandlers() {
       console.log("[Main] Transcrição corrigida:", result.text);
     }
     if (result.text) {
-      await injectText(result.text);
+      await injectText(result.text, "clipboard", 100, targetWindowHwnd ?? void 0);
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send("vox:transcript-result", result.text);
       }
@@ -554,7 +815,11 @@ function setupIpcHandlers() {
   });
   ipcMain.on("vox:audio-chunk", (_event, chunk) => {
     if (chunk) {
-      recorder.processAudioChunk(Buffer.from(chunk));
+      const buf = Buffer.from(chunk);
+      recorder.processAudioChunk(buf);
+      if (wakewordDetector.isListening()) {
+        wakewordDetector.processAudioChunk(buf);
+      }
     }
   });
   ipcMain.handle("vox:transcribe-chunk", async (_event, audioData) => {
@@ -668,6 +933,35 @@ function setupIpcHandlers() {
       return null;
     }
   });
+  ipcMain.handle("vox:get-settings", async () => {
+    try {
+      return getAllSettings();
+    } catch (err) {
+      console.error("[Main] Erro ao obter configurações do banco:", err);
+      return {};
+    }
+  });
+  ipcMain.handle("vox:save-settings", async (_event, settings) => {
+    try {
+      if (settings && typeof settings === "object") {
+        for (const [key, value] of Object.entries(settings)) {
+          setSetting(key, String(value));
+        }
+        if (settings.wakeWordSensitivity) {
+          wakewordDetector.setSensitivity(parseFloat(settings.wakeWordSensitivity));
+        }
+        if (settings.wakeWordEnabled === "true") {
+          wakewordDetector.start();
+        } else if (settings.wakeWordEnabled === "false") {
+          wakewordDetector.stop();
+        }
+      }
+      return { success: true };
+    } catch (err) {
+      console.error("[Main] Erro ao salvar configurações no banco:", err);
+      return { success: false };
+    }
+  });
 }
 let lastToggleTime = 0;
 function toggleDockWindow() {
@@ -679,6 +973,7 @@ function toggleDockWindow() {
   if (isVisible) {
     hideDock();
   } else {
+    captureActiveWindow();
     showDock();
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -689,6 +984,7 @@ let f9ReleaseTimer = null;
 function handleGlobalPushToTalk() {
   if (!dockWindow) return;
   if (!dockWindow.isVisible()) {
+    captureActiveWindow();
     showDock();
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("vox:toggle-recording", true);
@@ -705,12 +1001,75 @@ function handleGlobalPushToTalk() {
     f9ReleaseTimer = null;
   }, 180);
 }
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  initDatabase();
   createMainWindow();
   createDockWindow();
   setupIpcHandlers();
+  const settings = getAllSettings();
+  const sensitivity = parseFloat(settings.wakeWordSensitivity || "0.5");
+  await wakewordDetector.init(void 0, sensitivity);
+  wakewordDetector.on("detected", () => {
+    console.log('[Main] 🎙️ Wake Word "Vox" detectada! Capturando janela ativa e iniciando ditado por voz...');
+    captureActiveWindow();
+    showDock();
+    recorder.startRecording({ autoStopOnSilence: true });
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("vox:toggle-recording", true);
+    }
+  });
+  recorder.on("auto-stop", async () => {
+    console.log("[Main] Finalizando gravação por encerramento de fala...");
+    hideDock();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("vox:toggle-recording", false);
+    }
+    const buffer = recorder.stopRecording();
+    if (!buffer || buffer.length === 0) return;
+    const result = await transcribeAudio(buffer);
+    console.log("[Main] Transcrição bruta:", result.text);
+    if (result.text && !result.text.startsWith("[Erro")) {
+      result.text = await correctTranscription(result.text);
+      console.log("[Main] Transcrição corrigida:", result.text);
+    }
+    if (result.text) {
+      console.log("[Main] Injetando texto no cursor da janela ativa (HWND:", targetWindowHwnd, ")...");
+      await injectText(result.text, "clipboard", 100, targetWindowHwnd ?? void 0);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("vox:transcript-result", result.text);
+      }
+    }
+  });
+  if (settings.wakeWordEnabled !== "false") {
+    wakewordDetector.start();
+  }
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      path: process.execPath
+    });
+  } catch (err) {
+    console.warn("[Main] Erro ao configurar autostart no Windows:", err);
+  }
   globalShortcut.register("F10", toggleDockWindow);
   globalShortcut.register("F9", handleGlobalPushToTalk);
+  const iconPath = app.isPackaged ? path.join(process.resourcesPath, "favicon.png") : path.join(app.getAppPath(), "src/favicon.png");
+  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  tray = new Tray(trayIcon);
+  tray.setToolTip("Vox");
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: "Abrir Vox", click: () => {
+      mainWindow?.show();
+    } },
+    { type: "separator" },
+    { label: "Sair", click: () => {
+      tray?.destroy();
+      app.exit(0);
+    } }
+  ]));
+  tray.on("double-click", () => {
+    mainWindow?.show();
+  });
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow();
@@ -722,7 +1081,4 @@ app.on("will-quit", () => {
   globalShortcut.unregisterAll();
 });
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
 });

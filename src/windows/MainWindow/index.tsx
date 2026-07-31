@@ -35,7 +35,11 @@ export const MainWindow: React.FC = () => {
     shortcutPushToTalk,
     setShortcutPushToTalk,
     browserCookies,
-    setBrowserCookies
+    setBrowserCookies,
+    wakeWordEnabled,
+    setWakeWordEnabled,
+    wakeWordSensitivity,
+    setWakeWordSensitivity
   } = useVoxStore()
 
   const [urlInput, setUrlInput] = useState('')
@@ -52,6 +56,8 @@ export const MainWindow: React.FC = () => {
   const [draftShortcutToggle, setDraftShortcutToggle] = useState(shortcutToggle)
   const [draftShortcutPushToTalk, setDraftShortcutPushToTalk] = useState(shortcutPushToTalk)
   const [draftBrowserCookies, setDraftBrowserCookies] = useState(browserCookies)
+  const [draftWakeWordEnabled, setDraftWakeWordEnabled] = useState(wakeWordEnabled)
+  const [draftWakeWordSensitivity, setDraftWakeWordSensitivity] = useState(wakeWordSensitivity)
 
   // Vox Media State
   const [downloadProgress, setDownloadProgress] = useState<{ pct: number; speed: string; eta: string } | null>(null)
@@ -67,6 +73,8 @@ export const MainWindow: React.FC = () => {
     setDraftShortcutToggle(shortcutToggle)
     setDraftShortcutPushToTalk(shortcutPushToTalk)
     setDraftBrowserCookies(browserCookies)
+    setDraftWakeWordEnabled(wakeWordEnabled)
+    setDraftWakeWordSensitivity(wakeWordSensitivity)
     setIsSettingsOpen(true)
   }
 
@@ -75,6 +83,8 @@ export const MainWindow: React.FC = () => {
     setShortcutToggle(draftShortcutToggle)
     setShortcutPushToTalk(draftShortcutPushToTalk)
     setBrowserCookies(draftBrowserCookies)
+    setWakeWordEnabled(draftWakeWordEnabled)
+    setWakeWordSensitivity(draftWakeWordSensitivity)
     setIsSettingsOpen(false)
 
     if (window.vox?.saveSettings) {
@@ -84,7 +94,9 @@ export const MainWindow: React.FC = () => {
         llmModel,
         shortcutToggle: draftShortcutToggle,
         shortcutPushToTalk: draftShortcutPushToTalk,
-        browserCookies: draftBrowserCookies
+        browserCookies: draftBrowserCookies,
+        wakeWordEnabled: String(draftWakeWordEnabled),
+        wakeWordSensitivity: String(draftWakeWordSensitivity)
       }).catch(console.error)
     }
   }
@@ -99,10 +111,12 @@ export const MainWindow: React.FC = () => {
           if (saved.shortcutToggle) setShortcutToggle(saved.shortcutToggle)
           if (saved.shortcutPushToTalk) setShortcutPushToTalk(saved.shortcutPushToTalk)
           if (saved.browserCookies) setBrowserCookies(saved.browserCookies as any)
+          if (saved.wakeWordEnabled !== undefined) setWakeWordEnabled(saved.wakeWordEnabled === 'true')
+          if (saved.wakeWordSensitivity) setWakeWordSensitivity(parseFloat(saved.wakeWordSensitivity))
         }
       }).catch(console.error)
     }
-  }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies])
+  }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies, setWakeWordEnabled, setWakeWordSensitivity])
 
 
 
@@ -917,6 +931,45 @@ export const MainWindow: React.FC = () => {
                         </button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Wake Word (Comando de Voz Offline) */}
+                  <div className="p-3.5 bg-background/50 border border-border/60 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-semibold text-text-primary block">Wake Word (Ativação por Voz)</span>
+                        <span className="text-[11px] text-text-secondary">Acione o Vox falando em segundo plano (openWakeWord ONNX)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDraftWakeWordEnabled(!draftWakeWordEnabled)}
+                        className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+                          draftWakeWordEnabled
+                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                            : 'bg-transparent text-text-secondary border-border/50'
+                        }`}
+                      >
+                        {draftWakeWordEnabled ? 'Ativado' : 'Desativado'}
+                      </button>
+                    </div>
+
+                    {draftWakeWordEnabled && (
+                      <div className="pt-2 border-t border-border/30">
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span className="text-text-secondary font-medium">Sensibilidade</span>
+                          <span className="text-text-primary font-mono">{Math.round(draftWakeWordSensitivity * 100)}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.1"
+                          max="1.0"
+                          step="0.05"
+                          value={draftWakeWordSensitivity}
+                          onChange={(e) => setDraftWakeWordSensitivity(parseFloat(e.target.value))}
+                          className="w-full h-1.5 bg-surface rounded-lg appearance-none cursor-pointer accent-accent"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 

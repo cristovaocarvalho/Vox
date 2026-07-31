@@ -17,6 +17,9 @@ const voxApi = {
   transcribeMedia: (options) => ipcRenderer.invoke("vox:transcribe-media", options),
   deleteFile: (filePath) => ipcRenderer.invoke("vox:delete-file", filePath),
   selectFile: () => ipcRenderer.invoke("vox:select-file"),
+  // Configurações & Banco de Dados
+  getSettings: () => ipcRenderer.invoke("vox:get-settings"),
+  saveSettings: (settings) => ipcRenderer.invoke("vox:save-settings", settings),
   // Event Listeners
   onDockTextUpdate: (callback) => {
     const handler = (_event, text) => callback(text);

@@ -94,7 +94,9 @@ export function getAllSettings() {
     llmModel: 'openai/gpt-oss-20b',
     shortcutToggle: 'F10',
     shortcutPushToTalk: 'F9',
-    browserCookies: 'chrome'
+    browserCookies: 'chrome',
+    wakeWordEnabled: 'true',
+    wakeWordSensitivity: '0.5'
   }
 
   const result: Record<string, string> = { ...defaults }
