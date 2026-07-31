@@ -19,11 +19,11 @@
 
 ## ◈ O que é o Vox
 
-**Vox** é um assistente de ditado por voz nativo para Windows, construído com Electron. Ele fica silenciosamente na bandeja do sistema e, quando acionado por atalho global, grava sua fala, transcreve via **Whisper Large V3 Turbo** (Groq API), corrige automaticamente a pontuação via LLM e injeta o texto **diretamente no cursor ativo** de qualquer aplicação — sem precisar que a aplicação tenha suporte especial.
+**Vox** é um assistente de ditado por voz nativo para Windows, construído com Electron. Ele fica silenciosamente na bandeja do sistema e, quando acionado por atalho global (`F9`/`F10`) ou pela palavra de ativação (**"Vox"**), grava sua fala, encerra automaticamente ao detectar silêncio, transcreve via **Whisper Large V3 Turbo** (Groq API), corrige automaticamente a pontuação via LLM e injeta o texto **diretamente no cursor ativo** de qualquer aplicação — sem precisar que a aplicação tenha suporte especial.
 
-> Pense nele como um ditado de sistema operacional: você está no VS Code, no Word, em um formulário web, no Slack — não importa. Aperta `F9`, fala, solta, e o texto aparece onde o cursor estava.
+> Pense nele como um ditado de sistema operacional: você está no VS Code, no Word, em um formulário web, no Slack — não importa. Fale *"Vox"*, diga seu texto e, ao parar de falar, a transcrição aparece onde o cursor estava.
 
-> **Vox é uma alternativa open-source ao [WhisperFlow](https://whisperflow.app)** — com a mesma proposta de ditado por voz com IA, mas com controle total sobre modelos, atalhos, pipeline de correção e injeção de texto via Win32 nativo.
+> **Vox é uma alternativa open-source ao [WhisperFlow](https://whisperflow.app)** — com a mesma proposta de ditado por voz com IA, suporte a atalhos globais, comando de voz hands-free, pipeline de correção e injeção de texto via Win32 nativo.
 
 
 ---
@@ -32,7 +32,7 @@
 
 | Caso de uso | Descrição |
 |---|---|
-| **Ditado por voz** | Fale para digitar em qualquer aplicação Windows |
+| **Ditado por voz** | Fale *"Vox"* ou use atalhos para digitar em qualquer aplicação Windows |
 | **Transcrição de mídia** | Transcreva vídeos do YouTube, TikTok, Instagram ou arquivos locais |
 | **Exportação de legendas** | Exporte transcrições em `.srt`, `.vtt`, `.txt`, `.md`, `.json` |
 | **Produtividade** | Escreva emails, código, documentos sem tocar no teclado |
@@ -42,7 +42,9 @@
 ## ◈ Funcionalidades
 
 ```
-◆  Ditado em tempo real via F9 (Push-to-Talk) ou F10 (Toggle)
+◆  Ditado em tempo real via comando de voz ("Vox"), F9 (Push-to-Talk) ou F10 (Toggle)
+◆  Detecção de palavra de ativação ("Vox") 100% offline via ONNX Runtime (< 1% CPU)
+◆  Encerramento automático de gravação ao parar de falar com injeção direta no cursor
 ◆  Injeção de texto no cursor ativo de qualquer janela Windows
 ◆  Transcrição via Whisper Large V3 Turbo (Groq API)
 ◆  Correção automática de pontuação e ortografia via LLM
@@ -51,7 +53,7 @@
 ◆  Suporte a arquivos locais (MP4, MP3, WAV, MKV, MOV, M4A...)
 ◆  Exportação em SRT, VTT, TXT, MD, JSON
 ◆  Inicia automaticamente com o Windows
-◆  Vive na bandeja do sistema — atalhos funcionam mesmo com app "fechado"
+◆  Vive na bandeja do sistema — atalhos e comando de voz funcionam mesmo com app "fechado"
 ◆  Configurações persistidas em SQLite local
 ◆  Design premium com glassmorphism, beams animados e micro-animações
 ```
@@ -264,8 +266,9 @@ Bundler:         electron-vite (Vite 5 para renderer)
 Animações:       Framer Motion 12, GSAP 3, Three.js, @react-three/fiber
 Estado:          Zustand 5
 Banco de dados:  better-sqlite3 (SQLite nativo)
-STT:             Groq API — whisper-large-v3-turbo
-LLM:             Groq API — openai/gpt-oss-20b
+Wake Word:       openWakeWord ONNX (onnxruntime-node)
+STT:             Groq API — whisper-large-v3-turbo (fixo)
+LLM:             Groq API — openai/gpt-oss-20b (fixo)
 Download:        yt-dlp (binário bundled)
 Injeção:         PowerShell + Win32 API (SetForegroundWindow, SendKeys)
 Build:           electron-builder (NSIS installer + portable)
@@ -281,13 +284,13 @@ vox/
 │   ├── main.ts               # Orquestrador, janelas, IPC, tray, shortcuts
 │   ├── preload.ts            # Bridge IPC segura (contextBridge)
 │   └── modules/
-│       ├── recorder.ts       # Gravador PCM + VAD + WAV builder
+│       ├── recorder.ts       # Gravador PCM + VAD Auto-Stop + WAV builder
 │       ├── stt.ts            # Speech-to-Text via Groq Whisper
 │       ├── corrector.ts      # Correção de texto via Groq LLM
 │       ├── injector.ts       # Injeção de texto no cursor ativo
 │       ├── downloader.ts     # Download de mídia via yt-dlp
 │       ├── db.ts             # Persistência SQLite / JSON
-│       └── wakeword.ts       # (reservado)
+│       └── wakeword.ts       # Detecção da palavra de ativação "Vox" via ONNX
 │
 ├── src/                       # Processo renderer (React)
 │   ├── windows/
@@ -301,7 +304,7 @@ vox/
 │
 ├── resources/
 │   ├── binaries/              # yt-dlp e outros binários bundled
-│   └── models/                # Modelos locais (reservado)
+│   └── models/                # Modelos locais ONNX de Wake Word
 │
 ├── docs/                      # Imagens e assets de documentação
 ├── electron-builder.yml       # Config de build e empacotamento
@@ -342,12 +345,8 @@ npx electron-builder
 ### Variáveis de ambiente (`.env`)
 
 ```env
-GROQ_API_KEY=gsk_...          # Chave da API Groq
-WHISPER_MODEL=whisper-large-v3-turbo
-LLM_MODEL=openai/gpt-oss-20b
+GROQ_API_KEY=gsk_...          # Chave da API Groq (obrigatória)
 ```
-
-> As configurações também podem ser definidas diretamente na interface gráfica, no modal de configurações.
 
 ---
 
@@ -355,12 +354,14 @@ LLM_MODEL=openai/gpt-oss-20b
 
 | Configuração | Padrão | Descrição |
 |---|---|---|
-| API Key | — | Chave da API Groq |
-| Modelo STT | `whisper-large-v3-turbo` | Modelo de transcrição |
-| Modelo LLM | `openai/gpt-oss-20b` | Modelo de correção |
-| Atalho Toggle | `F10` | Ativar/desativar gravação |
-| Atalho Push-to-Talk | `F9` | Gravar enquanto segurar |
-| Cookies do Browser | `chrome` | Para download de vídeos privados |
+| API Key | — | Chave da API Groq (obrigatória para STT e LLM) |
+| Wake Word | `Ativado ("Vox")` | Acionamento por comando de voz "Vox" hands-free em background |
+| Sensibilidade | `50%` | Sensibilidade de detecção da palavra "Vox" |
+| Atalho Toggle | `F10` | Ativar/desativar gravação manualmente |
+| Atalho Push-to-Talk | `F9` | Gravar enquanto segurar a tecla |
+| Cookies do Browser | `chrome` | Para download de vídeos de mídia privada |
+| Modelo STT | `whisper-large-v3-turbo` | Modelo fixo de transcrição via Groq API |
+| Modelo LLM | `openai/gpt-oss-20b` | Modelo fixo de correção de texto via Groq API |
 
 ---
 
