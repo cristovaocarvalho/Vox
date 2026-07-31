@@ -6,6 +6,8 @@
 
 **Precision voice dictation, directly at your active cursor**
 
+<br />
+
 [![Leia em Português](https://img.shields.io/badge/Leia_em-Portugu%C3%AAs-green?style=for-the-badge&logo=github)](README.pt.md)
 
 <br />

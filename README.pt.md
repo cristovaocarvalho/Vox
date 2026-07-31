@@ -6,9 +6,9 @@
 
 **Ditado por voz com precisão, diretamente no seu cursor**
 
-> 🇺🇸 **Click the button below to read in English:**
-> 
-> [![Read in English](https://img.shields.io/badge/Read_in-English-blue?style=for-the-badge&logo=github)](README.md)
+<br />
+
+[![Read in English](https://img.shields.io/badge/Read_in-English-blue?style=for-the-badge&logo=github)](README.md)
 
 <br />
 
