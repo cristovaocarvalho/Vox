@@ -23,21 +23,21 @@
 
 > Pense nele como um ditado de sistema operacional: você está no VS Code, no Word, em um formulário web, no Slack, não importa. Fale *"Vox"*, diga seu texto e, ao parar de falar, a transcrição aparece onde o cursor estava.
 
-> **Vox é uma alternativa open-source ao [WhisperFlow](https://whisperflow.app)**, com a mesma proposta de ditado por voz com IA, suporte a atalhos globais, comando de voz hands-free, pipeline de correção e injeção de texto via Win32 nativo.
+> **Vox é uma alternativa open-source ao [Wispr Flow](https://wisprflow.ai)**, com a mesma proposta de ditado por voz com IA, suporte a atalhos globais, comando de voz hands-free, pipeline de correção e injeção de texto via Win32 nativo.
 
 
 ---
 
-## ◈ Comparativo: Vox vs WhisperFlow (Wispr Flow)
+## ◈ Comparativo: Vox vs Wispr Flow
 
-O **WhisperFlow** (Wispr Flow) é uma solução comercial proprietária baseada em assinatura mensal ($9/mês a $29+/mês). O **Vox** foi criado como uma alternativa aberta, nativa para Windows, focada em privacidade, custo por uso e controle do usuário.
+O **Wispr Flow** é uma solução comercial proprietária que oferece um plano gratuito restrito (limitado a uma cota de 2.000 palavras por semana) e planos pagos por assinatura mensal ($9/mês a $29+/mês). O **Vox** foi criado como uma alternativa aberta, 100% gratuita no uso diário com provedores como a Groq (que oferece um plano gratuito generoso com milhares de requisições por dia), nativa para Windows, focada em privacidade e controle do usuário.
 
 ### Tabela Comparativa
 
-| Recurso / Característica | **Vox** | **WhisperFlow (Wispr Flow)** |
+| Recurso / Característica | **Vox** | **Wispr Flow** |
 |---|---|---|
 | **Modelo de Licenciamento** | 100% Open-Source (MIT), Gratuito | Proprietário / Comercial |
-| **Custo** | Zero mensalidade (Pague apenas a API por uso) | Assinatura mensal ($9 a $29+/mês) |
+| **Plano Gratuito / Custo** | 100% Gratuito no dia a dia (via Free Tier da Groq API) | Grátis limitado a 2.000 palavras/semana (Pro: $9 a $29+/mês) |
 | **Wake Word (Comando de Voz)** | Sim, "Vox" (100% offline via ONNX) | Depende de atalhos/nuvem |
 | **Privacidade** | Áudio processado via API direta, sem intermediários | Processamento em nuvem proprietária |
 | **Transcrição de Mídias (YouTube/Arquivos)** | Sim (com exportação em SRT, VTT, TXT, MD, JSON) | Focado apenas em ditado |
@@ -47,16 +47,16 @@ O **WhisperFlow** (Wispr Flow) é uma solução comercial proprietária baseada 
 ### 🟢 Vantagens do Vox
 
 * **100% Gratuito e Open-Source**: Sem mensalidades recorrentes, código totalmente auditável e transparente.
+* **Uso Praticamente Ilimitado e Gratuito**: Ao utilizar provedores como a Groq API (que disponibilizam um plano gratuito generoso com milhares de requisições por dia), você utiliza o Vox no dia a dia sem travas ou cotas semanais de palavras, ao contrário do limite de 2.000 palavras do Wispr Flow.
 * **Wake Word Offline ("Vox")**: Detecção da palavra de ativação processada 100% localmente no PC via ONNX Runtime (< 1% CPU).
-* **Economia Extrema (Pay-per-use)**: Pague frações de centavos por hora de ditado direto ao seu provedor de API, em vez de mensalidades fixas em dólares.
 * **Ferramenta de Mídia Integrada**: Baixa e transcreve mídias do YouTube, TikTok, Instagram e arquivos locais com exportação de legendas (.srt, .vtt).
 * **Privacidade de Dados**: O seu áudio é enviado diretamente para a API do seu provedor de preferência, sem intermediários ou retendo dados para treinamento.
 
 ### 🔴 Desvantagens do Vox
 
-* **Necessita de Chave de API**: Exige que o usuário insira sua própria API Key nas configurações.
+* **Necessita de Chave de API**: Exige que o usuário insira sua própria API Key nas configurações (ex: obtida gratuitamente na Groq).
 * **Modelos STT/LLM Fixos**: O provedor de API deve obrigatoriamente disponibilizar os modelos `whisper-large-v3-turbo` e `openai/gpt-oss-20b`.
-* **Exclusivo para Windows**: Atualmente disponível nativamente apenas para Windows 10/11 (o WhisperFlow possui aplicativo para Mac e dispositivos móveis).
+* **Exclusivo para Windows**: Atualmente disponível nativamente apenas para Windows 10/11 (o Wispr Flow possui aplicativo para Mac e dispositivos móveis).
 
 
 ---
