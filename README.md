@@ -28,6 +28,39 @@
 
 ---
 
+## ◈ Comparativo: Vox vs WhisperFlow (Wispr Flow)
+
+O **WhisperFlow** (Wispr Flow) é uma solução comercial proprietária baseada em assinatura mensal ($9/mês a $29+/mês). O **Vox** foi criado como uma alternativa aberta, nativa para Windows, focada em privacidade, custo por uso e controle do usuário.
+
+### Tabela Comparativa
+
+| Recurso / Característica | **Vox** | **WhisperFlow (Wispr Flow)** |
+|---|---|---|
+| **Modelo de Licenciamento** | 100% Open-Source (MIT), Gratuito | Proprietário / Comercial |
+| **Custo** | Zero mensalidade (Pague apenas a API por uso) | Assinatura mensal ($9 a $29+/mês) |
+| **Wake Word (Comando de Voz)** | Sim, "Vox" (100% offline via ONNX) | Depende de atalhos/nuvem |
+| **Privacidade** | Áudio processado via API direta, sem intermediários | Processamento em nuvem proprietária |
+| **Transcrição de Mídias (YouTube/Arquivos)** | Sim (com exportação em SRT, VTT, TXT, MD, JSON) | Focado apenas em ditado |
+| **Plataformas** | Windows 10/11 (Nativo) | Mac, Windows, iOS |
+| **Encerramento Automático (VAD)** | Sim, encerra e cola automaticamente ao silenciar | Sim |
+
+### 🟢 Vantagens do Vox
+
+* **100% Gratuito e Open-Source**: Sem mensalidades recorrentes, código totalmente auditável e transparente.
+* **Wake Word Offline ("Vox")**: Detecção da palavra de ativação processada 100% localmente no PC via ONNX Runtime (< 1% CPU).
+* **Economia Extrema (Pay-per-use)**: Pague frações de centavos por hora de ditado direto ao seu provedor de API, em vez de mensalidades fixas em dólares.
+* **Ferramenta de Mídia Integrada**: Baixa e transcreve mídias do YouTube, TikTok, Instagram e arquivos locais com exportação de legendas (.srt, .vtt).
+* **Privacidade de Dados**: O seu áudio é enviado diretamente para a API do seu provedor de preferência, sem intermediários ou retendo dados para treinamento.
+
+### 🔴 Desvantagens do Vox
+
+* **Necessita de Chave de API**: Exige que o usuário insira sua própria API Key nas configurações.
+* **Modelos STT/LLM Fixos**: O provedor de API deve obrigatoriamente disponibilizar os modelos `whisper-large-v3-turbo` e `openai/gpt-oss-20b`.
+* **Exclusivo para Windows**: Atualmente disponível nativamente apenas para Windows 10/11 (o WhisperFlow possui aplicativo para Mac e dispositivos móveis).
+
+
+---
+
 ## ◈ Para que serve
 
 | Caso de uso | Descrição |
