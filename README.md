@@ -50,7 +50,7 @@ O **Wispr Flow** é uma solução comercial proprietária que oferece um plano g
 | **Plataformas** | Windows (.exe), macOS (.dmg) e Linux (.AppImage) | Mac, Windows, iOS |
 | **Encerramento Automático (VAD)** | Sim, encerra e cola automaticamente ao silenciar | Sim |
 
-### 🟢 Vantagens do Vox
+#### Vantagens do Vox
 
 * **100% Gratuito e Open-Source**: Sem mensalidades recorrentes, código totalmente auditável e transparente.
 * **Uso Praticamente Ilimitado e Gratuito**: Ao utilizar provedores como a Groq API (que disponibilizam um plano gratuito generoso com milhares de requisições por dia), você utiliza o Vox no dia a dia sem travas ou cotas semanais de palavras, ao contrário do limite de 2.000 palavras do Wispr Flow.
@@ -58,7 +58,7 @@ O **Wispr Flow** é uma solução comercial proprietária que oferece um plano g
 * **Ferramenta de Mídia Integrada**: Baixa e transcreve mídias do YouTube, TikTok, Instagram e arquivos locais com exportação de legendas (.srt, .vtt).
 * **Privacidade de Dados**: O seu áudio é enviado diretamente para a API do seu provedor de preferência, sem intermediários ou retendo dados para treinamento.
 
-### 🔴 Desvantagens do Vox
+#### Desvantagens do Vox
 
 * **Necessita de Chave de API**: Exige que o usuário insira sua própria API Key nas configurações (ex: obtida gratuitamente na Groq).
 * **Modelos STT/LLM Fixos**: O provedor de API deve obrigatoriamente disponibilizar os modelos `whisper-large-v3-turbo` e `openai/gpt-oss-20b`.
