@@ -62,45 +62,73 @@
 
 ## ◈ Arquitetura
 
-O Vox segue a arquitetura padrão do Electron com separação clara entre **processo principal** (Node.js), **processo renderer** (React) e **preload** (bridge segura de IPC).
+O Vox é estruturado seguindo o padrão de arquitetura multi-processos do Electron com isolamento rigoroso de contexto (*Context Isolation*), comunicação bidirecional por **IPC seguro** e componentes desacoplados.
+
+```mermaid
+graph TD
+    subgraph MAIN["⚡ PROCESSO PRINCIPAL (Electron / Node.js)"]
+        direction TB
+        ORCH["⚙️ Orquestrador<br/><code>electron/main.ts</code>"]
+        WAKE["🎙️ WakeWord Engine<br/><code>openWakeWord ONNX</code>"]
+        REC["🔊 Audio Recorder<br/><code>PCM 16kHz + VAD Auto-Stop</code>"]
+        STT["⚡ Speech-to-Text<br/><code>Groq Whisper V3 Turbo</code>"]
+        LLM["🧠 Corretor LLM<br/><code>Groq Chat API</code>"]
+        INJ["✍️ Injetor de Texto<br/><code>PowerShell + Win32 API</code>"]
+        DL["📥 Downloader Mídia<br/><code>yt-dlp</code>"]
+        DB["💾 Banco de Dados<br/><code>better-sqlite3</code>"]
+    end
+
+    subgraph PRELOAD["🌉 PRELOAD BRIDGE (IPC Isolado)"]
+        API["🔒 ContextBridge API<br/><code>electron/preload.ts</code>"]
+    end
+
+    subgraph RENDERER["🖥️ PROCESSO RENDERER (React 18 + Vite)"]
+        MAINWIN["🪟 MainWindow<br/><code>Ditado · Mídia · Configurações</code>"]
+        DOCKWIN["💎 DockWindow<br/><code>Floating HUD VAD (Always-on-Top)</code>"]
+        STORE["📦 Zustand Store<br/><code>Estado Global UI</code>"]
+    end
+
+    WAKE -->|Detecta 'Vox'| ORCH
+    REC -->|Buffer WAV| STT
+    STT -->|Texto Bruto| LLM
+    LLM -->|Texto Corrigido| INJ
+    INJ -->|Paste via Ctrl+V| APP["💻 Cursor da Aplicação Ativa<br/>(VS Code, Word, Slack, Browser...)"]
+
+    ORCH <==>|ipcMain / ipcRenderer| API
+    API <==>|window.vox| RENDERER
+```
+
+### ┌── 🏗️ Camadas do Sistema ────────────────────────────────────────────────────────┐
 
 ```
-+---------------------------------------------------------------+
-|                      PROCESSO PRINCIPAL                        |
-|                       (electron/main.ts)                       |
-|                                                                |
-|  +----------+  +----------+  +----------+  +------------+    |
-|  | Recorder |  |   STT    |  |Corrector |  |  Injector  |    |
-|  | (VAD/WAV)|  |  (Groq)  |  |  (LLM)   |  |(PowerShell)|    |
-|  +----------+  +----------+  +----------+  +------------+    |
-|                                                                |
-|  +----------+  +----------+  +--------------------------+    |
-|  |Downloader|  |    DB    |  |  GlobalShortcut (F9/F10)  |    |
-|  | (yt-dlp) |  | (SQLite) |  |  + SystemTray             |    |
-|  +----------+  +----------+  +--------------------------+    |
-|                                                                |
-|                    IPC (ipcMain / ipcRenderer)                 |
-+----------------------------+-----------------------------------+
-                             |
-                +------------+-----------+
-                |         PRELOAD         |
-                |     (preload.ts)         |
-                |  contextBridge / API     |
-                +------------+-----------+
-                             |
-+----------------------------+-----------------------------------+
-|                    PROCESSO RENDERER                            |
-|                                                                |
-|  +---------------------------+  +---------------------------+ |
-|  |      MainWindow            |  |        DockWindow          | |
-|  |  (React + Framer Motion)   |  |  (Floating HUD, always-   | |
-|  |                            |  |   on-top, showInactive)    | |
-|  |  Tab: Ditado por voz       |  |  Visualizador de energia   | |
-|  |  Tab: Transcricao midia    |  |  de voz em tempo real      | |
-|  |  Modal: Configuracoes      |  +---------------------------+ |
-|  +---------------------------+                                 |
-|                     Zustand (estado global)                     |
-+---------------------------------------------------------------+
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 PROCESSO PRINCIPAL (Node.js)                            │
+│                                                                                        │
+│   ┌───────────────┐   ┌───────────────┐   ┌───────────────┐   ┌────────────────────┐   │
+│   │ 🎙️ WakeWord   │   │ 🔊 Recorder   │   │ ⚡ Groq STT   │   │ 🧠 LLM Corrector   │   │
+│   │ (ONNX Engine) │   │ (PCM / VAD)   │   │ (Whisper V3)  │   │ (GPT-OSS 20B)      │   │
+│   └───────┬───────┘   └───────┬───────┘   └───────┬───────┘   └─────────┬──────────┘   │
+│           │                   │                   │                     │              │
+│           └───────────────────┼───────────────────┼─────────────────────┘              │
+│                               ▼                   ▼                                    │
+│   ┌───────────────┐   ┌───────────────┐   ┌────────────────────────────────────────┐   │
+│   │ ✍️ Injector   │   │ 📥 Downloader │   │ ⚙️ Main Orchestrator & System Tray      │   │
+│   │ (Win32 API)   │   │ (yt-dlp)      │   │ (GlobalShortcuts F9/F10)               │   │
+│   └───────────────┘   └───────────────┘   └───────────────────┬────────────────────┘   │
+└───────────────────────────────────────────────────────────────┼────────────────────────┘
+                                                                │
+                                                ┌───────────────┴────────────────┐
+                                                │  🔒 PRELOAD BRIDGE (IPC API)   │
+                                                └───────────────┬────────────────┘
+                                                                │
+┌───────────────────────────────────────────────────────────────┼────────────────────────┐
+│                                PROCESSO RENDERER (React 18)   │                        │
+│                                                               ▼                        │
+│   ┌───────────────────────────────────────────┐   ┌────────────────────────────────┐   │
+│   │ 🪟 MainWindow (1040×820px)                │   │ 💎 DockWindow (220×70px HUD)   │   │
+│   │ React + Framer Motion + Glassmorphism     │   │ Real-time Audio Energy VAD     │   │
+│   └───────────────────────────────────────────┘   └────────────────────────────────┘   │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
