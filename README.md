@@ -6,6 +6,9 @@
 
 **Ditado por voz com precisão, diretamente no seu cursor**
 
+[![Português](https://img.shields.io/badge/Idioma-Portugu%C3%AAs-blue?style=flat-square)](README.md)
+[![English](https://img.shields.io/badge/Language-English-gray?style=flat-square)](README.en.md)
+
 [![Electron](https://img.shields.io/badge/Electron-33-black?style=flat-square&logo=electron&logoColor=white)](https://electronjs.org)
 [![React](https://img.shields.io/badge/React-18-black?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-black?style=flat-square&logo=typescript&logoColor=white)](https://typescriptlang.org)
