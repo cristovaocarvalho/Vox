@@ -418,7 +418,7 @@ GROQ_API_KEY=gsk_...          # Chave de API do provedor (deve disponibilizar os
 
 ## ◈ Licença
 
-Este projeto está licenciado sob a Licença **MIT**. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+Este projeto está licenciado sob a Licença **MIT**.
 
 ```text
 MIT License
@@ -448,6 +448,6 @@ SOFTWARE.
 
 <div align="center">
 
-Cristóvão Carvalho &nbsp;·&nbsp; **Vox** &nbsp;·&nbsp; v1.5.0
+Cristóvão Carvalho &nbsp;·&nbsp; **Vox** &nbsp;·&nbsp;
 
 </div>
