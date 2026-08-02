@@ -34,11 +34,11 @@ const getDevUrl = () => process.env['ELECTRON_RENDERER_URL'] || process.env['VIT
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1040,
-    height: 820,
+    height: 740,
     minWidth: 1040,
     maxWidth: 1040,
-    minHeight: 820,
-    maxHeight: 820,
+    minHeight: 740,
+    maxHeight: 740,
     resizable: false,
     maximizable: false,
     minimizable: true,

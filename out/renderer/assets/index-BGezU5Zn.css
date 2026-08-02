@@ -670,9 +670,6 @@ video {
   margin-left: auto;
   margin-right: auto;
 }
-.mb-0\.5 {
-  margin-bottom: 0.125rem;
-}
 .mb-1 {
   margin-bottom: 0.25rem;
 }
@@ -723,9 +720,6 @@ video {
 }
 .\!h-9 {
   height: 2.25rem !important;
-}
-.h-1\.5 {
-  height: 0.375rem;
 }
 .h-11 {
   height: 2.75rem;
@@ -864,11 +858,6 @@ video {
 }
 .resize {
   resize: both;
-}
-.appearance-none {
-  -webkit-appearance: none;
-     -moz-appearance: none;
-          appearance: none;
 }
 .grid-cols-1 {
   grid-template-columns: repeat(1, minmax(0, 1fr));
@@ -1032,9 +1021,6 @@ video {
 .border-border\/80 {
   border-color: rgb(42 42 53 / 0.8);
 }
-.border-emerald-500\/40 {
-  border-color: rgb(16 185 129 / 0.4);
-}
 .border-error\/30 {
   border-color: rgb(248 113 113 / 0.3);
 }
@@ -1110,9 +1096,6 @@ video {
 }
 .bg-black\/60 {
   background-color: rgb(0 0 0 / 0.6);
-}
-.bg-emerald-500\/20 {
-  background-color: rgb(16 185 129 / 0.2);
 }
 .bg-error {
   --tw-bg-opacity: 1;
@@ -1389,9 +1372,6 @@ video {
 .antialiased {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-.accent-accent {
-  accent-color: #FFFFFF;
 }
 .opacity-0 {
   opacity: 0;
@@ -1923,6 +1903,155 @@ code, pre {
   background: rgba(255, 255, 255, 0.3);
 }
 
+/* From Uiverse.io by Admin12121 */ 
+.switch-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 55px;
+  width: 115px;
+  zoom: 0.55;
+}
+
+.switch-button .switch-outer {
+  height: 55px;
+  width: 115px;
+  background: #252532;
+  border-radius: 165px;
+  box-shadow: inset 0px 5px 10px 0px #16151c, 0px 3px 6px -2px #403f4e;
+  border: 1px solid #32303e;
+  padding: 6px;
+  box-sizing: border-box;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.switch-button .switch-outer input[type="checkbox"] {
+  opacity: 0;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  position: absolute;
+}
+
+.switch-button .switch-outer .button-toggle {
+  height: 42px;
+  width: 42px;
+  background: linear-gradient(#3b3a4e, #272733);
+  border-radius: 100%;
+  box-shadow: inset 0px 5px 4px 0px #424151, 0px 4px 15px 0px #0f0e17;
+  position: relative;
+  z-index: 2;
+  transition: left 0.3s ease-in;
+  left: 0;
+}
+
+.switch-button
+  .switch-outer
+  input[type="checkbox"]:checked
+  + .button
+  .button-toggle {
+  left: 58%;
+}
+
+.switch-button
+  .switch-outer
+  input[type="checkbox"]:checked
+  + .button
+  .button-indicator {
+  animation: indicator 1s forwards;
+}
+
+.switch-button .switch-outer .button {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  position: relative;
+  justify-content: space-between;
+}
+
+.switch-button .switch-outer .button-indicator {
+  height: 25px;
+  width: 25px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  border: 3px solid #ef565f;
+  box-sizing: border-box;
+  right: 10px;
+  position: relative;
+}
+
+@keyframes indicator {
+  30% {
+    opacity: 0;
+  }
+
+  0% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 1;
+    border: 3px solid #60d480;
+    left: -68%;
+  }
+}
+
+/* From Uiverse.io by Galahhad */ 
+.slider {
+  /* slider */
+  --slider-width: 100%;
+  --slider-height: 6px;
+  --slider-bg: rgb(82, 82, 82);
+  --slider-border-radius: 999px;
+  /* level */
+  --level-color: #fff;
+  --level-transition-duration: .1s;
+  /* icon */
+  --icon-margin: 15px;
+  --icon-color: var(--slider-bg);
+  --icon-size: 25px;
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  width: 100%;
+}
+
+.slider .volume {
+  display: inline-block;
+  vertical-align: top;
+  margin-right: var(--icon-margin);
+  color: var(--icon-color);
+  width: var(--icon-size);
+  height: auto;
+}
+
+.slider .level {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: var(--slider-width);
+  height: var(--slider-height);
+  background: var(--slider-bg);
+  overflow: hidden;
+  border-radius: var(--slider-border-radius);
+  transition: height var(--level-transition-duration);
+  cursor: inherit;
+}
+
+.slider .level::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 0;
+  height: 0;
+  box-shadow: -200px 0 0 200px var(--level-color);
+}
+
+.slider:hover .level {
+  height: calc(var(--slider-height) * 2);
+}
+
 .placeholder\:text-text-disabled::-moz-placeholder {
   --tw-text-opacity: 1;
   color: rgb(68 68 85 / var(--tw-text-opacity, 1));
@@ -2088,6 +2217,8 @@ code, pre {
     color: rgb(245 245 245 / var(--tw-text-opacity, 1));
   }
 }
+
+
 
 .beams-container {
   position: relative;

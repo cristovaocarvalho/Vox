@@ -539,17 +539,21 @@ export const MainWindow: React.FC = () => {
                         src={logoImg}
                         alt="Vox"
                         className={`w-28 h-28 object-contain transition-all filter ${isRecording
-                            ? 'drop-shadow-[0_0_24px_rgba(248,113,113,0.9)]'
-                            : 'drop-shadow-[0_0_12px_rgba(255,255,255,0.25)] hover:drop-shadow-[0_0_22px_rgba(255,255,255,0.55)]'
+                          ? 'drop-shadow-[0_0_24px_rgba(248,113,113,0.9)]'
+                          : 'drop-shadow-[0_0_12px_rgba(255,255,255,0.25)] hover:drop-shadow-[0_0_22px_rgba(255,255,255,0.55)]'
                           }`}
                       />
                     </button>
 
                     <p className="text-sm font-medium text-text-primary mb-3">
-                      {isRecording ? 'Fale agora...' : 'Clique para começar'}
+                      {isRecording ? 'Fale agora...' : 'Para Começar'}
                     </p>
 
                     <div className="flex flex-col items-center gap-1.5 mb-5">
+                      <div className="flex items-center gap-2">
+                        <kbd className="px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded font-semibold">"Vox"</kbd>
+                        <span className="text-xs text-text-secondary">Comando por Voz</span>
+                      </div>
                       <div className="flex items-center gap-2">
                         <kbd className="px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded">F10</kbd>
                         <span className="text-xs text-text-secondary">Toggle</span>
@@ -606,20 +610,6 @@ export const MainWindow: React.FC = () => {
                     </div>
                   </LiquidGlassCard>
                 </AnimatedContent>
-
-                {/* Model info */}
-                <AnimatedContent key={`type-card-3-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.25} ease="power3.out">
-                  <div className="grid grid-cols-2 gap-2">
-                    <LiquidGlassCard glowIntensity="sm" blurIntensity="sm" className="p-3 text-center">
-                      <span className="text-[10px] uppercase font-semibold text-text-secondary block mb-0.5">STT</span>
-                      <span className="text-xs font-medium text-text-primary">Whisper Large V3 Turbo</span>
-                    </LiquidGlassCard>
-                    <LiquidGlassCard glowIntensity="sm" blurIntensity="sm" className="p-3 text-center">
-                      <span className="text-[10px] uppercase font-semibold text-text-secondary block mb-0.5">LLM</span>
-                      <span className="text-xs font-medium text-text-primary">GPT-OSS-20B</span>
-                    </LiquidGlassCard>
-                  </div>
-                </AnimatedContent>
               </div>
 
             ) : (
@@ -632,13 +622,12 @@ export const MainWindow: React.FC = () => {
                       {/* Header */}
                       <div className="flex items-center justify-between border-b border-border/40 pb-4 mb-2">
                         <span className="text-sm font-semibold text-text-primary">Transcrição de Mídia</span>
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded uppercase font-mono ${
-                          isDownloading
-                            ? 'bg-warning/15 text-warning'
-                            : mediaTranscript.startsWith('[Erro')
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded uppercase font-mono ${isDownloading
+                          ? 'bg-warning/15 text-warning'
+                          : mediaTranscript.startsWith('[Erro')
                             ? 'bg-error/15 text-error'
                             : 'bg-accent/15 text-accent'
-                        }`}>
+                          }`}>
                           {isDownloading ? '● Processando' : mediaTranscript.startsWith('[Erro') ? 'Erro' : '● Concluído'}
                         </span>
                       </div>
@@ -774,11 +763,10 @@ export const MainWindow: React.FC = () => {
                         <LiquidGlassCard
                           glowIntensity={isDragOver ? 'md' : 'sm'}
                           blurIntensity="sm"
-                          className={`p-8 text-center cursor-pointer transition-all border border-dashed ${
-                            isDragOver
-                              ? 'border-accent bg-accent/10 scale-102'
-                              : 'border-border/40 hover:border-accent/40'
-                          }`}
+                          className={`p-8 text-center cursor-pointer transition-all border border-dashed ${isDragOver
+                            ? 'border-accent bg-accent/10 scale-102'
+                            : 'border-border/40 hover:border-accent/40'
+                            }`}
                         >
                           <div className="text-3xl mb-2">📁</div>
                           <p className="text-sm font-medium text-text-primary">
@@ -921,11 +909,10 @@ export const MainWindow: React.FC = () => {
                           key={b}
                           type="button"
                           onClick={() => setDraftBrowserCookies(b)}
-                          className={`py-1.5 px-2 text-xs font-medium rounded-lg border transition-all text-center capitalize cursor-pointer ${
-                            draftBrowserCookies === b
-                              ? 'bg-accent/15 text-accent border-accent/40 font-semibold'
-                              : 'bg-transparent text-text-secondary border-border/50 hover:text-text-primary'
-                          }`}
+                          className={`py-1.5 px-2 text-xs font-medium rounded-lg border transition-all text-center capitalize cursor-pointer ${draftBrowserCookies === b
+                            ? 'bg-accent/15 text-accent border-accent/40 font-semibold'
+                            : 'bg-transparent text-text-secondary border-border/50 hover:text-text-primary'
+                            }`}
                         >
                           {b === 'none' ? 'Nenhum' : b}
                         </button>
@@ -940,17 +927,19 @@ export const MainWindow: React.FC = () => {
                         <span className="text-xs font-semibold text-text-primary block">Wake Word (Ativação por Voz)</span>
                         <span className="text-[11px] text-text-secondary">Acione o Vox falando em segundo plano (openWakeWord ONNX)</span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setDraftWakeWordEnabled(!draftWakeWordEnabled)}
-                        className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
-                          draftWakeWordEnabled
-                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-                            : 'bg-transparent text-text-secondary border-border/50'
-                        }`}
-                      >
-                        {draftWakeWordEnabled ? 'Ativado' : 'Desativado'}
-                      </button>
+                      <div className="switch-button">
+                        <label className="switch-outer">
+                          <input
+                            type="checkbox"
+                            checked={draftWakeWordEnabled}
+                            onChange={(e) => setDraftWakeWordEnabled(e.target.checked)}
+                          />
+                          <div className="button">
+                            <div className="button-toggle"></div>
+                            <div className="button-indicator"></div>
+                          </div>
+                        </label>
+                      </div>
                     </div>
 
                     {draftWakeWordEnabled && (
@@ -959,15 +948,17 @@ export const MainWindow: React.FC = () => {
                           <span className="text-text-secondary font-medium">Sensibilidade</span>
                           <span className="text-text-primary font-mono">{Math.round(draftWakeWordSensitivity * 100)}%</span>
                         </div>
-                        <input
-                          type="range"
-                          min="0.1"
-                          max="1.0"
-                          step="0.05"
-                          value={draftWakeWordSensitivity}
-                          onChange={(e) => setDraftWakeWordSensitivity(parseFloat(e.target.value))}
-                          className="w-full h-1.5 bg-surface rounded-lg appearance-none cursor-pointer accent-accent"
-                        />
+                        <label className="slider w-full mt-1">
+                          <input
+                            type="range"
+                            min="0.1"
+                            max="1.0"
+                            step="0.05"
+                            value={draftWakeWordSensitivity}
+                            onChange={(e) => setDraftWakeWordSensitivity(parseFloat(e.target.value))}
+                            className="level"
+                          />
+                        </label>
                       </div>
                     )}
                   </div>
