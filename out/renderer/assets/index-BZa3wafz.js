@@ -76823,6 +76823,9 @@ const MainWindow = () => {
   const [draftWakeWordSensitivity, setDraftWakeWordSensitivity] = reactExports.useState(wakeWordSensitivity);
   const [wakeWordModelMissing, setWakeWordModelMissing] = reactExports.useState(false);
   const [wakeWordError, setWakeWordError] = reactExports.useState(null);
+  const [showAccessibilityModal, setShowAccessibilityModal] = reactExports.useState(false);
+  const [showXdotoolModal, setShowXdotoolModal] = reactExports.useState(false);
+  const [xdotoolData, setXdotoolData] = reactExports.useState(null);
   const handleOpenSettings = () => {
     setDraftApiKey(apiKey);
     setDraftShortcutToggle(shortcutToggle);
@@ -76880,9 +76883,18 @@ const MainWindow = () => {
     const unsubError = window.vox?.onWakeWordError?.((data) => {
       setWakeWordError(data?.error || "Erro no microfone de segundo plano");
     });
+    const unsubAccess = window.vox?.onAccessibilityRequired?.(() => {
+      setShowAccessibilityModal(true);
+    });
+    const unsubXdo = window.vox?.onXdotoolMissing?.((data) => {
+      setXdotoolData(data);
+      setShowXdotoolModal(true);
+    });
     return () => {
       unsubMissing?.();
       unsubError?.();
+      unsubAccess?.();
+      unsubXdo?.();
     };
   }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies, setWakeWordEnabled, setWakeWordSensitivity]);
   const [mediaStep, setMediaStep] = reactExports.useState("input");
@@ -77671,181 +77683,261 @@ const MainWindow = () => {
         )
       }
     ) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { children: isSettingsOpen && /* @__PURE__ */ jsxRuntimeExports.jsx(
-      motion.div,
-      {
-        initial: { opacity: 0 },
-        animate: { opacity: 1 },
-        exit: { opacity: 0 },
-        transition: { duration: 0.25, ease: "easeOut" },
-        className: "fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md",
-        onClick: (e) => {
-          if (e.target === e.currentTarget) setIsSettingsOpen(false);
-        },
-        children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-          motion.div,
-          {
-            initial: { opacity: 0, y: 30, scale: 0.95 },
-            animate: { opacity: 1, y: 0, scale: 1 },
-            exit: { opacity: 0, y: 20, scale: 0.95 },
-            transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
-            className: "w-full max-w-lg",
-            children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "lg", className: "p-6 flex flex-col gap-5 border border-border/80 shadow-2xl relative", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-4 mb-2", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: configImg, alt: "", className: "w-5 h-5 object-contain" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-base font-semibold text-text-primary", children: "Configurações" })
-                ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "button",
-                  {
-                    type: "button",
-                    onClick: () => setIsSettingsOpen(false),
-                    className: "text-text-secondary hover:text-text-primary p-1 rounded-lg hover:bg-surface transition-colors cursor-pointer",
-                    children: "✕"
-                  }
-                )
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Chave de API" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(AnimatePresence, { children: [
+      isSettingsOpen && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        motion.div,
+        {
+          initial: { opacity: 0 },
+          animate: { opacity: 1 },
+          exit: { opacity: 0 },
+          transition: { duration: 0.25, ease: "easeOut" },
+          className: "fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md",
+          onClick: (e) => {
+            if (e.target === e.currentTarget) setIsSettingsOpen(false);
+          },
+          children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+            motion.div,
+            {
+              initial: { opacity: 0, y: 30, scale: 0.95 },
+              animate: { opacity: 1, y: 0, scale: 1 },
+              exit: { opacity: 0, y: 20, scale: 0.95 },
+              transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
+              className: "w-full max-w-lg",
+              children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "lg", className: "p-6 flex flex-col gap-5 border border-border/80 shadow-2xl relative", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-4 mb-2", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: configImg, alt: "", className: "w-5 h-5 object-contain" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-base font-semibold text-text-primary", children: "Configurações" })
+                  ] }),
                   /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    SmoothInput,
-                    {
-                      type: "password",
-                      value: draftApiKey,
-                      onChange: (e) => setDraftApiKey(e.target.value),
-                      placeholder: "gsk_..."
-                    }
-                  ),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] text-text-secondary/80 mt-1.5 leading-tight", children: "Assegure-se de que o provedor fornece acesso aos modelos abaixo." })
-                ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-2 gap-3", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Modelo STT (Voz)" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary", children: "Whisper Large V3 Turbo" })
-                  ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Modelo LLM (Corretor)" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary", children: "GPT-OSS-20B" })
-                  ] })
-                ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-2 gap-3", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Atalho Toggle" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      ShortcutInput,
-                      {
-                        value: draftShortcutToggle,
-                        onChange: (val) => setDraftShortcutToggle(val)
-                      }
-                    )
-                  ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Atalho Push-to-Talk" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      ShortcutInput,
-                      {
-                        value: draftShortcutPushToTalk,
-                        onChange: (val) => setDraftShortcutPushToTalk(val)
-                      }
-                    )
-                  ] })
-                ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Cookies do Navegador (Extração Mídia)" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-5 gap-1.5", children: ["none", "chrome", "edge", "firefox", "brave"].map((b) => /* @__PURE__ */ jsxRuntimeExports.jsx(
                     "button",
                     {
                       type: "button",
-                      onClick: () => setDraftBrowserCookies(b),
-                      className: `py-1.5 px-2 text-xs font-medium rounded-lg border transition-all text-center capitalize cursor-pointer ${draftBrowserCookies === b ? "bg-accent/15 text-accent border-accent/40 font-semibold" : "bg-transparent text-text-secondary border-border/50 hover:text-text-primary"}`,
-                      children: b === "none" ? "Nenhum" : b
-                    },
-                    b
-                  )) })
+                      onClick: () => setIsSettingsOpen(false),
+                      className: "text-text-secondary hover:text-text-primary p-1 rounded-lg hover:bg-surface transition-colors cursor-pointer",
+                      children: "✕"
+                    }
+                  )
                 ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3.5 bg-background/50 border border-border/60 rounded-xl space-y-3", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Chave de API" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      SmoothInput,
+                      {
+                        type: "password",
+                        value: draftApiKey,
+                        onChange: (e) => setDraftApiKey(e.target.value),
+                        placeholder: "gsk_..."
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] text-text-secondary/80 mt-1.5 leading-tight", children: "Assegure-se de que o provedor fornece acesso aos modelos abaixo." })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-2 gap-3", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold text-text-primary block", children: "Wake Word (Ativação por Voz)" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] text-text-secondary", children: "Acione o Vox falando em segundo plano (openWakeWord ONNX)" })
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Modelo STT (Voz)" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary", children: "Whisper Large V3 Turbo" })
                     ] }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "switch-button", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "switch-outer", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Modelo LLM (Corretor)" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary", children: "GPT-OSS-20B" })
+                    ] })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-2 gap-3", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Atalho Toggle" }),
                       /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        ShortcutInput,
+                        {
+                          value: draftShortcutToggle,
+                          onChange: (val) => setDraftShortcutToggle(val)
+                        }
+                      )
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Atalho Push-to-Talk" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        ShortcutInput,
+                        {
+                          value: draftShortcutPushToTalk,
+                          onChange: (val) => setDraftShortcutPushToTalk(val)
+                        }
+                      )
+                    ] })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Cookies do Navegador (Extração Mídia)" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-5 gap-1.5", children: ["none", "chrome", "edge", "firefox", "brave"].map((b) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        type: "button",
+                        onClick: () => setDraftBrowserCookies(b),
+                        className: `py-1.5 px-2 text-xs font-medium rounded-lg border transition-all text-center capitalize cursor-pointer ${draftBrowserCookies === b ? "bg-accent/15 text-accent border-accent/40 font-semibold" : "bg-transparent text-text-secondary border-border/50 hover:text-text-primary"}`,
+                        children: b === "none" ? "Nenhum" : b
+                      },
+                      b
+                    )) })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3.5 bg-background/50 border border-border/60 rounded-xl space-y-3", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold text-text-primary block", children: "Wake Word (Ativação por Voz)" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] text-text-secondary", children: "Acione o Vox falando em segundo plano (openWakeWord ONNX)" })
+                      ] }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "switch-button", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "switch-outer", children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(
+                          "input",
+                          {
+                            type: "checkbox",
+                            checked: draftWakeWordEnabled,
+                            onChange: (e) => setDraftWakeWordEnabled(e.target.checked)
+                          }
+                        ),
+                        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "button", children: [
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "button-toggle" }),
+                          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "button-indicator" })
+                        ] })
+                      ] }) })
+                    ] }),
+                    wakeWordModelMissing && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-2.5 bg-warning/15 border border-warning/30 rounded-lg text-[11px] text-warning font-medium", children: [
+                      "⚠️ Modelo ONNX (vox.onnx) não encontrado em ",
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono", children: "resources/models/wakeword/" }),
+                      ". Execute ",
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono", children: "npm run setup:wakeword" }),
+                      " para baixar."
+                    ] }),
+                    wakeWordError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-2.5 bg-error/15 border border-error/30 rounded-lg text-[11px] text-error font-medium", children: [
+                      "⚠️ Microfone de segundo plano: ",
+                      wakeWordError
+                    ] }),
+                    draftWakeWordEnabled && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "pt-2 border-t border-border/30", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between text-xs mb-1", children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-secondary font-medium", children: "Sensibilidade" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-text-primary font-mono", children: [
+                          Math.round(draftWakeWordSensitivity * 100),
+                          "%"
+                        ] })
+                      ] }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "slider w-full mt-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
                         "input",
                         {
-                          type: "checkbox",
-                          checked: draftWakeWordEnabled,
-                          onChange: (e) => setDraftWakeWordEnabled(e.target.checked)
+                          type: "range",
+                          min: "0.1",
+                          max: "1.0",
+                          step: "0.05",
+                          value: draftWakeWordSensitivity,
+                          onChange: (e) => setDraftWakeWordSensitivity(parseFloat(e.target.value)),
+                          className: "level"
                         }
-                      ),
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "button", children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "button-toggle" }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "button-indicator" })
-                      ] })
-                    ] }) })
-                  ] }),
-                  wakeWordModelMissing && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-2.5 bg-warning/15 border border-warning/30 rounded-lg text-[11px] text-warning font-medium", children: [
-                    "⚠️ Modelo ONNX (vox.onnx) não encontrado em ",
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono", children: "resources/models/wakeword/" }),
-                    ". Execute ",
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono", children: "npm run setup:wakeword" }),
-                    " para baixar."
-                  ] }),
-                  wakeWordError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-2.5 bg-error/15 border border-error/30 rounded-lg text-[11px] text-error font-medium", children: [
-                    "⚠️ Microfone de segundo plano: ",
-                    wakeWordError
-                  ] }),
-                  draftWakeWordEnabled && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "pt-2 border-t border-border/30", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between text-xs mb-1", children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-secondary font-medium", children: "Sensibilidade" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-text-primary font-mono", children: [
-                        Math.round(draftWakeWordSensitivity * 100),
-                        "%"
-                      ] })
-                    ] }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "slider w-full mt-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-                      "input",
-                      {
-                        type: "range",
-                        min: "0.1",
-                        max: "1.0",
-                        step: "0.05",
-                        value: draftWakeWordSensitivity,
-                        onChange: (e) => setDraftWakeWordSensitivity(parseFloat(e.target.value)),
-                        className: "level"
-                      }
-                    ) })
+                      ) })
+                    ] })
                   ] })
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-end gap-2.5 pt-4 mt-3 border-t border-border/40", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    "button",
+                    {
+                      type: "button",
+                      onClick: () => setIsSettingsOpen(false),
+                      className: "px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer",
+                      children: "Cancelar"
+                    }
+                  ),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    SpecularButton,
+                    {
+                      size: "sm",
+                      radius: 12,
+                      onClick: handleSaveSettings,
+                      className: "!px-6",
+                      children: "Salvar Configurações"
+                    }
+                  )
                 ] })
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-end gap-2.5 pt-4 mt-3 border-t border-border/40", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "button",
-                  {
-                    type: "button",
-                    onClick: () => setIsSettingsOpen(false),
-                    className: "px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer",
-                    children: "Cancelar"
-                  }
-                ),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  SpecularButton,
-                  {
-                    size: "sm",
-                    radius: 12,
-                    onClick: handleSaveSettings,
-                    className: "!px-6",
-                    children: "Salvar Configurações"
-                  }
-                )
               ] })
+            }
+          )
+        }
+      ),
+      showAccessibilityModal && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        motion.div,
+        {
+          initial: { opacity: 0 },
+          animate: { opacity: 1 },
+          exit: { opacity: 0 },
+          className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md",
+          children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { className: "w-full max-w-md p-6 space-y-4 border border-warning/40 shadow-2xl", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 text-warning", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-2xl", children: "🍎" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-semibold text-text-primary", children: "Permissão de Acessibilidade Necessária" })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs text-text-secondary leading-relaxed", children: [
+              "No macOS, o Vox precisa de permissão em ",
+              /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { className: "text-text-primary", children: "Acessibilidade" }),
+              " para injetar texto automaticamente no cursor da aplicação ativa."
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-end gap-3 pt-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  type: "button",
+                  onClick: () => setShowAccessibilityModal(false),
+                  className: "px-3.5 py-1.5 text-xs text-text-secondary hover:text-text-primary cursor-pointer",
+                  children: "Entendi"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                SpecularButton,
+                {
+                  size: "sm",
+                  onClick: () => {
+                    window.vox?.openAccessibilityPreferences?.();
+                    setShowAccessibilityModal(false);
+                  },
+                  children: "Abrir Preferências do Sistema"
+                }
+              )
             ] })
-          }
-        )
-      }
-    ) })
+          ] })
+        }
+      ),
+      showXdotoolModal && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        motion.div,
+        {
+          initial: { opacity: 0 },
+          animate: { opacity: 1 },
+          exit: { opacity: 0 },
+          className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md",
+          children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { className: "w-full max-w-md p-6 space-y-4 border border-warning/40 shadow-2xl", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 text-warning", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-2xl", children: "🐧" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-semibold text-text-primary", children: xdotoolData?.isWayland ? "Utilitário wtype Necessário" : "Utilitário xdotool Necessário" })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs text-text-secondary leading-relaxed", children: [
+              "Para colagem automática no Linux (",
+              xdotoolData?.isWayland ? "Wayland" : "X11",
+              "), instale o utilitário ",
+              xdotoolData?.isWayland ? "wtype" : "xdotool",
+              " no seu sistema:"
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 bg-background/80 border border-border/60 rounded-lg font-mono text-[11px] text-accent select-all", children: [
+              xdotoolData?.isWayland ? "sudo apt install wtype" : "sudo apt install xdotool",
+              /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-muted", children: xdotoolData?.isWayland ? "ou sudo pacman -S wtype" : "ou sudo pacman -S xdotool" })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] text-text-muted", children: "O texto foi copiado para a Área de Transferência. Cole manualmente com Ctrl+V." }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center justify-end pt-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+              SpecularButton,
+              {
+                size: "sm",
+                onClick: () => setShowXdotoolModal(false),
+                children: "Entendi"
+              }
+            ) })
+          ] })
+        }
+      )
+    ] })
   ] });
 };
 const DockWindow = () => {

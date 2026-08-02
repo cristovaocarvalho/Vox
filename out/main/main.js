@@ -234,52 +234,120 @@ async function correctTranscription(text) {
     return text;
   }
 }
-const { clipboard } = require("electron");
-async function injectText(text, _mode = "clipboard", delayMs = 100, hwnd) {
-  if (!text || text.trim().length === 0) return;
-  try {
-    console.log(`[Injector] Injetando texto no cursor ativo (${text.length} chars)...`);
-    clipboard.writeText(text);
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-    const platform = process.platform;
-    if (platform === "win32") {
-      const psCommand = hwnd && hwnd !== "0" ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${hwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait('^v')` : `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`;
+const { clipboard, systemPreferences: systemPreferences$1 } = require("electron");
+function checkBinaryExists(binaryName) {
+  return new Promise((resolve) => {
+    child_process.execFile("which", [binaryName], (err) => {
+      resolve(!err);
+    });
+  });
+}
+async function injectText(text, windowRef, _delayMs = 150, legacyHwnd) {
+  if (!text || text.trim().length === 0) {
+    return { success: false, method: "none", error: "Texto vazio" };
+  }
+  let ref = {};
+  if (typeof windowRef === "object" && windowRef !== null && ("hwnd" in windowRef || "appName" in windowRef || "windowId" in windowRef)) {
+    ref = windowRef;
+  } else if (typeof windowRef === "string") {
+    ref = { hwnd: windowRef };
+  } else if (legacyHwnd) {
+    ref = { hwnd: legacyHwnd };
+  }
+  const platform = process.platform;
+  console.log(`[Injector] Injetando texto no cursor ativo (${text.length} chars, plataforma: ${platform})...`);
+  clipboard.writeText(text);
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  if (platform === "win32") {
+    const targetHwnd = ref.hwnd;
+    const psCommand = targetHwnd && targetHwnd !== "0" && targetHwnd !== "null" ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${targetHwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait('^v')` : `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`;
+    return new Promise((resolve) => {
       child_process.execFile("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", psCommand], (err) => {
         if (err) {
           console.error("[Injector] Erro ao colar texto via PowerShell (Windows):", err);
+          resolve({ success: false, method: "powershell-win32", error: err.message });
         } else {
           console.log("[Injector] Texto colado no cursor com sucesso (Windows)!");
+          resolve({ success: true, method: "powershell-win32" });
         }
       });
-    } else if (platform === "darwin") {
-      const script = hwnd && hwnd !== "0" && hwnd !== "null" ? `tell application "${hwnd}" to activate
+    });
+  }
+  if (platform === "darwin") {
+    const isTrusted = systemPreferences$1 ? systemPreferences$1.isTrustedAccessibilityClient(false) : true;
+    if (!isTrusted) {
+      console.warn("[Injector] Permissão de Acessibilidade não concedida no macOS.");
+      return {
+        success: false,
+        method: "applescript-macos",
+        error: "accessibility-required"
+      };
+    }
+    const appName = ref.appName;
+    const script = appName && appName !== "null" ? `tell application "${appName}" to activate
 delay 0.08
 tell application "System Events" to keystroke "v" using command down` : `tell application "System Events" to keystroke "v" using command down`;
+    return new Promise((resolve) => {
       child_process.execFile("osascript", ["-e", script], (err) => {
         if (err) {
           console.error("[Injector] Erro ao colar texto via AppleScript (macOS):", err);
+          resolve({ success: false, method: "applescript-macos", error: err.message });
         } else {
           console.log("[Injector] Texto colado no cursor com sucesso (macOS)!");
+          resolve({ success: true, method: "applescript-macos" });
         }
       });
-    } else if (platform === "linux") {
-      if (hwnd && hwnd !== "0" && hwnd !== "null") {
-        child_process.execFile("xdotool", ["windowactivate", "--sync", hwnd], () => {
-          child_process.execFile("xdotool", ["key", "ctrl+v"], (err) => {
-            if (err) console.error("[Injector] Erro ao colar texto via xdotool (Linux):", err);
-            else console.log("[Injector] Texto colado no cursor com sucesso (Linux)!");
-          });
-        });
-      } else {
-        child_process.execFile("xdotool", ["key", "ctrl+v"], (err) => {
-          if (err) console.error("[Injector] Erro ao colar texto via xdotool (Linux):", err);
-          else console.log("[Injector] Texto colado no cursor com sucesso (Linux)!");
-        });
-      }
-    }
-  } catch (err) {
-    console.error("[Injector] Erro no processo de injeção:", err);
+    });
   }
+  if (platform === "linux") {
+    const isWayland = process.env.WAYLAND_DISPLAY !== void 0;
+    const hasXdotool = await checkBinaryExists("xdotool");
+    const hasWtype = await checkBinaryExists("wtype");
+    if (!isWayland && hasXdotool) {
+      const windowId = ref.windowId;
+      return new Promise((resolve) => {
+        if (windowId && windowId !== "0" && windowId !== "null") {
+          child_process.execFile("xdotool", ["windowactivate", "--sync", String(windowId)], () => {
+            child_process.execFile("xdotool", ["key", "ctrl+v"], (err) => {
+              if (err) {
+                console.error("[Injector] Erro xdotool:", err);
+                resolve({ success: false, method: "xdotool-linux", error: err.message });
+              } else {
+                console.log("[Injector] Texto colado com xdotool (Linux)!");
+                resolve({ success: true, method: "xdotool-linux" });
+              }
+            });
+          });
+        } else {
+          child_process.execFile("xdotool", ["key", "ctrl+v"], (err) => {
+            if (err) {
+              resolve({ success: false, method: "xdotool-linux", error: err.message });
+            } else {
+              resolve({ success: true, method: "xdotool-linux" });
+            }
+          });
+        }
+      });
+    }
+    if (isWayland && hasWtype) {
+      return new Promise((resolve) => {
+        child_process.execFile("wtype", ["-M", "ctrl", "-k", "v"], (err) => {
+          if (err) {
+            resolve({ success: false, method: "wtype-wayland", error: err.message });
+          } else {
+            resolve({ success: true, method: "wtype-wayland" });
+          }
+        });
+      });
+    }
+    console.warn("[Injector] Auto-paste não disponível no Linux (xdotool/wtype ausentes).");
+    return {
+      success: false,
+      method: "clipboard-only-linux",
+      error: isWayland ? "wtype-missing" : "xdotool-missing"
+    };
+  }
+  return { success: true, method: "clipboard-only" };
 }
 function detectPlatform(url) {
   if (/youtube\.com|youtu\.be/.test(url)) return "youtube";
@@ -1001,7 +1069,7 @@ const { app, BrowserWindow, ipcMain, globalShortcut, screen, dialog, Tray, Menu,
 let mainWindow = null;
 let dockWindow = null;
 let tray = null;
-let targetWindowHwnd = null;
+let targetWindowRef = null;
 let isQuitting = false;
 function captureActiveWindow() {
   try {
@@ -1013,20 +1081,24 @@ function captureActiveWindow() {
         "-Command",
         `(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();' -Name FGW -Namespace VOX -PassThru)::GetForegroundWindow()`
       ], { timeout: 1500, encoding: "utf8" });
-      targetWindowHwnd = result.trim() || null;
+      const hwnd = result.trim();
+      targetWindowRef = hwnd ? { hwnd } : null;
     } else if (process.platform === "darwin") {
       const result = child_process.execFileSync("osascript", [
         "-e",
         'tell application "System Events" to get name of first process whose frontmost is true'
       ], { timeout: 1500, encoding: "utf8" });
-      targetWindowHwnd = result.trim() || null;
+      const appName = result.trim();
+      targetWindowRef = appName ? { appName } : null;
     } else if (process.platform === "linux") {
       const result = child_process.execFileSync("xdotool", ["getactivewindow"], { timeout: 1500, encoding: "utf8" });
-      targetWindowHwnd = result.trim() || null;
+      const windowId = result.trim();
+      targetWindowRef = windowId ? { windowId } : null;
     }
   } catch {
-    targetWindowHwnd = null;
+    targetWindowRef = null;
   }
+  return targetWindowRef;
 }
 const getDevUrl = () => process.env["ELECTRON_RENDERER_URL"] || process.env["VITE_DEV_SERVER_URL"];
 function getAppIconPath() {
@@ -1153,7 +1225,14 @@ function setupIpcHandlers() {
       console.log("[Main] Transcrição corrigida:", result.text);
     }
     if (result.text) {
-      await injectText(result.text, "clipboard", 100, targetWindowHwnd ?? void 0);
+      const injectRes = await injectText(result.text, targetWindowRef || void 0);
+      if (!injectRes.success) {
+        if (injectRes.error === "accessibility-required") {
+          mainWindow?.webContents.send("vox:accessibility-required");
+        } else if (injectRes.error === "xdotool-missing" || injectRes.error === "wtype-missing") {
+          mainWindow?.webContents.send("vox:xdotool-missing", { isWayland: process.env.WAYLAND_DISPLAY !== void 0 });
+        }
+      }
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send("vox:transcript-result", result.text);
       }
@@ -1477,6 +1556,20 @@ function setupIpcHandlers() {
     wakewordDetector.setSensitivity(sensitivity);
     return { success: true };
   });
+  ipcMain.handle("vox:open-accessibility-preferences", () => {
+    if (process.platform === "darwin") {
+      try {
+        if (systemPreferences && systemPreferences.isTrustedAccessibilityClient) {
+          systemPreferences.isTrustedAccessibilityClient(true);
+        } else {
+          shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
+        }
+      } catch (err) {
+        console.error("[Main] Erro ao abrir Preferências de Acessibilidade:", err);
+      }
+    }
+    return { success: true };
+  });
 }
 let lastToggleTime = 0;
 function toggleDockWindow() {
@@ -1565,8 +1658,15 @@ app.whenReady().then(async () => {
       console.log("[Main] Transcrição corrigida:", result.text);
     }
     if (result.text) {
-      console.log("[Main] Injetando texto no cursor da janela ativa (HWND:", targetWindowHwnd, ")...");
-      await injectText(result.text, "clipboard", 100, targetWindowHwnd ?? void 0);
+      console.log("[Main] Injetando texto no cursor da janela ativa:", targetWindowRef, ")...");
+      const injectRes = await injectText(result.text, targetWindowRef || void 0);
+      if (!injectRes.success) {
+        if (injectRes.error === "accessibility-required") {
+          mainWindow?.webContents.send("vox:accessibility-required");
+        } else if (injectRes.error === "xdotool-missing" || injectRes.error === "wtype-missing") {
+          mainWindow?.webContents.send("vox:xdotool-missing", { isWayland: process.env.WAYLAND_DISPLAY !== void 0 });
+        }
+      }
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send("vox:transcript-result", result.text);
       }

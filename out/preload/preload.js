@@ -28,6 +28,7 @@ const voxApi = {
   saveSettings: (settings) => ipcRenderer.invoke("vox:save-settings", settings),
   setWakeWordEnabled: (enabled) => ipcRenderer.invoke("vox:set-wakeword-enabled", enabled),
   setWakeWordSensitivity: (sensitivity) => ipcRenderer.invoke("vox:set-wakeword-sensitivity", sensitivity),
+  openAccessibilityPreferences: () => ipcRenderer.invoke("vox:open-accessibility-preferences"),
   // Event Listeners
   onDockTextUpdate: (callback) => {
     const handler = (_event, text) => callback(text);
@@ -78,6 +79,16 @@ const voxApi = {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on("vox:wakeword-error", handler);
     return () => ipcRenderer.removeListener("vox:wakeword-error", handler);
+  },
+  onAccessibilityRequired: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on("vox:accessibility-required", handler);
+    return () => ipcRenderer.removeListener("vox:accessibility-required", handler);
+  },
+  onXdotoolMissing: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("vox:xdotool-missing", handler);
+    return () => ipcRenderer.removeListener("vox:xdotool-missing", handler);
   }
 };
 contextBridge.exposeInMainWorld("vox", voxApi);

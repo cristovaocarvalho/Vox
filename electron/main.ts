@@ -5,7 +5,7 @@ import path from 'path'
 import recorder from './modules/recorder'
 import { transcribeAudio } from './modules/stt'
 import { correctTranscription } from './modules/corrector'
-import { injectText } from './modules/injector'
+import { injectText, WindowRef } from './modules/injector'
 import downloader from './modules/downloader'
 import exporter from './modules/exporter'
 import ffmpeg from './modules/ffmpeg'
@@ -17,29 +17,33 @@ import { execFileSync } from 'child_process'
 let mainWindow: BrowserWindowType | null = null
 let dockWindow: BrowserWindowType | null = null
 let tray: InstanceType<typeof Tray> | null = null
-let targetWindowHwnd: string | null = null
+let targetWindowRef: WindowRef | null = null
 let isQuitting = false
 
-function captureActiveWindow(): void {
+function captureActiveWindow(): WindowRef | null {
   try {
     if (process.platform === 'win32') {
       const result = execFileSync('powershell', [
         '-NoProfile', '-WindowStyle', 'Hidden', '-Command',
         `(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();' -Name FGW -Namespace VOX -PassThru)::GetForegroundWindow()`
       ], { timeout: 1500, encoding: 'utf8' }) as string
-      targetWindowHwnd = result.trim() || null
+      const hwnd = result.trim()
+      targetWindowRef = hwnd ? { hwnd } : null
     } else if (process.platform === 'darwin') {
       const result = execFileSync('osascript', [
         '-e', 'tell application "System Events" to get name of first process whose frontmost is true'
       ], { timeout: 1500, encoding: 'utf8' }) as string
-      targetWindowHwnd = result.trim() || null
+      const appName = result.trim()
+      targetWindowRef = appName ? { appName } : null
     } else if (process.platform === 'linux') {
       const result = execFileSync('xdotool', ['getactivewindow'], { timeout: 1500, encoding: 'utf8' }) as string
-      targetWindowHwnd = result.trim() || null
+      const windowId = result.trim()
+      targetWindowRef = windowId ? { windowId } : null
     }
   } catch {
-    targetWindowHwnd = null
+    targetWindowRef = null
   }
+  return targetWindowRef
 }
 
 const getDevUrl = () => process.env['ELECTRON_RENDERER_URL'] || process.env['VITE_DEV_SERVER_URL']
@@ -188,7 +192,14 @@ function setupIpcHandlers() {
     }
 
     if (result.text) {
-      await injectText(result.text, 'clipboard', 100, targetWindowHwnd ?? undefined)
+      const injectRes = await injectText(result.text, targetWindowRef || undefined)
+      if (!injectRes.success) {
+        if (injectRes.error === 'accessibility-required') {
+          mainWindow?.webContents.send('vox:accessibility-required')
+        } else if (injectRes.error === 'xdotool-missing' || injectRes.error === 'wtype-missing') {
+          mainWindow?.webContents.send('vox:xdotool-missing', { isWayland: process.env.WAYLAND_DISPLAY !== undefined })
+        }
+      }
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('vox:transcript-result', result.text)
       }
@@ -547,6 +558,21 @@ function setupIpcHandlers() {
     wakewordDetector.setSensitivity(sensitivity)
     return { success: true }
   })
+
+  ipcMain.handle('vox:open-accessibility-preferences', () => {
+    if (process.platform === 'darwin') {
+      try {
+        if (systemPreferences && systemPreferences.isTrustedAccessibilityClient) {
+          systemPreferences.isTrustedAccessibilityClient(true)
+        } else {
+          shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
+        }
+      } catch (err) {
+        console.error('[Main] Erro ao abrir Preferências de Acessibilidade:', err)
+      }
+    }
+    return { success: true }
+  })
 }
 
 let lastToggleTime = 0
@@ -657,8 +683,15 @@ app.whenReady().then(async () => {
     }
 
     if (result.text) {
-      console.log('[Main] Injetando texto no cursor da janela ativa (HWND:', targetWindowHwnd, ')...')
-      await injectText(result.text, 'clipboard', 100, targetWindowHwnd ?? undefined)
+      console.log('[Main] Injetando texto no cursor da janela ativa:', targetWindowRef, ')...')
+      const injectRes = await injectText(result.text, targetWindowRef || undefined)
+      if (!injectRes.success) {
+        if (injectRes.error === 'accessibility-required') {
+          mainWindow?.webContents.send('vox:accessibility-required')
+        } else if (injectRes.error === 'xdotool-missing' || injectRes.error === 'wtype-missing') {
+          mainWindow?.webContents.send('vox:xdotool-missing', { isWayland: process.env.WAYLAND_DISPLAY !== undefined })
+        }
+      }
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('vox:transcript-result', result.text)
       }

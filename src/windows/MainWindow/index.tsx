@@ -61,6 +61,9 @@ export const MainWindow: React.FC = () => {
 
   const [wakeWordModelMissing, setWakeWordModelMissing] = useState(false)
   const [wakeWordError, setWakeWordError] = useState<string | null>(null)
+  const [showAccessibilityModal, setShowAccessibilityModal] = useState(false)
+  const [showXdotoolModal, setShowXdotoolModal] = useState(false)
+  const [xdotoolData, setXdotoolData] = useState<{ isWayland?: boolean } | null>(null)
 
   const handleOpenSettings = () => {
     setDraftApiKey(apiKey)
@@ -127,9 +130,20 @@ export const MainWindow: React.FC = () => {
       setWakeWordError(data?.error || 'Erro no microfone de segundo plano')
     })
 
+    const unsubAccess = window.vox?.onAccessibilityRequired?.(() => {
+      setShowAccessibilityModal(true)
+    })
+
+    const unsubXdo = window.vox?.onXdotoolMissing?.((data) => {
+      setXdotoolData(data)
+      setShowXdotoolModal(true)
+    })
+
     return () => {
       unsubMissing?.()
       unsubError?.()
+      unsubAccess?.()
+      unsubXdo?.()
     }
   }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies, setWakeWordEnabled, setWakeWordSensitivity])
 
@@ -1302,6 +1316,82 @@ export const MainWindow: React.FC = () => {
                 </div>
               </LiquidGlassCard>
             </motion.div>
+          </motion.div>
+        )}
+
+        {/* Modal de Permissão de Acessibilidade no macOS */}
+        {showAccessibilityModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md"
+          >
+            <LiquidGlassCard className="w-full max-w-md p-6 space-y-4 border border-warning/40 shadow-2xl">
+              <div className="flex items-center gap-3 text-warning">
+                <span className="text-2xl">🍎</span>
+                <h3 className="text-base font-semibold text-text-primary">Permissão de Acessibilidade Necessária</h3>
+              </div>
+              <p className="text-xs text-text-secondary leading-relaxed">
+                No macOS, o Vox precisa de permissão em <strong className="text-text-primary">Acessibilidade</strong> para injetar texto automaticamente no cursor da aplicação ativa.
+              </p>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAccessibilityModal(false)}
+                  className="px-3.5 py-1.5 text-xs text-text-secondary hover:text-text-primary cursor-pointer"
+                >
+                  Entendi
+                </button>
+                <SpecularButton
+                  size="sm"
+                  onClick={() => {
+                    window.vox?.openAccessibilityPreferences?.()
+                    setShowAccessibilityModal(false)
+                  }}
+                >
+                  Abrir Preferências do Sistema
+                </SpecularButton>
+              </div>
+            </LiquidGlassCard>
+          </motion.div>
+        )}
+
+        {/* Modal de Dependência Ausente no Linux (xdotool / wtype) */}
+        {showXdotoolModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md"
+          >
+            <LiquidGlassCard className="w-full max-w-md p-6 space-y-4 border border-warning/40 shadow-2xl">
+              <div className="flex items-center gap-3 text-warning">
+                <span className="text-2xl">🐧</span>
+                <h3 className="text-base font-semibold text-text-primary">
+                  {xdotoolData?.isWayland ? 'Utilitário wtype Necessário' : 'Utilitário xdotool Necessário'}
+                </h3>
+              </div>
+              <p className="text-xs text-text-secondary leading-relaxed">
+                Para colagem automática no Linux ({xdotoolData?.isWayland ? 'Wayland' : 'X11'}), instale o utilitário {xdotoolData?.isWayland ? 'wtype' : 'xdotool'} no seu sistema:
+              </p>
+              <div className="p-3 bg-background/80 border border-border/60 rounded-lg font-mono text-[11px] text-accent select-all">
+                {xdotoolData?.isWayland ? 'sudo apt install wtype' : 'sudo apt install xdotool'}
+                <br />
+                <span className="text-text-muted">{xdotoolData?.isWayland ? 'ou sudo pacman -S wtype' : 'ou sudo pacman -S xdotool'}</span>
+              </div>
+              <p className="text-[11px] text-text-muted">
+                O texto foi copiado para a Área de Transferência. Cole manualmente com Ctrl+V.
+              </p>
+              <div className="flex items-center justify-end pt-2">
+                <SpecularButton
+                  size="sm"
+                  onClick={() => setShowXdotoolModal(false)}
+                >
+                  Entendi
+                </SpecularButton>
+              </div>
+            </LiquidGlassCard>
           </motion.div>
         )}
       </AnimatePresence>

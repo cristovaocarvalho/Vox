@@ -30,6 +30,7 @@ export const voxApi = {
   saveSettings: (settings: Record<string, string>) => ipcRenderer.invoke('vox:save-settings', settings),
   setWakeWordEnabled: (enabled: boolean) => ipcRenderer.invoke('vox:set-wakeword-enabled', enabled),
   setWakeWordSensitivity: (sensitivity: number) => ipcRenderer.invoke('vox:set-wakeword-sensitivity', sensitivity),
+  openAccessibilityPreferences: () => ipcRenderer.invoke('vox:open-accessibility-preferences'),
 
   // Event Listeners
   onDockTextUpdate: (callback: (text: string) => void) => {
@@ -81,6 +82,16 @@ export const voxApi = {
     const handler = (_event: unknown, data: any) => callback(data)
     ipcRenderer.on('vox:wakeword-error', handler)
     return () => ipcRenderer.removeListener('vox:wakeword-error', handler)
+  },
+  onAccessibilityRequired: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('vox:accessibility-required', handler)
+    return () => ipcRenderer.removeListener('vox:accessibility-required', handler)
+  },
+  onXdotoolMissing: (callback: (data: { isWayland?: boolean }) => void) => {
+    const handler = (_event: unknown, data: { isWayland?: boolean }) => callback(data)
+    ipcRenderer.on('vox:xdotool-missing', handler)
+    return () => ipcRenderer.removeListener('vox:xdotool-missing', handler)
   }
 }
 
