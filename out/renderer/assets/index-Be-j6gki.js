@@ -77298,7 +77298,7 @@ const MainWindow = () => {
     }
   };
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex h-screen w-screen bg-background text-text-primary overflow-hidden font-sans select-none", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("main", { className: "flex-1 flex flex-col min-w-0", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Beams, { beamWidth: 2, beamHeight: 15, beamNumber: 12, lightColor: "#ffffff", speed: 2, noiseIntensity: 1.75, scale: 0.2, rotation: 0, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("main", { className: "flex-1 flex flex-col min-w-0 h-screen overflow-y-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Beams, { beamWidth: 2, beamHeight: 15, beamNumber: 12, lightColor: "#ffffff", speed: 2, noiseIntensity: 1.75, scale: 0.2, rotation: 0, children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pt-5 flex items-center justify-center sticky top-0 z-20 pointer-events-none", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pointer-events-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
         SpotlightNavbar,
         {
@@ -77310,7 +77310,7 @@ const MainWindow = () => {
           onItemClick: (item) => setActiveTab(item.id)
         }
       ) }) }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-start justify-center px-6 py-6", children: activeTab === "type" ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-lg space-y-4", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-start justify-center px-6 py-6 pb-20", children: activeTab === "type" ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-lg space-y-4", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.05, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-6 flex flex-col items-center text-center", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
@@ -77750,7 +77750,7 @@ const MainWindow = () => {
               className: "w-full flex items-center justify-between text-xs font-semibold text-text-secondary uppercase tracking-widest cursor-pointer hover:text-text-primary transition-colors",
               children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2", children: [
-                  "🎬 Transcrições Anteriores (",
+                  "Transcrições Anteriores (",
                   mediaHistory.length,
                   ")"
                 ] }),
@@ -77758,23 +77758,20 @@ const MainWindow = () => {
               ]
             }
           ),
-          isMediaHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2 max-h-72 overflow-y-auto pr-1 pt-1 border-t border-border/40", children: mediaHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-3", children: "Nenhuma transcrição de mídia salva ainda." }) : mediaHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          isMediaHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2 max-h-80 overflow-y-auto pr-1 pt-1 border-t border-border/40", children: mediaHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-3", children: "Nenhuma transcrição de mídia salva ainda." }) : mediaHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "div",
             {
-              className: "p-3 bg-background/50 border border-border/50 rounded-xl flex items-center justify-between gap-3 group hover:border-accent/40 transition-all",
+              className: "p-3 bg-background/50 border border-border/50 rounded-xl flex items-center justify-between gap-4 group hover:border-accent/40 transition-all text-left",
               children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 flex-1 min-w-0", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-9 h-9 bg-surface border border-border rounded-lg flex items-center justify-center text-base shrink-0 font-bold", children: item.platform === "youtube" ? "🔴" : item.platform === "tiktok" ? "🎵" : item.platform === "instagram" ? "📸" : "📁" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs font-semibold text-text-primary line-clamp-1", children: item.title || item.source }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 text-[10px] text-text-secondary mt-0.5", children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
-                        "⏱ ",
-                        formatMMSS(item.duration || 0)
-                      ] }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "•" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: new Date(item.createdAt).toLocaleDateString("pt-BR") })
-                    ] })
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0 text-left", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs font-semibold text-text-primary line-clamp-1 text-left", children: item.title || item.source }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 text-[10px] text-text-secondary mt-1 text-left", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+                      "⏱ ",
+                      formatMMSS(item.duration || 0)
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "•" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: new Date(item.createdAt).toLocaleDateString("pt-BR") })
                   ] })
                 ] }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx(

@@ -619,7 +619,7 @@ export const MainWindow: React.FC = () => {
   return (
     <div className="flex h-screen w-screen bg-background text-text-primary overflow-hidden font-sans select-none">
       {/* Main area */}
-      <main className="flex-1 flex flex-col min-w-0">
+      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
         <Beams beamWidth={2} beamHeight={15} beamNumber={12} lightColor="#ffffff" speed={2} noiseIntensity={1.75} scale={0.2} rotation={0}>
 
           {/* Navbar */}
@@ -636,7 +636,7 @@ export const MainWindow: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-start justify-center px-6 py-6">
+          <div className="flex items-start justify-center px-6 py-6 pb-20">
             {activeTab === 'type' ? (
 
               <div className="w-full max-w-lg space-y-4">
@@ -1196,32 +1196,27 @@ export const MainWindow: React.FC = () => {
                         className="w-full flex items-center justify-between text-xs font-semibold text-text-secondary uppercase tracking-widest cursor-pointer hover:text-text-primary transition-colors"
                       >
                         <span className="flex items-center gap-2">
-                          🎬 Transcrições Anteriores ({mediaHistory.length})
+                          Transcrições Anteriores ({mediaHistory.length})
                         </span>
                         <span className="text-[10px] text-text-muted">{isMediaHistoryOpen ? '▲ Recolher' : '▼ Expandir'}</span>
                       </button>
 
                       {isMediaHistoryOpen && (
-                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1 pt-1 border-t border-border/40">
+                        <div className="space-y-2 max-h-80 overflow-y-auto pr-1 pt-1 border-t border-border/40">
                           {mediaHistory.length === 0 ? (
                             <p className="text-xs text-text-disabled text-center py-3">Nenhuma transcrição de mídia salva ainda.</p>
                           ) : (
                             mediaHistory.map((item) => (
                               <div
                                 key={item.id}
-                                className="p-3 bg-background/50 border border-border/50 rounded-xl flex items-center justify-between gap-3 group hover:border-accent/40 transition-all"
+                                className="p-3 bg-background/50 border border-border/50 rounded-xl flex items-center justify-between gap-4 group hover:border-accent/40 transition-all text-left"
                               >
-                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                  <div className="w-9 h-9 bg-surface border border-border rounded-lg flex items-center justify-center text-base shrink-0 font-bold">
-                                    {item.platform === 'youtube' ? '🔴' : item.platform === 'tiktok' ? '🎵' : item.platform === 'instagram' ? '📸' : '📁'}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-semibold text-text-primary line-clamp-1">{item.title || item.source}</p>
-                                    <div className="flex items-center gap-2 text-[10px] text-text-secondary mt-0.5">
-                                      <span>⏱ {formatMMSS(item.duration || 0)}</span>
-                                      <span>•</span>
-                                      <span>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</span>
-                                    </div>
+                                <div className="flex-1 min-w-0 text-left">
+                                  <p className="text-xs font-semibold text-text-primary line-clamp-1 text-left">{item.title || item.source}</p>
+                                  <div className="flex items-center gap-2 text-[10px] text-text-secondary mt-1 text-left">
+                                    <span>⏱ {formatMMSS(item.duration || 0)}</span>
+                                    <span>•</span>
+                                    <span>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</span>
                                   </div>
                                 </div>
 
