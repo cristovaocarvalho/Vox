@@ -1065,7 +1065,7 @@ class WakeWordDetector extends events.EventEmitter {
   }
 }
 const wakewordDetector = new WakeWordDetector();
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, dialog, Tray, Menu, nativeImage, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, dialog, Tray, Menu, nativeImage, shell, systemPreferences } = require("electron");
 let mainWindow = null;
 let dockWindow = null;
 let tray = null;
@@ -1618,7 +1618,7 @@ app.whenReady().then(async () => {
   const sensitivity = parseFloat(settings.wakeWordSensitivity || "0.5");
   await wakewordDetector.init(void 0, sensitivity);
   wakewordDetector.on("detected", () => {
-    if (recorder.isRecording()) return;
+    if (recorder.getIsRecording()) return;
     console.log('[Main] 🎙️ Wake Word "Vox" detectada! Capturando janela ativa e iniciando ditado por voz...');
     captureActiveWindow();
     showDock();

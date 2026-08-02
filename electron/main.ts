@@ -1,6 +1,6 @@
 import type { BrowserWindow as BrowserWindowType } from 'electron'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, dialog, Tray, Menu, nativeImage, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, dialog, Tray, Menu, nativeImage, shell, systemPreferences } = require('electron')
 import path from 'path'
 import recorder from './modules/recorder'
 import { transcribeAudio } from './modules/stt'
@@ -635,7 +635,7 @@ app.whenReady().then(async () => {
 
   // Acionamento por comando de voz "Vox"
   wakewordDetector.on('detected', () => {
-    if (recorder.isRecording()) return
+    if (recorder.getIsRecording()) return
     console.log('[Main] 🎙️ Wake Word "Vox" detectada! Capturando janela ativa e iniciando ditado por voz...')
     captureActiveWindow()
     showDock()
