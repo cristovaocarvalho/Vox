@@ -32,6 +32,13 @@ export const voxApi = {
   setWakeWordSensitivity: (sensitivity: number) => ipcRenderer.invoke('vox:set-wakeword-sensitivity', sensitivity),
   openAccessibilityPreferences: () => ipcRenderer.invoke('vox:open-accessibility-preferences'),
 
+  // Histórico de Transcrições (Sessions)
+  listSessions: (limit?: number, type?: string) => ipcRenderer.invoke('vox:list-sessions', limit, type),
+  getSession: (id: string) => ipcRenderer.invoke('vox:get-session', id),
+  deleteSession: (id: string) => ipcRenderer.invoke('vox:delete-session', id),
+  clearAllSessions: () => ipcRenderer.invoke('vox:clear-all-sessions'),
+  searchSessions: (query: string) => ipcRenderer.invoke('vox:search-sessions', query),
+
   // Event Listeners
   onDockTextUpdate: (callback: (text: string) => void) => {
     const handler = (_event: unknown, text: string) => callback(text)

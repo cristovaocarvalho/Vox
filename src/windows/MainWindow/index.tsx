@@ -65,6 +65,42 @@ export const MainWindow: React.FC = () => {
   const [showXdotoolModal, setShowXdotoolModal] = useState(false)
   const [xdotoolData, setXdotoolData] = useState<{ isWayland?: boolean } | null>(null)
 
+  const [dictationHistory, setDictationHistory] = useState<any[]>([])
+  const [mediaHistory, setMediaHistory] = useState<any[]>([])
+  const [isDictationHistoryOpen, setIsDictationHistoryOpen] = useState(true)
+  const [isMediaHistoryOpen, setIsMediaHistoryOpen] = useState(true)
+
+  const fetchHistory = React.useCallback(async () => {
+    if (window.vox?.listSessions) {
+      try {
+        const dictations = await window.vox.listSessions(10, 'dictation')
+        setDictationHistory(dictations || [])
+        const medias = await window.vox.listSessions(10, 'media')
+        setMediaHistory(medias || [])
+      } catch (err) {
+        console.error('Erro ao carregar histórico de sessões:', err)
+      }
+    }
+  }, [])
+
+  const handleClearHistory = async () => {
+    if (window.confirm('Tem certeza que deseja apagar todo o histórico de transcrições e ditados?')) {
+      if (window.vox?.clearAllSessions) {
+        await window.vox.clearAllSessions()
+        fetchHistory()
+      }
+    }
+  }
+
+  const handleReExport = (session: any) => {
+    setTranscriptionResult({
+      text: session.text,
+      rawText: session.rawText,
+      segments: session.segments || []
+    })
+    setMediaStep('export')
+  }
+
   const handleOpenSettings = () => {
     setDraftApiKey(apiKey)
     setDraftShortcutToggle(shortcutToggle)
@@ -121,6 +157,8 @@ export const MainWindow: React.FC = () => {
         }
       }).catch(console.error)
     }
+
+    fetchHistory()
 
     const unsubMissing = window.vox?.onWakeWordModelMissing?.(() => {
       setWakeWordModelMissing(true)
@@ -687,6 +725,55 @@ export const MainWindow: React.FC = () => {
                     </div>
                   </LiquidGlassCard>
                 </AnimatedContent>
+
+                {/* Histórico de Ditado */}
+                <AnimatedContent key={`type-history-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.25} ease="power3.out">
+                  <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-4 space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => setIsDictationHistoryOpen(!isDictationHistoryOpen)}
+                      className="w-full flex items-center justify-between text-xs font-semibold text-text-secondary uppercase tracking-widest cursor-pointer hover:text-text-primary transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        📜 Histórico de Ditado ({dictationHistory.length})
+                      </span>
+                      <span className="text-[10px] text-text-muted">{isDictationHistoryOpen ? '▲ Recolher' : '▼ Expandir'}</span>
+                    </button>
+
+                    {isDictationHistoryOpen && (
+                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1 pt-1 border-t border-border/40">
+                        {dictationHistory.length === 0 ? (
+                          <p className="text-xs text-text-disabled text-center py-3">Nenhum ditado gravado ainda.</p>
+                        ) : (
+                          dictationHistory.map((item) => (
+                            <div
+                              key={item.id}
+                              onClick={() => setLastTranscript(item.text)}
+                              className="p-2.5 bg-background/50 border border-border/50 rounded-xl hover:border-accent/50 transition-all cursor-pointer flex items-center justify-between gap-3 group"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-text-primary line-clamp-1 font-mono">{item.text}</p>
+                                <span className="text-[10px] text-text-disabled block mt-0.5">
+                                  {new Date(item.createdAt).toLocaleString('pt-BR')}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  navigator.clipboard.writeText(item.text)
+                                }}
+                                className="px-2.5 py-1 bg-surface border border-border text-[10px] text-text-secondary rounded-lg hover:text-text-primary hover:border-text-primary transition-all opacity-80 group-hover:opacity-100 cursor-pointer shrink-0"
+                              >
+                                Copiar
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </LiquidGlassCard>
+                </AnimatedContent>
               </div>
 
             ) : (
@@ -1098,6 +1185,61 @@ export const MainWindow: React.FC = () => {
                     )}
                   </>
                 )}
+
+                {/* Histórico de Mídias (Transcrições Anteriores) */}
+                {mediaStep === 'input' && (
+                  <AnimatedContent key={`media-history-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.25} ease="power3.out">
+                    <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-4 space-y-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsMediaHistoryOpen(!isMediaHistoryOpen)}
+                        className="w-full flex items-center justify-between text-xs font-semibold text-text-secondary uppercase tracking-widest cursor-pointer hover:text-text-primary transition-colors"
+                      >
+                        <span className="flex items-center gap-2">
+                          🎬 Transcrições Anteriores ({mediaHistory.length})
+                        </span>
+                        <span className="text-[10px] text-text-muted">{isMediaHistoryOpen ? '▲ Recolher' : '▼ Expandir'}</span>
+                      </button>
+
+                      {isMediaHistoryOpen && (
+                        <div className="space-y-2 max-h-72 overflow-y-auto pr-1 pt-1 border-t border-border/40">
+                          {mediaHistory.length === 0 ? (
+                            <p className="text-xs text-text-disabled text-center py-3">Nenhuma transcrição de mídia salva ainda.</p>
+                          ) : (
+                            mediaHistory.map((item) => (
+                              <div
+                                key={item.id}
+                                className="p-3 bg-background/50 border border-border/50 rounded-xl flex items-center justify-between gap-3 group hover:border-accent/40 transition-all"
+                              >
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  <div className="w-9 h-9 bg-surface border border-border rounded-lg flex items-center justify-center text-base shrink-0 font-bold">
+                                    {item.platform === 'youtube' ? '🔴' : item.platform === 'tiktok' ? '🎵' : item.platform === 'instagram' ? '📸' : '📁'}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-text-primary line-clamp-1">{item.title || item.source}</p>
+                                    <div className="flex items-center gap-2 text-[10px] text-text-secondary mt-0.5">
+                                      <span>⏱ {formatMMSS(item.duration || 0)}</span>
+                                      <span>•</span>
+                                      <span>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <SpecularButton
+                                  size="sm"
+                                  onClick={() => handleReExport(item)}
+                                  className="shrink-0 text-xs"
+                                >
+                                  Re-exportar
+                                </SpecularButton>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </LiquidGlassCard>
+                  </AnimatedContent>
+                )}
               </div>
             )}
           </div>
@@ -1297,22 +1439,31 @@ export const MainWindow: React.FC = () => {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="flex items-center justify-end gap-2.5 pt-4 mt-3 border-t border-border/40">
+                <div className="flex items-center justify-between gap-2.5 pt-4 mt-3 border-t border-border/40">
                   <button
                     type="button"
-                    onClick={() => setIsSettingsOpen(false)}
-                    className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                    onClick={handleClearHistory}
+                    className="px-3 py-1.5 text-xs font-medium text-error/80 hover:text-error hover:bg-error/10 border border-error/20 rounded-xl transition-all cursor-pointer"
                   >
-                    Cancelar
+                    🗑 Limpar Histórico
                   </button>
-                  <SpecularButton
-                    size="sm"
-                    radius={12}
-                    onClick={handleSaveSettings}
-                    className="!px-6"
-                  >
-                    Salvar Configurações
-                  </SpecularButton>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsSettingsOpen(false)}
+                      className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <SpecularButton
+                      size="sm"
+                      radius={12}
+                      onClick={handleSaveSettings}
+                      className="!px-6"
+                    >
+                      Salvar Configurações
+                    </SpecularButton>
+                  </div>
                 </div>
               </LiquidGlassCard>
             </motion.div>

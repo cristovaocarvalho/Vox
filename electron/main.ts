@@ -9,10 +9,11 @@ import { injectText, WindowRef } from './modules/injector'
 import downloader from './modules/downloader'
 import exporter from './modules/exporter'
 import ffmpeg from './modules/ffmpeg'
-import { initDatabase, getAllSettings, setSetting } from './modules/db'
+import { initDatabase, getAllSettings, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, Session } from './modules/db'
 import wakewordDetector from './modules/wakeword'
 import fs from 'fs'
 import { execFileSync } from 'child_process'
+import crypto from 'crypto'
 
 let mainWindow: BrowserWindowType | null = null
 let dockWindow: BrowserWindowType | null = null
@@ -192,6 +193,16 @@ function setupIpcHandlers() {
     }
 
     if (result.text) {
+      const sessionData: Session = {
+        id: crypto.randomUUID(),
+        type: 'dictation',
+        title: result.text.slice(0, 60),
+        text: result.text,
+        rawText: result.rawText || result.text,
+        createdAt: new Date().toISOString()
+      }
+      saveSession(sessionData)
+
       const injectRes = await injectText(result.text, targetWindowRef || undefined)
       if (!injectRes.success) {
         if (injectRes.error === 'accessibility-required') {
@@ -336,12 +347,42 @@ function setupIpcHandlers() {
         correctedText = await correctTranscription(correctedText)
         sttRes.text = correctedText
       }
+      let mediaTitle = payload.filePath ? path.basename(payload.filePath) : 'Mídia da Web'
+      let mediaPlatform = payload.filePath ? 'local' : 'web'
+      if (payload.url) {
+        if (payload.url.includes('youtu')) mediaPlatform = 'youtube'
+        else if (payload.url.includes('tiktok')) mediaPlatform = 'tiktok'
+        else if (payload.url.includes('instagram')) mediaPlatform = 'instagram'
+
+        try {
+          const info = await downloader.getVideoInfo(payload.url)
+          if (info && info.title) mediaTitle = info.title
+        } catch {
+          // ignore
+        }
+      }
+
+      const mediaSession: Session = {
+        id: crypto.randomUUID(),
+        type: 'media',
+        title: mediaTitle,
+        source: payload.url || payload.filePath,
+        platform: mediaPlatform,
+        duration: sttRes.duration || 0,
+        text: sttRes.text || '',
+        rawText: sttRes.rawText || sttRes.text || '',
+        segments: sttRes.segments || [],
+        createdAt: new Date().toISOString()
+      }
+      saveSession(mediaSession)
+
       sendMediaProgress('Transcrevendo', 90)
 
       return {
         audioPath,
         result: sttRes,
-        text: sttRes.text
+        text: sttRes.text,
+        sessionId: mediaSession.id
       }
     } catch (err: any) {
       console.error('[Main] Erro em start-media-transcription:', err)
@@ -573,6 +614,29 @@ function setupIpcHandlers() {
     }
     return { success: true }
   })
+
+  // Transcriptions History Handlers
+  ipcMain.handle('vox:list-sessions', (_event: unknown, limit?: number, type?: string) => {
+    return listSessions(limit || 50, type)
+  })
+
+  ipcMain.handle('vox:get-session', (_event: unknown, id: string) => {
+    return getSession(id)
+  })
+
+  ipcMain.handle('vox:delete-session', (_event: unknown, id: string) => {
+    deleteSession(id)
+    return { success: true }
+  })
+
+  ipcMain.handle('vox:clear-all-sessions', () => {
+    clearAllSessions()
+    return { success: true }
+  })
+
+  ipcMain.handle('vox:search-sessions', (_event: unknown, query: string) => {
+    return searchSessions(query)
+  })
 }
 
 let lastToggleTime = 0
@@ -683,6 +747,16 @@ app.whenReady().then(async () => {
     }
 
     if (result.text) {
+      const sessionData: Session = {
+        id: crypto.randomUUID(),
+        type: 'dictation',
+        title: result.text.slice(0, 60),
+        text: result.text,
+        rawText: result.rawText || result.text,
+        createdAt: new Date().toISOString()
+      }
+      saveSession(sessionData)
+
       console.log('[Main] Injetando texto no cursor da janela ativa:', targetWindowRef, ')...')
       const injectRes = await injectText(result.text, targetWindowRef || undefined)
       if (!injectRes.success) {

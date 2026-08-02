@@ -691,6 +691,9 @@ video {
 .ml-2 {
   margin-left: 0.5rem;
 }
+.mt-0\.5 {
+  margin-top: 0.125rem;
+}
 .mt-1 {
   margin-top: 0.25rem;
 }
@@ -699,6 +702,12 @@ video {
 }
 .mt-3 {
   margin-top: 0.75rem;
+}
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
 }
 .line-clamp-2 {
   overflow: hidden;
@@ -754,6 +763,9 @@ video {
 .h-6 {
   height: 1.5rem;
 }
+.h-9 {
+  height: 2.25rem;
+}
 .h-\[1\.1em\] {
   height: 1.1em;
 }
@@ -777,6 +789,12 @@ video {
 }
 .max-h-40 {
   max-height: 10rem;
+}
+.max-h-64 {
+  max-height: 16rem;
+}
+.max-h-72 {
+  max-height: 18rem;
 }
 .min-h-\[60px\] {
   min-height: 60px;
@@ -804,6 +822,9 @@ video {
 }
 .w-6 {
   width: 1.5rem;
+}
+.w-9 {
+  width: 2.25rem;
 }
 .w-\[2\.5px\] {
   width: 2.5px;
@@ -1060,6 +1081,9 @@ video {
 }
 .border-emerald-500\/30 {
   border-color: rgb(16 185 129 / 0.3);
+}
+.border-error\/20 {
+  border-color: rgb(248 113 113 / 0.2);
 }
 .border-error\/30 {
   border-color: rgb(248 113 113 / 0.3);
@@ -1321,6 +1345,10 @@ video {
   padding-top: 0.625rem;
   padding-bottom: 0.625rem;
 }
+.py-3 {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
 .py-6 {
   padding-top: 1.5rem;
   padding-bottom: 1.5rem;
@@ -1330,6 +1358,12 @@ video {
 }
 .pb-4 {
   padding-bottom: 1rem;
+}
+.pr-1 {
+  padding-right: 0.25rem;
+}
+.pt-1 {
+  padding-top: 0.25rem;
 }
 .pt-2 {
   padding-top: 0.5rem;
@@ -1434,6 +1468,9 @@ video {
 .text-error {
   --tw-text-opacity: 1;
   color: rgb(248 113 113 / var(--tw-text-opacity, 1));
+}
+.text-error\/80 {
+  color: rgb(248 113 113 / 0.8);
 }
 .text-inherit {
   color: inherit;
@@ -2198,6 +2235,11 @@ code, pre {
   border-color: rgb(255 255 255 / 0.5);
 }
 
+.hover\:border-text-primary:hover {
+  --tw-border-opacity: 1;
+  border-color: rgb(232 232 240 / var(--tw-border-opacity, 1));
+}
+
 .hover\:border-white\/20:hover {
   border-color: rgb(255 255 255 / 0.2);
 }
@@ -2219,6 +2261,10 @@ code, pre {
   background-color: rgb(255 255 255 / 0.3);
 }
 
+.hover\:bg-error\/10:hover {
+  background-color: rgb(248 113 113 / 0.1);
+}
+
 .hover\:bg-error\/30:hover {
   background-color: rgb(248 113 113 / 0.3);
 }
@@ -2236,6 +2282,11 @@ code, pre {
 .hover\:text-\[\#E8E8F0\]:hover {
   --tw-text-opacity: 1;
   color: rgb(232 232 240 / var(--tw-text-opacity, 1));
+}
+
+.hover\:text-error:hover {
+  --tw-text-opacity: 1;
+  color: rgb(248 113 113 / var(--tw-text-opacity, 1));
 }
 
 .hover\:text-text-primary:hover {

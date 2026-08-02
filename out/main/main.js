@@ -4,6 +4,7 @@ const events = require("events");
 const child_process = require("child_process");
 const fs = require("fs");
 const https = require("https");
+const crypto = require("crypto");
 class AudioRecorder extends events.EventEmitter {
   isRecording = false;
   chunks = [];
@@ -799,7 +800,8 @@ try {
   console.warn("[DB] Módulo nativo better-sqlite3 não encontrado, usando fallback seguro:", e);
 }
 let dbInstance = null;
-let fallbackFile = null;
+let fallbackFileSettings = null;
+let fallbackFileSessions = null;
 function initDatabase() {
   try {
     const userDataPath = app$1.getPath("userData");
@@ -807,7 +809,8 @@ function initDatabase() {
       fs.mkdirSync(userDataPath, { recursive: true });
     }
     const dbPath = path.join(userDataPath, "vox_settings.db");
-    fallbackFile = path.join(userDataPath, "vox_settings.json");
+    fallbackFileSettings = path.join(userDataPath, "vox_settings.json");
+    fallbackFileSessions = path.join(userDataPath, "vox_sessions.json");
     if (Database) {
       dbInstance = new Database(dbPath);
       dbInstance.exec(`
@@ -815,10 +818,27 @@ function initDatabase() {
           key TEXT PRIMARY KEY,
           value TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS sessions (
+          id          TEXT PRIMARY KEY,
+          type        TEXT NOT NULL,
+          title       TEXT,
+          source      TEXT,
+          platform    TEXT,
+          model       TEXT,
+          language    TEXT,
+          duration    REAL,
+          text        TEXT,
+          rawText     TEXT,
+          segments    TEXT,
+          exportPaths TEXT,
+          audioKept   INTEGER DEFAULT 0,
+          createdAt   TEXT NOT NULL
+        );
       `);
       console.log("[DB] Banco de dados SQLite pronto em:", dbPath);
     } else {
-      console.log("[DB] Usando fallback de dados em:", fallbackFile);
+      console.log("[DB] Usando fallback de arquivos de dados em:", userDataPath);
     }
   } catch (err) {
     console.error("[DB] Erro ao inicializar banco de dados:", err);
@@ -831,8 +851,8 @@ function getSetting(key, defaultValue = "") {
       const row = stmt.get(key);
       return row ? row.value : defaultValue;
     }
-    if (fallbackFile && fs.existsSync(fallbackFile)) {
-      const data = JSON.parse(fs.readFileSync(fallbackFile, "utf-8"));
+    if (fallbackFileSettings && fs.existsSync(fallbackFileSettings)) {
+      const data = JSON.parse(fs.readFileSync(fallbackFileSettings, "utf-8"));
       return data[key] !== void 0 ? data[key] : defaultValue;
     }
   } catch (err) {
@@ -851,17 +871,17 @@ function setSetting(key, value) {
       stmt.run(key, value);
       return;
     }
-    if (fallbackFile) {
+    if (fallbackFileSettings) {
       let data = {};
-      if (fs.existsSync(fallbackFile)) {
+      if (fs.existsSync(fallbackFileSettings)) {
         try {
-          data = JSON.parse(fs.readFileSync(fallbackFile, "utf-8"));
+          data = JSON.parse(fs.readFileSync(fallbackFileSettings, "utf-8"));
         } catch {
           data = {};
         }
       }
       data[key] = value;
-      fs.writeFileSync(fallbackFile, JSON.stringify(data, null, 2), "utf-8");
+      fs.writeFileSync(fallbackFileSettings, JSON.stringify(data, null, 2), "utf-8");
     }
   } catch (err) {
     console.error(`[DB] Erro ao salvar configuração (${key}):`, err);
@@ -884,6 +904,194 @@ function getAllSettings() {
     if (val) result[k] = val;
   }
   return result;
+}
+function saveSession(session) {
+  try {
+    const segmentsJson = typeof session.segments === "object" ? JSON.stringify(session.segments) : session.segments || null;
+    const exportPathsJson = typeof session.exportPaths === "object" ? JSON.stringify(session.exportPaths) : session.exportPaths || null;
+    if (dbInstance) {
+      const stmt = dbInstance.prepare(`
+        INSERT INTO sessions (
+          id, type, title, source, platform, model, language, duration,
+          text, rawText, segments, exportPaths, audioKept, createdAt
+        ) VALUES (
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        )
+        ON CONFLICT(id) DO UPDATE SET
+          type = excluded.type,
+          title = excluded.title,
+          source = excluded.source,
+          platform = excluded.platform,
+          model = excluded.model,
+          language = excluded.language,
+          duration = excluded.duration,
+          text = excluded.text,
+          rawText = excluded.rawText,
+          segments = excluded.segments,
+          exportPaths = excluded.exportPaths,
+          audioKept = excluded.audioKept,
+          createdAt = excluded.createdAt
+      `);
+      stmt.run(
+        session.id,
+        session.type,
+        session.title || null,
+        session.source || null,
+        session.platform || null,
+        session.model || null,
+        session.language || null,
+        session.duration || null,
+        session.text || "",
+        session.rawText || null,
+        segmentsJson,
+        exportPathsJson,
+        session.audioKept ? 1 : 0,
+        session.createdAt || (/* @__PURE__ */ new Date()).toISOString()
+      );
+      return;
+    }
+    if (fallbackFileSessions) {
+      let sessions = [];
+      if (fs.existsSync(fallbackFileSessions)) {
+        try {
+          sessions = JSON.parse(fs.readFileSync(fallbackFileSessions, "utf-8"));
+        } catch {
+          sessions = [];
+        }
+      }
+      const existingIdx = sessions.findIndex((s) => s.id === session.id);
+      if (existingIdx >= 0) {
+        sessions[existingIdx] = session;
+      } else {
+        sessions.unshift(session);
+      }
+      fs.writeFileSync(fallbackFileSessions, JSON.stringify(sessions, null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao salvar sessão:", err);
+  }
+}
+function parseSessionRow(row) {
+  let segments = row.segments;
+  if (typeof segments === "string") {
+    try {
+      segments = JSON.parse(segments);
+    } catch {
+    }
+  }
+  let exportPaths = row.exportPaths;
+  if (typeof exportPaths === "string") {
+    try {
+      exportPaths = JSON.parse(exportPaths);
+    } catch {
+    }
+  }
+  return {
+    ...row,
+    segments,
+    exportPaths,
+    audioKept: row.audioKept === 1 ? 1 : 0
+  };
+}
+function getSession(id) {
+  try {
+    if (dbInstance) {
+      const stmt = dbInstance.prepare("SELECT * FROM sessions WHERE id = ?");
+      const row = stmt.get(id);
+      return row ? parseSessionRow(row) : null;
+    }
+    if (fallbackFileSessions && fs.existsSync(fallbackFileSessions)) {
+      const sessions = JSON.parse(fs.readFileSync(fallbackFileSessions, "utf-8"));
+      const found = sessions.find((s) => s.id === id);
+      return found || null;
+    }
+  } catch (err) {
+    console.error(`[DB] Erro ao buscar sessão (${id}):`, err);
+  }
+  return null;
+}
+function listSessions(limit = 50, type) {
+  try {
+    if (dbInstance) {
+      let query = "SELECT * FROM sessions";
+      const params = [];
+      if (type) {
+        query += " WHERE type = ?";
+        params.push(type);
+      }
+      query += " ORDER BY datetime(createdAt) DESC LIMIT ?";
+      params.push(limit);
+      const stmt = dbInstance.prepare(query);
+      const rows = stmt.all(...params);
+      return rows.map(parseSessionRow);
+    }
+    if (fallbackFileSessions && fs.existsSync(fallbackFileSessions)) {
+      let sessions = JSON.parse(fs.readFileSync(fallbackFileSessions, "utf-8"));
+      if (type) {
+        sessions = sessions.filter((s) => s.type === type);
+      }
+      return sessions.slice(0, limit);
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao listar sessões:", err);
+  }
+  return [];
+}
+function deleteSession(id) {
+  try {
+    if (dbInstance) {
+      const stmt = dbInstance.prepare("DELETE FROM sessions WHERE id = ?");
+      stmt.run(id);
+      return;
+    }
+    if (fallbackFileSessions && fs.existsSync(fallbackFileSessions)) {
+      let sessions = JSON.parse(fs.readFileSync(fallbackFileSessions, "utf-8"));
+      sessions = sessions.filter((s) => s.id !== id);
+      fs.writeFileSync(fallbackFileSessions, JSON.stringify(sessions, null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error(`[DB] Erro ao excluir sessão (${id}):`, err);
+  }
+}
+function clearAllSessions() {
+  try {
+    if (dbInstance) {
+      dbInstance.exec("DELETE FROM sessions;");
+      console.log("[DB] Todas as sessões foram excluídas do SQLite.");
+      return;
+    }
+    if (fallbackFileSessions) {
+      fs.writeFileSync(fallbackFileSessions, JSON.stringify([], null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao limpar histórico de sessões:", err);
+  }
+}
+function searchSessions(query) {
+  if (!query || !query.trim()) return listSessions(50);
+  try {
+    const term = `%${query.trim()}%`;
+    if (dbInstance) {
+      const stmt = dbInstance.prepare(`
+        SELECT * FROM sessions
+        WHERE text LIKE ? OR title LIKE ? OR source LIKE ?
+        ORDER BY datetime(createdAt) DESC
+        LIMIT 50
+      `);
+      const rows = stmt.all(term, term, term);
+      return rows.map(parseSessionRow);
+    }
+    if (fallbackFileSessions && fs.existsSync(fallbackFileSessions)) {
+      const sessions = JSON.parse(fs.readFileSync(fallbackFileSessions, "utf-8"));
+      const q = query.toLowerCase();
+      return sessions.filter(
+        (s) => s.text.toLowerCase().includes(q) || s.title && s.title.toLowerCase().includes(q) || s.source && s.source.toLowerCase().includes(q)
+      );
+    }
+  } catch (err) {
+    console.error(`[DB] Erro ao pesquisar sessões (${query}):`, err);
+  }
+  return [];
 }
 let ort = null;
 try {
@@ -1225,6 +1433,15 @@ function setupIpcHandlers() {
       console.log("[Main] Transcrição corrigida:", result.text);
     }
     if (result.text) {
+      const sessionData = {
+        id: crypto.randomUUID(),
+        type: "dictation",
+        title: result.text.slice(0, 60),
+        text: result.text,
+        rawText: result.rawText || result.text,
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      saveSession(sessionData);
       const injectRes = await injectText(result.text, targetWindowRef || void 0);
       if (!injectRes.success) {
         if (injectRes.error === "accessibility-required") {
@@ -1351,11 +1568,37 @@ function setupIpcHandlers() {
         correctedText = await correctTranscription(correctedText);
         sttRes.text = correctedText;
       }
+      let mediaTitle = payload.filePath ? path.basename(payload.filePath) : "Mídia da Web";
+      let mediaPlatform = payload.filePath ? "local" : "web";
+      if (payload.url) {
+        if (payload.url.includes("youtu")) mediaPlatform = "youtube";
+        else if (payload.url.includes("tiktok")) mediaPlatform = "tiktok";
+        else if (payload.url.includes("instagram")) mediaPlatform = "instagram";
+        try {
+          const info = await downloader.getVideoInfo(payload.url);
+          if (info && info.title) mediaTitle = info.title;
+        } catch {
+        }
+      }
+      const mediaSession = {
+        id: crypto.randomUUID(),
+        type: "media",
+        title: mediaTitle,
+        source: payload.url || payload.filePath,
+        platform: mediaPlatform,
+        duration: sttRes.duration || 0,
+        text: sttRes.text || "",
+        rawText: sttRes.rawText || sttRes.text || "",
+        segments: sttRes.segments || [],
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      saveSession(mediaSession);
       sendMediaProgress("Transcrevendo", 90);
       return {
         audioPath,
         result: sttRes,
-        text: sttRes.text
+        text: sttRes.text,
+        sessionId: mediaSession.id
       };
     } catch (err) {
       console.error("[Main] Erro em start-media-transcription:", err);
@@ -1570,6 +1813,23 @@ function setupIpcHandlers() {
     }
     return { success: true };
   });
+  ipcMain.handle("vox:list-sessions", (_event, limit, type) => {
+    return listSessions(limit || 50, type);
+  });
+  ipcMain.handle("vox:get-session", (_event, id) => {
+    return getSession(id);
+  });
+  ipcMain.handle("vox:delete-session", (_event, id) => {
+    deleteSession(id);
+    return { success: true };
+  });
+  ipcMain.handle("vox:clear-all-sessions", () => {
+    clearAllSessions();
+    return { success: true };
+  });
+  ipcMain.handle("vox:search-sessions", (_event, query) => {
+    return searchSessions(query);
+  });
 }
 let lastToggleTime = 0;
 function toggleDockWindow() {
@@ -1658,6 +1918,15 @@ app.whenReady().then(async () => {
       console.log("[Main] Transcrição corrigida:", result.text);
     }
     if (result.text) {
+      const sessionData = {
+        id: crypto.randomUUID(),
+        type: "dictation",
+        title: result.text.slice(0, 60),
+        text: result.text,
+        rawText: result.rawText || result.text,
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      saveSession(sessionData);
       console.log("[Main] Injetando texto no cursor da janela ativa:", targetWindowRef, ")...");
       const injectRes = await injectText(result.text, targetWindowRef || void 0);
       if (!injectRes.success) {

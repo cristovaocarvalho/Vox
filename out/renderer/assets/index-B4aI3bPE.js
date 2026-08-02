@@ -76826,6 +76826,38 @@ const MainWindow = () => {
   const [showAccessibilityModal, setShowAccessibilityModal] = reactExports.useState(false);
   const [showXdotoolModal, setShowXdotoolModal] = reactExports.useState(false);
   const [xdotoolData, setXdotoolData] = reactExports.useState(null);
+  const [dictationHistory, setDictationHistory] = reactExports.useState([]);
+  const [mediaHistory, setMediaHistory] = reactExports.useState([]);
+  const [isDictationHistoryOpen, setIsDictationHistoryOpen] = reactExports.useState(true);
+  const [isMediaHistoryOpen, setIsMediaHistoryOpen] = reactExports.useState(true);
+  const fetchHistory = React.useCallback(async () => {
+    if (window.vox?.listSessions) {
+      try {
+        const dictations = await window.vox.listSessions(10, "dictation");
+        setDictationHistory(dictations || []);
+        const medias = await window.vox.listSessions(10, "media");
+        setMediaHistory(medias || []);
+      } catch (err) {
+        console.error("Erro ao carregar histórico de sessões:", err);
+      }
+    }
+  }, []);
+  const handleClearHistory = async () => {
+    if (window.confirm("Tem certeza que deseja apagar todo o histórico de transcrições e ditados?")) {
+      if (window.vox?.clearAllSessions) {
+        await window.vox.clearAllSessions();
+        fetchHistory();
+      }
+    }
+  };
+  const handleReExport = (session) => {
+    setTranscriptionResult({
+      text: session.text,
+      rawText: session.rawText,
+      segments: session.segments || []
+    });
+    setMediaStep("export");
+  };
   const handleOpenSettings = () => {
     setDraftApiKey(apiKey);
     setDraftShortcutToggle(shortcutToggle);
@@ -76877,6 +76909,7 @@ const MainWindow = () => {
         }
       }).catch(console.error);
     }
+    fetchHistory();
     const unsubMissing = window.vox?.onWakeWordModelMissing?.(() => {
       setWakeWordModelMissing(true);
     });
@@ -77331,7 +77364,51 @@ const MainWindow = () => {
             )
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-3 bg-background/60 border border-border/50 rounded-xl font-mono text-sm text-text-primary min-h-[60px] break-words", children: isRecording ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-accent animate-pulse", children: partialTranscript || "Gravando áudio..." }) : isTranscribing ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-accent animate-pulse", children: "Transcrevendo via Whisper Large V3 Turbo..." }) : lastTranscript ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: lastTranscript }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-disabled", children: "Pressione F10 para falar." }) })
-        ] }) }, `type-card-2-${activeTab}`)
+        ] }) }, `type-card-2-${activeTab}`),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.25, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-4 space-y-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "button",
+            {
+              type: "button",
+              onClick: () => setIsDictationHistoryOpen(!isDictationHistoryOpen),
+              className: "w-full flex items-center justify-between text-xs font-semibold text-text-secondary uppercase tracking-widest cursor-pointer hover:text-text-primary transition-colors",
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2", children: [
+                  "📜 Histórico de Ditado (",
+                  dictationHistory.length,
+                  ")"
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] text-text-muted", children: isDictationHistoryOpen ? "▲ Recolher" : "▼ Expandir" })
+              ]
+            }
+          ),
+          isDictationHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2 max-h-64 overflow-y-auto pr-1 pt-1 border-t border-border/40", children: dictationHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-3", children: "Nenhum ditado gravado ainda." }) : dictationHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              onClick: () => setLastTranscript(item.text),
+              className: "p-2.5 bg-background/50 border border-border/50 rounded-xl hover:border-accent/50 transition-all cursor-pointer flex items-center justify-between gap-3 group",
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-primary line-clamp-1 font-mono", children: item.text }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] text-text-disabled block mt-0.5", children: new Date(item.createdAt).toLocaleString("pt-BR") })
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: (e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(item.text);
+                    },
+                    className: "px-2.5 py-1 bg-surface border border-border text-[10px] text-text-secondary rounded-lg hover:text-text-primary hover:border-text-primary transition-all opacity-80 group-hover:opacity-100 cursor-pointer shrink-0",
+                    children: "Copiar"
+                  }
+                )
+              ]
+            },
+            item.id
+          )) })
+        ] }) }, `type-history-${activeTab}`)
       ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-lg space-y-4", children: [
         mediaStep === "preview" && videoInfo && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 0.8, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "md", className: "p-6 flex flex-col gap-4 border border-border/60", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-3", children: [
@@ -77663,7 +77740,57 @@ const MainWindow = () => {
             "⚠️ ",
             mediaError
           ] })
-        ] })
+        ] }),
+        mediaStep === "input" && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.25, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-4 space-y-3", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "button",
+            {
+              type: "button",
+              onClick: () => setIsMediaHistoryOpen(!isMediaHistoryOpen),
+              className: "w-full flex items-center justify-between text-xs font-semibold text-text-secondary uppercase tracking-widest cursor-pointer hover:text-text-primary transition-colors",
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2", children: [
+                  "🎬 Transcrições Anteriores (",
+                  mediaHistory.length,
+                  ")"
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] text-text-muted", children: isMediaHistoryOpen ? "▲ Recolher" : "▼ Expandir" })
+              ]
+            }
+          ),
+          isMediaHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2 max-h-72 overflow-y-auto pr-1 pt-1 border-t border-border/40", children: mediaHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-3", children: "Nenhuma transcrição de mídia salva ainda." }) : mediaHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "div",
+            {
+              className: "p-3 bg-background/50 border border-border/50 rounded-xl flex items-center justify-between gap-3 group hover:border-accent/40 transition-all",
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 flex-1 min-w-0", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-9 h-9 bg-surface border border-border rounded-lg flex items-center justify-center text-base shrink-0 font-bold", children: item.platform === "youtube" ? "🔴" : item.platform === "tiktok" ? "🎵" : item.platform === "instagram" ? "📸" : "📁" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs font-semibold text-text-primary line-clamp-1", children: item.title || item.source }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 text-[10px] text-text-secondary mt-0.5", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+                        "⏱ ",
+                        formatMMSS(item.duration || 0)
+                      ] }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "•" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: new Date(item.createdAt).toLocaleDateString("pt-BR") })
+                    ] })
+                  ] })
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  SpecularButton,
+                  {
+                    size: "sm",
+                    onClick: () => handleReExport(item),
+                    className: "shrink-0 text-xs",
+                    children: "Re-exportar"
+                  }
+                )
+              ]
+            },
+            item.id
+          )) })
+        ] }) }, `media-history-${activeTab}`)
       ] }) })
     ] }) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "fixed bottom-6 left-6 z-30", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -77833,26 +77960,37 @@ const MainWindow = () => {
                     ] })
                   ] })
                 ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-end gap-2.5 pt-4 mt-3 border-t border-border/40", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-2.5 pt-4 mt-3 border-t border-border/40", children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx(
                     "button",
                     {
                       type: "button",
-                      onClick: () => setIsSettingsOpen(false),
-                      className: "px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer",
-                      children: "Cancelar"
+                      onClick: handleClearHistory,
+                      className: "px-3 py-1.5 text-xs font-medium text-error/80 hover:text-error hover:bg-error/10 border border-error/20 rounded-xl transition-all cursor-pointer",
+                      children: "🗑 Limpar Histórico"
                     }
                   ),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(
-                    SpecularButton,
-                    {
-                      size: "sm",
-                      radius: 12,
-                      onClick: handleSaveSettings,
-                      className: "!px-6",
-                      children: "Salvar Configurações"
-                    }
-                  )
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        type: "button",
+                        onClick: () => setIsSettingsOpen(false),
+                        className: "px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer",
+                        children: "Cancelar"
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      SpecularButton,
+                      {
+                        size: "sm",
+                        radius: 12,
+                        onClick: handleSaveSettings,
+                        className: "!px-6",
+                        children: "Salvar Configurações"
+                      }
+                    )
+                  ] })
                 ] })
               ] })
             }
