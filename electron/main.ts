@@ -511,7 +511,13 @@ function setupIpcHandlers() {
           wakewordDetector.setSensitivity(parseFloat(settings.wakeWordSensitivity))
         }
         if (settings.wakeWordEnabled === 'true') {
-          wakewordDetector.start()
+          if (!wakewordDetector.isModelLoaded()) {
+            wakewordDetector.init().then((loaded) => {
+              if (loaded) wakewordDetector.start()
+            })
+          } else {
+            wakewordDetector.start()
+          }
         } else if (settings.wakeWordEnabled === 'false') {
           wakewordDetector.stop()
         }
@@ -521,6 +527,25 @@ function setupIpcHandlers() {
       console.error('[Main] Erro ao salvar configurações no banco:', err)
       return { success: false }
     }
+  })
+
+  ipcMain.handle('vox:set-wakeword-enabled', async (_event: unknown, enabled: boolean) => {
+    if (enabled) {
+      if (!wakewordDetector.isModelLoaded()) {
+        const loaded = await wakewordDetector.init()
+        if (loaded) wakewordDetector.start()
+      } else {
+        wakewordDetector.start()
+      }
+    } else {
+      wakewordDetector.stop()
+    }
+    return { success: true }
+  })
+
+  ipcMain.handle('vox:set-wakeword-sensitivity', (_event: unknown, sensitivity: number) => {
+    wakewordDetector.setSensitivity(sensitivity)
+    return { success: true }
   })
 }
 
@@ -584,12 +609,30 @@ app.whenReady().then(async () => {
 
   // Acionamento por comando de voz "Vox"
   wakewordDetector.on('detected', () => {
+    if (recorder.isRecording()) return
     console.log('[Main] 🎙️ Wake Word "Vox" detectada! Capturando janela ativa e iniciando ditado por voz...')
     captureActiveWindow()
     showDock()
+    wakewordDetector.pause()
     recorder.startRecording({ autoStopOnSilence: true })
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('vox:toggle-recording', true)
+      mainWindow.webContents.send('vox:wakeword-fired')
+    }
+    if (dockWindow && !dockWindow.isDestroyed()) {
+      dockWindow.webContents.send('vox:wakeword-fired')
+    }
+  })
+
+  wakewordDetector.on('wakeword-model-missing', (data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('vox:wakeword-model-missing', data)
+    }
+  })
+
+  wakewordDetector.on('wakeword-error', (data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('vox:wakeword-error', data)
     }
   })
 
@@ -602,6 +645,7 @@ app.whenReady().then(async () => {
     }
 
     const buffer = recorder.stopRecording()
+    wakewordDetector.resume()
     if (!buffer || buffer.length === 0) return
 
     const result = await transcribeAudio(buffer)
@@ -648,7 +692,7 @@ app.whenReady().then(async () => {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Abrir Vox', click: () => { mainWindow?.show() } },
     { type: 'separator' },
-    { label: 'Sair', click: () => { tray?.destroy(); app.exit(0) } }
+    { label: 'Sair', click: () => { tray?.destroy(); wakewordDetector.stop(); app.exit(0) } }
   ]))
   tray.on('double-click', () => { mainWindow?.show() })
 
@@ -662,6 +706,7 @@ app.whenReady().then(async () => {
 
 app.on('before-quit', () => {
   isQuitting = true
+  wakewordDetector.stop()
 })
 
 app.on('will-quit', () => {

@@ -59,6 +59,9 @@ export const MainWindow: React.FC = () => {
   const [draftWakeWordEnabled, setDraftWakeWordEnabled] = useState(wakeWordEnabled)
   const [draftWakeWordSensitivity, setDraftWakeWordSensitivity] = useState(wakeWordSensitivity)
 
+  const [wakeWordModelMissing, setWakeWordModelMissing] = useState(false)
+  const [wakeWordError, setWakeWordError] = useState<string | null>(null)
+
   const handleOpenSettings = () => {
     setDraftApiKey(apiKey)
     setDraftShortcutToggle(shortcutToggle)
@@ -90,6 +93,14 @@ export const MainWindow: React.FC = () => {
         wakeWordSensitivity: String(draftWakeWordSensitivity)
       }).catch(console.error)
     }
+
+    if (window.vox?.setWakeWordEnabled) {
+      window.vox.setWakeWordEnabled(draftWakeWordEnabled).catch(console.error)
+    }
+
+    if (window.vox?.setWakeWordSensitivity) {
+      window.vox.setWakeWordSensitivity(draftWakeWordSensitivity).catch(console.error)
+    }
   }
 
   React.useEffect(() => {
@@ -106,6 +117,19 @@ export const MainWindow: React.FC = () => {
           if (saved.wakeWordSensitivity) setWakeWordSensitivity(parseFloat(saved.wakeWordSensitivity))
         }
       }).catch(console.error)
+    }
+
+    const unsubMissing = window.vox?.onWakeWordModelMissing?.(() => {
+      setWakeWordModelMissing(true)
+    })
+
+    const unsubError = window.vox?.onWakeWordError?.((data) => {
+      setWakeWordError(data?.error || 'Erro no microfone de segundo plano')
+    })
+
+    return () => {
+      unsubMissing?.()
+      unsubError?.()
     }
   }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies, setWakeWordEnabled, setWakeWordSensitivity])
 
@@ -1223,6 +1247,18 @@ export const MainWindow: React.FC = () => {
                         </label>
                       </div>
                     </div>
+
+                    {wakeWordModelMissing && (
+                      <div className="p-2.5 bg-warning/15 border border-warning/30 rounded-lg text-[11px] text-warning font-medium">
+                        ⚠️ Modelo ONNX (vox.onnx) não encontrado em <span className="font-mono">resources/models/wakeword/</span>. Execute <span className="font-mono">npm run setup:wakeword</span> para baixar.
+                      </div>
+                    )}
+
+                    {wakeWordError && (
+                      <div className="p-2.5 bg-error/15 border border-error/30 rounded-lg text-[11px] text-error font-medium">
+                        ⚠️ Microfone de segundo plano: {wakeWordError}
+                      </div>
+                    )}
 
                     {draftWakeWordEnabled && (
                       <div className="pt-2 border-t border-border/30">

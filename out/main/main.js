@@ -823,53 +823,140 @@ try {
 } catch (err) {
   console.warn("[WakeWord] onnxruntime-node não pôde ser carregado:", err);
 }
+let recordLpcm = null;
+try {
+  recordLpcm = require("node-record-lpcm16");
+} catch {
+}
 class WakeWordDetector extends events.EventEmitter {
   active = false;
+  paused = false;
   session = null;
   sensitivity = 0.5;
+  // 0.0 a 1.0 (50% por padrão)
+  threshold = 0.7;
+  // Derivado da sensibilidade (0.9 - sens * 0.4)
   lastTriggerTime = 0;
   cooldownMs = 2500;
-  // Debounce para evitar disparos múltiplos seguidos
+  // Cooldown de 2.5s para evitar múltiplos disparos
   audioBuffer = [];
   frameSize = 1280;
-  // ~80ms de áudio em 16kHz
+  // 1280 amostras = 80ms a 16kHz (exigido pelo openWakeWord)
+  recordingStream = null;
+  modelLoaded = false;
   constructor() {
     super();
   }
   async init(modelPath, sensitivity = 0.5) {
-    this.sensitivity = sensitivity;
+    this.setSensitivity(sensitivity);
     const defaultModelPath = path.join(process.cwd(), "resources", "models", "wakeword", "vox.onnx");
-    const finalPath = modelPath || defaultModelPath;
-    if (ort && fs.existsSync(finalPath)) {
-      try {
-        this.session = await ort.InferenceSession.create(finalPath);
-        console.log('[WakeWord] Modelo ONNX "Vox" carregado com sucesso:', finalPath);
-      } catch (err) {
-        console.error('[WakeWord] Erro ao carregar modelo ONNX "Vox":', err);
-        this.session = null;
-      }
-    } else {
-      console.log('[WakeWord] Escuta ativa para a palavra-chave "Vox" inicializada em modo VAD adaptativo (aguardando modelo vox.onnx em resources/models/wakeword/)');
+    const altModelPath = path.join(__dirname, "..", "..", "resources", "models", "wakeword", "vox.onnx");
+    let finalPath = modelPath || defaultModelPath;
+    if (!fs.existsSync(finalPath) && fs.existsSync(altModelPath)) {
+      finalPath = altModelPath;
+    }
+    if (!fs.existsSync(finalPath)) {
+      console.warn("[WakeWord] Aviso: Modelo vox.onnx não encontrado em:", finalPath);
+      this.modelLoaded = false;
+      this.emit("wakeword-model-missing", { path: finalPath });
+      return false;
+    }
+    if (!ort) {
+      console.error("[WakeWord] Erro: onnxruntime-node não disponível.");
+      this.modelLoaded = false;
+      return false;
+    }
+    try {
+      this.session = await ort.InferenceSession.create(finalPath);
+      this.modelLoaded = true;
+      console.log('[WakeWord] Modelo ONNX "Vox" carregado com sucesso:', finalPath);
+      return true;
+    } catch (err) {
+      console.error('[WakeWord] Erro ao carregar modelo ONNX "Vox":', err);
+      this.modelLoaded = false;
+      this.emit("wakeword-error", { error: err?.message || "Falha ao carregar modelo ONNX" });
+      return false;
     }
   }
+  setSensitivity(value) {
+    const normalized = Math.max(0, Math.min(1, value));
+    this.sensitivity = normalized;
+    this.threshold = 0.9 - normalized * 0.4;
+    console.log(`[WakeWord] Sensibilidade ajustada: ${Math.round(normalized * 100)}% (Threshold: ${this.threshold.toFixed(2)})`);
+  }
+  isListening() {
+    return this.active && !this.paused;
+  }
+  isModelLoaded() {
+    return this.modelLoaded;
+  }
   start() {
+    if (this.active) return;
+    if (!this.modelLoaded && !this.session) {
+      console.warn("[WakeWord] Tentativa de iniciar listener sem modelo ONNX carregado.");
+      this.emit("wakeword-model-missing", {});
+      return;
+    }
     this.active = true;
+    this.paused = false;
     this.audioBuffer = [];
+    this.startMicStream();
     console.log('[WakeWord] Escuta em segundo plano ativa para a palavra "Vox".');
   }
   stop() {
     this.active = false;
+    this.paused = false;
     this.audioBuffer = [];
-    console.log("[WakeWord] Escuta de Wake Word parada.");
+    this.stopMicStream();
+    console.log("[WakeWord] Escuta de Wake Word encerrada.");
   }
-  setSensitivity(value) {
-    this.sensitivity = Math.max(0.1, Math.min(1, value));
+  pause() {
+    if (!this.active) return;
+    this.paused = true;
+    this.audioBuffer = [];
+    console.log("[WakeWord] Listener pausado temporariamente durante gravação de áudio.");
   }
-  isListening() {
-    return this.active;
+  resume() {
+    if (!this.active) return;
+    this.paused = false;
+    this.audioBuffer = [];
+    console.log("[WakeWord] Listener retomado.");
+  }
+  startMicStream() {
+    if (!recordLpcm || this.recordingStream) return;
+    try {
+      this.recordingStream = recordLpcm.record({
+        sampleRate: 16e3,
+        channels: 1,
+        audioType: "raw",
+        endOnSilence: false
+      });
+      const stream = this.recordingStream.stream();
+      stream.on("data", (chunk) => {
+        if (this.active && !this.paused) {
+          this.processAudioChunk(chunk);
+        }
+      });
+      stream.on("error", (err) => {
+        console.error("[WakeWord] Erro no stream de captura de microfone:", err);
+        this.emit("wakeword-error", { error: err?.message || "Erro no microfone em segundo plano" });
+      });
+    } catch (err) {
+      console.warn("[WakeWord] Não foi possível iniciar node-record-lpcm16:", err?.message);
+      this.emit("wakeword-error", { error: err?.message || "Falha ao iniciar microfone de segundo plano" });
+    }
+  }
+  stopMicStream() {
+    if (this.recordingStream) {
+      try {
+        this.recordingStream.stop();
+      } catch {
+      }
+      this.recordingStream = null;
+    }
   }
   async processAudioChunk(chunk) {
-    if (!this.active) return;
+    if (!this.active || this.paused) return;
     const samplesCount = Math.floor(chunk.length / 2);
     for (let i = 0; i < samplesCount; i++) {
       const sample = chunk.readInt16LE(i * 2) / 32768;
@@ -883,41 +970,30 @@ class WakeWordDetector extends events.EventEmitter {
   async evaluateFrame(samples) {
     const now = Date.now();
     if (now - this.lastTriggerTime < this.cooldownMs) return;
-    if (this.session && ort) {
-      try {
-        const tensor = new ort.Tensor("float32", Float32Array.from(samples), [1, samples.length]);
-        const feeds = {};
-        const inputName = this.session.inputNames[0] || "input";
-        feeds[inputName] = tensor;
-        const results = await this.session.run(feeds);
-        const outputName = this.session.outputNames[0] || "output";
-        const outputTensor = results[outputName];
-        if (outputTensor && outputTensor.data) {
-          const score = outputTensor.data[0];
-          if (score >= this.sensitivity) {
-            this.triggerDetection(score);
-          }
+    if (!this.session || !ort) return;
+    try {
+      const tensor = new ort.Tensor("float32", Float32Array.from(samples), [1, samples.length]);
+      const feeds = {};
+      const inputName = this.session.inputNames[0] || "input";
+      feeds[inputName] = tensor;
+      const results = await this.session.run(feeds);
+      const outputName = this.session.outputNames[0] || "output";
+      const outputTensor = results[outputName];
+      if (outputTensor && outputTensor.data) {
+        const score = outputTensor.data[0];
+        if (score >= this.threshold) {
+          this.triggerDetection(score);
         }
-      } catch (err) {
-        console.error("[WakeWord] Erro durante a inferência ONNX:", err);
       }
-    } else {
-      let sumSq = 0;
-      for (let i = 0; i < samples.length; i++) {
-        sumSq += samples[i] * samples[i];
-      }
-      const rms = Math.sqrt(sumSq / samples.length);
-      const dynamicThreshold = 0.25 * (1.1 - this.sensitivity);
-      if (rms > dynamicThreshold) {
-        this.triggerDetection(rms);
-      }
+    } catch (err) {
+      console.error("[WakeWord] Exceção durante inferência ONNX:", err?.message);
     }
   }
-  triggerDetection(confidence) {
+  triggerDetection(score) {
     const now = Date.now();
     this.lastTriggerTime = now;
-    console.log(`[WakeWord] 🎙️ Palavra de ativação "Vox" detectada! Confiança: ${confidence.toFixed(2)}`);
-    this.emit("detected", { keyword: "Vox", confidence, timestamp: now });
+    console.log(`[WakeWord] 🎙️ Wake Word "Vox" detectada! Score: ${score.toFixed(3)} (Threshold: ${this.threshold.toFixed(2)})`);
+    this.emit("detected", { keyword: "Vox", score, timestamp: now });
   }
 }
 const wakewordDetector = new WakeWordDetector();
@@ -1367,7 +1443,13 @@ function setupIpcHandlers() {
           wakewordDetector.setSensitivity(parseFloat(settings.wakeWordSensitivity));
         }
         if (settings.wakeWordEnabled === "true") {
-          wakewordDetector.start();
+          if (!wakewordDetector.isModelLoaded()) {
+            wakewordDetector.init().then((loaded) => {
+              if (loaded) wakewordDetector.start();
+            });
+          } else {
+            wakewordDetector.start();
+          }
         } else if (settings.wakeWordEnabled === "false") {
           wakewordDetector.stop();
         }
@@ -1377,6 +1459,23 @@ function setupIpcHandlers() {
       console.error("[Main] Erro ao salvar configurações no banco:", err);
       return { success: false };
     }
+  });
+  ipcMain.handle("vox:set-wakeword-enabled", async (_event, enabled) => {
+    if (enabled) {
+      if (!wakewordDetector.isModelLoaded()) {
+        const loaded = await wakewordDetector.init();
+        if (loaded) wakewordDetector.start();
+      } else {
+        wakewordDetector.start();
+      }
+    } else {
+      wakewordDetector.stop();
+    }
+    return { success: true };
+  });
+  ipcMain.handle("vox:set-wakeword-sensitivity", (_event, sensitivity) => {
+    wakewordDetector.setSensitivity(sensitivity);
+    return { success: true };
   });
 }
 let lastToggleTime = 0;
@@ -1426,12 +1525,28 @@ app.whenReady().then(async () => {
   const sensitivity = parseFloat(settings.wakeWordSensitivity || "0.5");
   await wakewordDetector.init(void 0, sensitivity);
   wakewordDetector.on("detected", () => {
+    if (recorder.isRecording()) return;
     console.log('[Main] 🎙️ Wake Word "Vox" detectada! Capturando janela ativa e iniciando ditado por voz...');
     captureActiveWindow();
     showDock();
+    wakewordDetector.pause();
     recorder.startRecording({ autoStopOnSilence: true });
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("vox:toggle-recording", true);
+      mainWindow.webContents.send("vox:wakeword-fired");
+    }
+    if (dockWindow && !dockWindow.isDestroyed()) {
+      dockWindow.webContents.send("vox:wakeword-fired");
+    }
+  });
+  wakewordDetector.on("wakeword-model-missing", (data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("vox:wakeword-model-missing", data);
+    }
+  });
+  wakewordDetector.on("wakeword-error", (data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("vox:wakeword-error", data);
     }
   });
   recorder.on("auto-stop", async () => {
@@ -1441,6 +1556,7 @@ app.whenReady().then(async () => {
       mainWindow.webContents.send("vox:toggle-recording", false);
     }
     const buffer = recorder.stopRecording();
+    wakewordDetector.resume();
     if (!buffer || buffer.length === 0) return;
     const result = await transcribeAudio(buffer);
     console.log("[Main] Transcrição bruta:", result.text);
@@ -1480,6 +1596,7 @@ app.whenReady().then(async () => {
     { type: "separator" },
     { label: "Sair", click: () => {
       tray?.destroy();
+      wakewordDetector.stop();
       app.exit(0);
     } }
   ]));
@@ -1495,6 +1612,7 @@ app.whenReady().then(async () => {
 });
 app.on("before-quit", () => {
   isQuitting = true;
+  wakewordDetector.stop();
 });
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();

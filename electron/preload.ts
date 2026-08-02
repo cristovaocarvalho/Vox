@@ -28,6 +28,8 @@ export const voxApi = {
   // Configurações & Banco de Dados
   getSettings: () => ipcRenderer.invoke('vox:get-settings'),
   saveSettings: (settings: Record<string, string>) => ipcRenderer.invoke('vox:save-settings', settings),
+  setWakeWordEnabled: (enabled: boolean) => ipcRenderer.invoke('vox:set-wakeword-enabled', enabled),
+  setWakeWordSensitivity: (sensitivity: number) => ipcRenderer.invoke('vox:set-wakeword-sensitivity', sensitivity),
 
   // Event Listeners
   onDockTextUpdate: (callback: (text: string) => void) => {
@@ -64,6 +66,21 @@ export const voxApi = {
     const handler = (_event: unknown, data: { phase: string; percent: number; speed?: string; eta?: string }) => callback(data)
     ipcRenderer.on('vox:media-progress', handler)
     return () => ipcRenderer.removeListener('vox:media-progress', handler)
+  },
+  onWakeWordFired: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('vox:wakeword-fired', handler)
+    return () => ipcRenderer.removeListener('vox:wakeword-fired', handler)
+  },
+  onWakeWordModelMissing: (callback: (data: any) => void) => {
+    const handler = (_event: unknown, data: any) => callback(data)
+    ipcRenderer.on('vox:wakeword-model-missing', handler)
+    return () => ipcRenderer.removeListener('vox:wakeword-model-missing', handler)
+  },
+  onWakeWordError: (callback: (data: any) => void) => {
+    const handler = (_event: unknown, data: any) => callback(data)
+    ipcRenderer.on('vox:wakeword-error', handler)
+    return () => ipcRenderer.removeListener('vox:wakeword-error', handler)
   }
 }
 

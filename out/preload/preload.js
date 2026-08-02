@@ -26,6 +26,8 @@ const voxApi = {
   // Configurações & Banco de Dados
   getSettings: () => ipcRenderer.invoke("vox:get-settings"),
   saveSettings: (settings) => ipcRenderer.invoke("vox:save-settings", settings),
+  setWakeWordEnabled: (enabled) => ipcRenderer.invoke("vox:set-wakeword-enabled", enabled),
+  setWakeWordSensitivity: (sensitivity) => ipcRenderer.invoke("vox:set-wakeword-sensitivity", sensitivity),
   // Event Listeners
   onDockTextUpdate: (callback) => {
     const handler = (_event, text) => callback(text);
@@ -61,6 +63,21 @@ const voxApi = {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on("vox:media-progress", handler);
     return () => ipcRenderer.removeListener("vox:media-progress", handler);
+  },
+  onWakeWordFired: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on("vox:wakeword-fired", handler);
+    return () => ipcRenderer.removeListener("vox:wakeword-fired", handler);
+  },
+  onWakeWordModelMissing: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("vox:wakeword-model-missing", handler);
+    return () => ipcRenderer.removeListener("vox:wakeword-model-missing", handler);
+  },
+  onWakeWordError: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("vox:wakeword-error", handler);
+    return () => ipcRenderer.removeListener("vox:wakeword-error", handler);
   }
 };
 contextBridge.exposeInMainWorld("vox", voxApi);

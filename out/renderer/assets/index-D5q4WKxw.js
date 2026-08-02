@@ -76821,6 +76821,8 @@ const MainWindow = () => {
   const [draftBrowserCookies, setDraftBrowserCookies] = reactExports.useState(browserCookies);
   const [draftWakeWordEnabled, setDraftWakeWordEnabled] = reactExports.useState(wakeWordEnabled);
   const [draftWakeWordSensitivity, setDraftWakeWordSensitivity] = reactExports.useState(wakeWordSensitivity);
+  const [wakeWordModelMissing, setWakeWordModelMissing] = reactExports.useState(false);
+  const [wakeWordError, setWakeWordError] = reactExports.useState(null);
   const handleOpenSettings = () => {
     setDraftApiKey(apiKey);
     setDraftShortcutToggle(shortcutToggle);
@@ -76850,6 +76852,12 @@ const MainWindow = () => {
         wakeWordSensitivity: String(draftWakeWordSensitivity)
       }).catch(console.error);
     }
+    if (window.vox?.setWakeWordEnabled) {
+      window.vox.setWakeWordEnabled(draftWakeWordEnabled).catch(console.error);
+    }
+    if (window.vox?.setWakeWordSensitivity) {
+      window.vox.setWakeWordSensitivity(draftWakeWordSensitivity).catch(console.error);
+    }
   };
   React.useEffect(() => {
     if (window.vox?.getSettings) {
@@ -76866,6 +76874,16 @@ const MainWindow = () => {
         }
       }).catch(console.error);
     }
+    const unsubMissing = window.vox?.onWakeWordModelMissing?.(() => {
+      setWakeWordModelMissing(true);
+    });
+    const unsubError = window.vox?.onWakeWordError?.((data) => {
+      setWakeWordError(data?.error || "Erro no microfone de segundo plano");
+    });
+    return () => {
+      unsubMissing?.();
+      unsubError?.();
+    };
   }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies, setWakeWordEnabled, setWakeWordSensitivity]);
   const [mediaStep, setMediaStep] = reactExports.useState("input");
   const [videoInfo, setVideoInfo] = reactExports.useState(null);
@@ -77767,6 +77785,17 @@ const MainWindow = () => {
                         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "button-indicator" })
                       ] })
                     ] }) })
+                  ] }),
+                  wakeWordModelMissing && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-2.5 bg-warning/15 border border-warning/30 rounded-lg text-[11px] text-warning font-medium", children: [
+                    "⚠️ Modelo ONNX (vox.onnx) não encontrado em ",
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono", children: "resources/models/wakeword/" }),
+                    ". Execute ",
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono", children: "npm run setup:wakeword" }),
+                    " para baixar."
+                  ] }),
+                  wakeWordError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-2.5 bg-error/15 border border-error/30 rounded-lg text-[11px] text-error font-medium", children: [
+                    "⚠️ Microfone de segundo plano: ",
+                    wakeWordError
                   ] }),
                   draftWakeWordEnabled && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "pt-2 border-t border-border/30", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between text-xs mb-1", children: [
