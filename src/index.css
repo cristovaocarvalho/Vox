@@ -11,10 +11,24 @@
   --color-accent-hover: #E2E8F0;
   --color-text-primary: #E8E8F0;
   --color-text-secondary: #8888A0;
+  --color-text-muted: #5C5C70;
   --color-text-disabled: #444455;
   --color-success: #4ADE80;
   --color-error: #F87171;
   --color-warning: #FBBF24;
+
+  /* Motion design tokens */
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-glass: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv11", "ss01", "ss03";
 }
 
 body {
@@ -22,11 +36,59 @@ body {
   background-color: transparent;
   color: var(--color-text-primary);
   font-family: 'Inter', sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -0.008em;
 }
 
-h1, h2, h3, h4, h5, h6, .font-heading {
+::selection {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-heading {
   font-family: 'Space Grotesk', sans-serif;
   letter-spacing: -0.02em;
+  font-feature-settings: "ss01";
+}
+
+/* Tabular figures for timers, percentages and numeric readouts */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Refined focus ring for interactive elements */
+button:focus-visible,
+input:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.35);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Recording status dot */
+@keyframes pulse-dot {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.45;
+    transform: scale(0.75);
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 1.6s var(--ease-smooth) infinite;
 }
 
 /* From Uiverse.io by adamgiebl */
@@ -35,12 +97,12 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   height: 100%;
   --color: rgba(114, 114, 114, 0.18);
   background-color: #0D0D0F;
-  background-image: linear-gradient(0deg, transparent 24%, var(--color) 25%, var(--color) 26%, transparent 27%,transparent 74%, var(--color) 75%, var(--color) 76%, transparent 77%,transparent),
-      linear-gradient(90deg, transparent 24%, var(--color) 25%, var(--color) 26%, transparent 27%,transparent 74%, var(--color) 75%, var(--color) 76%, transparent 77%,transparent);
+  background-image: linear-gradient(0deg, transparent 24%, var(--color) 25%, var(--color) 26%, transparent 27%, transparent 74%, var(--color) 75%, var(--color) 76%, transparent 77%, transparent),
+    linear-gradient(90deg, transparent 24%, var(--color) 25%, var(--color) 26%, transparent 27%, transparent 74%, var(--color) 75%, var(--color) 76%, transparent 77%, transparent);
   background-size: 55px 55px;
 }
 
-/* From Uiverse.io by Cobp */ 
+/* From Uiverse.io by Cobp */
 .container_chat_bot {
   display: flex;
   flex-direction: column;
@@ -50,14 +112,12 @@ h1, h2, h3, h4, h5, h6, .font-heading {
 .container_chat_bot .container-chat-options {
   position: relative;
   display: flex;
-  background: linear-gradient(
-    to bottom right,
-    #7e7e7e,
-    #363636,
-    #363636,
-    #363636,
-    #363636
-  );
+  background: linear-gradient(to bottom right,
+      #7e7e7e,
+      #363636,
+      #363636,
+      #363636,
+      #363636);
   border-radius: 16px;
   padding: 1.5px;
   overflow: hidden;
@@ -68,16 +128,14 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   content: "";
   top: -10px;
   left: -10px;
-  background: radial-gradient(
-    ellipse at center,
-    #ffffff,
-    rgba(255, 255, 255, 0.3),
-    rgba(255, 255, 255, 0.1),
-    rgba(0, 0, 0, 0),
-    rgba(0, 0, 0, 0),
-    rgba(0, 0, 0, 0),
-    rgba(0, 0, 0, 0)
-  );
+  background: radial-gradient(ellipse at center,
+      #ffffff,
+      rgba(255, 255, 255, 0.3),
+      rgba(255, 255, 255, 0.1),
+      rgba(0, 0, 0, 0),
+      rgba(0, 0, 0, 0),
+      rgba(0, 0, 0, 0),
+      rgba(0, 0, 0, 0));
   width: 30px;
   height: 30px;
   filter: blur(1px);
@@ -116,7 +174,7 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   color: #FFFFFF;
 }
 
-/* From Uiverse.io by Smit-Prajapati */ 
+/* From Uiverse.io by Smit-Prajapati */
 .radio-container {
   --main-color: #FFFFFF;
   --main-color-opacity: rgba(255, 255, 255, 0.2);
@@ -144,12 +202,10 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   left: 0;
   top: 0;
   bottom: 0;
-  background: linear-gradient(
-    0deg,
-    rgba(0, 0, 0, 0) 0%,
-    rgba(42, 42, 53, 1) 50%,
-    rgba(0, 0, 0, 0) 100%
-  );
+  background: linear-gradient(0deg,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(42, 42, 53, 1) 50%,
+      rgba(0, 0, 0, 0) 100%);
   width: 2px;
 }
 
@@ -157,13 +213,11 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   position: relative;
   height: calc(100% / var(--total-radio));
   width: 100%;
-  background: linear-gradient(
-    0deg,
-    rgba(0, 0, 0, 0) 0%,
-    var(--main-color) 50%,
-    rgba(0, 0, 0, 0) 100%
-  );
-  transition: transform 0.4s cubic-bezier(0.37, 1.95, 0.66, 0.56);
+  background: linear-gradient(0deg,
+      rgba(0, 0, 0, 0) 0%,
+      var(--main-color) 50%,
+      rgba(0, 0, 0, 0) 100%);
+  transition: transform 0.5s var(--ease-spring);
 }
 
 .radio-container .glider-container .glider::before {
@@ -183,11 +237,9 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   left: 0;
   height: 100%;
   width: 160px;
-  background: linear-gradient(
-    90deg,
-    var(--main-color-opacity) 0%,
-    rgba(0, 0, 0, 0) 100%
-  );
+  background: linear-gradient(90deg,
+      var(--main-color-opacity) 0%,
+      rgba(0, 0, 0, 0) 100%);
   pointer-events: none;
 }
 
@@ -198,7 +250,7 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   color: #8888A0;
   font-size: 0.875rem;
   font-weight: 500;
-  transition: all 0.3s ease-in-out;
+  transition: color 0.25s var(--ease-smooth);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -208,24 +260,24 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   color: #E8E8F0;
 }
 
-.radio-container input:checked + label {
+.radio-container input:checked+label {
   color: var(--main-color);
   font-weight: 600;
 }
 
-.radio-container input:nth-of-type(1):checked ~ .glider-container .glider {
+.radio-container input:nth-of-type(1):checked~.glider-container .glider {
   transform: translateY(0);
 }
 
-.radio-container input:nth-of-type(2):checked ~ .glider-container .glider {
+.radio-container input:nth-of-type(2):checked~.glider-container .glider {
   transform: translateY(100%);
 }
 
-.radio-container input:nth-of-type(3):checked ~ .glider-container .glider {
+.radio-container input:nth-of-type(3):checked~.glider-container .glider {
   transform: translateY(200%);
 }
 
-.radio-container input:nth-of-type(4):checked ~ .glider-container .glider {
+.radio-container input:nth-of-type(4):checked~.glider-container .glider {
   transform: translateY(300%);
 }
 
@@ -255,12 +307,10 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0) 0%,
-    rgba(42, 42, 53, 1) 50%,
-    rgba(0, 0, 0, 0) 100%
-  );
+  background: linear-gradient(90deg,
+      rgba(0, 0, 0, 0) 0%,
+      rgba(42, 42, 53, 1) 50%,
+      rgba(0, 0, 0, 0) 100%);
   height: 2px;
 }
 
@@ -268,13 +318,11 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   position: relative;
   width: calc(100% / var(--total-radio));
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0) 0%,
-    var(--main-color) 50%,
-    rgba(0, 0, 0, 0) 100%
-  );
-  transition: transform 0.4s cubic-bezier(0.37, 1.95, 0.66, 0.56);
+  background: linear-gradient(90deg,
+      rgba(0, 0, 0, 0) 0%,
+      var(--main-color) 50%,
+      rgba(0, 0, 0, 0) 100%);
+  transition: transform 0.5s var(--ease-spring);
 }
 
 .radio-container-horizontal .glider-container .glider::before {
@@ -294,11 +342,9 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   top: 0;
   width: 100%;
   height: 40px;
-  background: linear-gradient(
-    180deg,
-    rgba(0, 0, 0, 0) 0%,
-    var(--main-color-opacity) 100%
-  );
+  background: linear-gradient(180deg,
+      rgba(0, 0, 0, 0) 0%,
+      var(--main-color-opacity) 100%);
   pointer-events: none;
 }
 
@@ -309,7 +355,7 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   color: #8888A0;
   font-size: 0.875rem;
   font-weight: 500;
-  transition: all 0.3s ease-in-out;
+  transition: color 0.25s var(--ease-smooth);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -320,26 +366,27 @@ h1, h2, h3, h4, h5, h6, .font-heading {
   color: #E8E8F0;
 }
 
-.radio-container-horizontal input:checked + label {
+.radio-container-horizontal input:checked+label {
   color: var(--main-color);
   font-weight: 600;
 }
 
-.radio-container-horizontal input:nth-of-type(1):checked ~ .glider-container .glider {
+.radio-container-horizontal input:nth-of-type(1):checked~.glider-container .glider {
   transform: translateX(0);
 }
 
-.radio-container-horizontal input:nth-of-type(2):checked ~ .glider-container .glider {
+.radio-container-horizontal input:nth-of-type(2):checked~.glider-container .glider {
   transform: translateX(100%);
 }
 
-code, pre {
+code,
+pre {
   font-family: 'JetBrains Mono', monospace;
 }
 
 /* Custom Scrollbar for Combobox & Popups */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -347,37 +394,41 @@ code, pre {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.14);
   border-radius: 9999px;
+  transition: background-color 0.2s ease;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.28);
 }
 
-/* From Uiverse.io by Admin12121 */ 
+/* Clean toggle switch (keeps the .switch-button DOM structure) */
 .switch-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 55px;
-  width: 115px;
-  zoom: 0.55;
+  flex-shrink: 0;
 }
 
 .switch-button .switch-outer {
-  height: 55px;
-  width: 115px;
+  position: relative;
+  display: block;
+  height: 24px;
+  width: 44px;
   background: #252532;
-  border-radius: 165px;
-  -webkit-box-shadow: inset 0px 5px 10px 0px #16151c, 0px 3px 6px -2px #403f4e;
-  box-shadow: inset 0px 5px 10px 0px #16151c, 0px 3px 6px -2px #403f4e;
+  border-radius: 999px;
   border: 1px solid #32303e;
-  padding: 6px;
-  -webkit-box-sizing: border-box;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
   box-sizing: border-box;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.25s var(--ease-smooth),
+    border-color 0.25s var(--ease-smooth);
+}
+
+.switch-button .switch-outer:hover {
+  border-color: #44435a;
 }
 
 .switch-button .switch-outer input[type="checkbox"] {
@@ -388,109 +439,48 @@ code, pre {
   position: absolute;
 }
 
-.switch-button .switch-outer .button-toggle {
-  height: 42px;
-  width: 42px;
-  background: -webkit-gradient(
-    linear,
-    left top,
-    left bottom,
-    from(#3b3a4e),
-    to(#272733)
-  );
-  background: -o-linear-gradient(#3b3a4e, #272733);
-  background: linear-gradient(#3b3a4e, #272733);
-  border-radius: 100%;
-  -webkit-box-shadow: inset 0px 5px 4px 0px #424151, 0px 4px 15px 0px #0f0e17;
-  box-shadow: inset 0px 5px 4px 0px #424151, 0px 4px 15px 0px #0f0e17;
-  position: relative;
-  z-index: 2;
-  -webkit-transition: left 0.3s ease-in;
-  -o-transition: left 0.3s ease-in;
-  transition: left 0.3s ease-in;
-  left: 0;
-}
-
-.switch-button
-  .switch-outer
-  input[type="checkbox"]:checked
-  + .button
-  .button-toggle {
-  left: 58%;
-}
-
-.switch-button
-  .switch-outer
-  input[type="checkbox"]:checked
-  + .button
-  .button-indicator {
-  -webkit-animation: indicator 1s forwards;
-  animation: indicator 1s forwards;
-}
-
 .switch-button .switch-outer .button {
   width: 100%;
   height: 100%;
-  display: -webkit-box;
-  display: -ms-flexbox;
-  display: flex;
+  display: block;
   position: relative;
-  -webkit-box-pack: justify;
-  justify-content: space-between;
+}
+
+.switch-button .switch-outer .button-toggle {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  height: 18px;
+  width: 18px;
+  transform: translateY(-50%);
+  background: linear-gradient(180deg, #4a4960, #33333f);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  z-index: 2;
+  transition: left 0.3s var(--ease-spring),
+    background 0.25s var(--ease-smooth);
 }
 
 .switch-button .switch-outer .button-indicator {
-  height: 25px;
-  width: 25px;
-  top: 50%;
-  -webkit-transform: translateY(-50%);
-  transform: translateY(-50%);
-  border-radius: 50%;
-  border: 3px solid #ef565f;
-  -webkit-box-sizing: border-box;
-  box-sizing: border-box;
-  right: 10px;
-  position: relative;
+  display: none;
 }
 
-@-webkit-keyframes indicator {
-  30% {
-    opacity: 0;
-  }
-
-  0% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 1;
-    border: 3px solid #60d480;
-    left: -68%;
-  }
+.switch-button .switch-outer:has(input[type="checkbox"]:checked) {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
-@keyframes indicator {
-  30% {
-    opacity: 0;
-  }
-
-  0% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 1;
-    border: 3px solid #60d480;
-    left: -68%;
-  }
+.switch-button .switch-outer input[type="checkbox"]:checked+.button .button-toggle {
+  left: calc(100% - 21px);
+  background: linear-gradient(180deg, #ffffff, #d8d8e2);
 }
 
-/* From Uiverse.io by Galahhad */ 
+/* From Uiverse.io by Galahhad */
 .slider {
   /* slider */
   --slider-width: 100%;
-  --slider-height: 6px;
-  --slider-bg: rgb(82, 82, 82);
+  --slider-height: 4px;
+  --slider-bg: #2A2A35;
   --slider-border-radius: 999px;
   /* level */
   --level-color: #fff;
@@ -531,9 +521,9 @@ code, pre {
   background: var(--slider-bg);
   overflow: hidden;
   border-radius: var(--slider-border-radius);
-  -webkit-transition: height var(--level-transition-duration);
-  -o-transition: height var(--level-transition-duration);
-  transition: height var(--level-transition-duration);
+  -webkit-transition: height 0.25s var(--ease-smooth);
+  -o-transition: height 0.25s var(--ease-smooth);
+  transition: height 0.25s var(--ease-smooth);
   cursor: inherit;
 }
 
@@ -549,5 +539,39 @@ code, pre {
   height: calc(var(--slider-height) * 2);
 }
 
+/* Custom checkbox */
+.vox-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: rgba(13, 13, 15, 0.6);
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.2s var(--ease-smooth),
+    border-color 0.2s var(--ease-smooth);
+}
 
+.vox-checkbox:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+}
 
+.vox-checkbox:checked {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+.vox-checkbox:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 1.5px;
+  width: 5px;
+  height: 9px;
+  border: solid #0D0D0F;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}

@@ -13,11 +13,11 @@ import {
 import { cn } from '../lib/utils'
 
 const inputWrapperClassName = cn(
-  'bg-background/70 border border-border/60 focus-within:border-accent relative w-full rounded-xl px-3.5 py-2.5 transition-colors',
+  'bg-background/70 border border-border/60 focus-within:border-accent/80 relative w-full rounded-xl px-3.5 py-2.5 transition-[border-color,box-shadow] duration-250 ease-smooth focus-within:shadow-[0_0_0_3px_rgba(255,255,255,0.06)]',
 )
 
 const inputClassName =
-  'w-full bg-transparent outline-none text-sm font-mono text-text-primary placeholder:text-text-disabled'
+  'w-full bg-transparent outline-none text-sm font-sans font-medium tracking-tight text-text-primary placeholder:text-text-disabled placeholder:font-normal'
 
 type InputFieldProps = ComponentPropsWithoutRef<'input'> & {
   wrapperClassName?: string
@@ -281,10 +281,10 @@ export const SmoothInput = ({
         <span
           ref={measureRef}
           aria-hidden
-          className="pointer-events-none invisible absolute top-0 left-0 whitespace-pre font-mono text-sm"
+          className="pointer-events-none invisible absolute top-0 left-0 whitespace-pre font-sans text-sm"
         />
         <motion.div
-          className="bg-accent pointer-events-none col-start-1 col-end-2 row-start-1 row-end-2 h-[1.1em] w-0.5 self-center shadow-[0_0_8px_rgba(248,113,113,0.8)]"
+          className="bg-accent pointer-events-none col-start-1 col-end-2 row-start-1 row-end-2 h-[1.1em] w-0.5 self-center shadow-[0_0_8px_rgba(255,255,255,0.6)]"
           style={{ x: springCaretX, opacity: caretOpacity }}
         />
       </div>

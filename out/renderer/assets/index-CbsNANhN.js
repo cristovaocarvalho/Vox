@@ -15766,7 +15766,7 @@ const Badge = ({
     neutral: "bg-surface-elevated text-text-secondary border-border",
     accent: "bg-accent/15 text-accent border-accent/30"
   };
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border ${variantStyles[variant]} ${className}`, children });
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold tracking-label rounded-md border transition-colors duration-250 ease-smooth ${variantStyles[variant]} ${className}`, children });
 };
 const ProgressBar = ({
   progress: progress2,
@@ -15780,20 +15780,101 @@ const ProgressBar = ({
     error: "bg-error"
   };
   const clampedProgress = Math.min(100, Math.max(0, progress2));
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full space-y-1.5", children: [
-    (label || sublabel) && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between text-xs", children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full space-y-2", children: [
+    (label || sublabel) && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between items-baseline text-xs", children: [
       label && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-medium text-text-primary", children: label }),
-      sublabel && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-secondary", children: sublabel })
+      sublabel && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-secondary font-mono text-[11px] tnum", children: sublabel })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-2 w-full bg-surface-elevated rounded-full overflow-hidden border border-border", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-1.5 w-full bg-surface-elevated rounded-full overflow-hidden", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
       "div",
       {
-        className: `h-full transition-all duration-300 ${barColors[status]}`,
+        className: `h-full rounded-full transition-[width] duration-500 ease-smooth ${barColors[status]} shadow-[0_0_8px_rgba(255,255,255,0.35)]`,
         style: { width: `${clampedProgress}%` }
       }
     ) })
   ] });
 };
+const Svg = ({
+  className = "",
+  strokeWidth = 1.8,
+  children
+}) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+  "svg",
+  {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": "true",
+    className,
+    children
+  }
+);
+const IconCheck = (props) => /* @__PURE__ */ jsxRuntimeExports.jsx(Svg, { ...props, children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M5 13l4 4L19 7" }) });
+const IconClock = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "9" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 7v5l3 2" })
+] });
+const IconDownload = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 4v11" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M7 11l5 5 5-5" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M4 20h16" })
+] });
+const IconMic = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "9", y: "3", width: "6", height: "11", rx: "3" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M5 11a7 7 0 0 0 14 0" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 18v3" })
+] });
+const IconFile = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M14 3v5h5" })
+] });
+const IconFolder = (props) => /* @__PURE__ */ jsxRuntimeExports.jsx(Svg, { ...props, children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" }) });
+const IconGlobe = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "9" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M3 12h18" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 3a14.5 14.5 0 0 1 0 18a14.5 14.5 0 0 1 0-18" })
+] });
+const IconFilm = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "4", width: "18", height: "16", rx: "2.5" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M8 4v16M16 4v16M3 9h5M3 15h5M16 9h5M16 15h5" })
+] });
+const IconUpload = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 16V5" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M7 9l5-5 5 5" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M4 20h16" })
+] });
+const IconTrash = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M4 7h16" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M6.5 7l1 12a2 2 0 0 0 2 1.8h5a2 2 0 0 0 2-1.8l1-12" })
+] });
+const IconChevronDown = (props) => /* @__PURE__ */ jsxRuntimeExports.jsx(Svg, { ...props, children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M6 9l6 6 6-6" }) });
+const IconAlert = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 4L2.5 20h19z" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 10v4" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 17.2v.1" })
+] });
+const IconX = (props) => /* @__PURE__ */ jsxRuntimeExports.jsx(Svg, { ...props, children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M6 6l12 12M18 6L6 18" }) });
+const IconCopy = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "9", y: "9", width: "11", height: "11", rx: "2" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" })
+] });
+const IconShield = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 3l7.5 3v5.5c0 4.5-3 8-7.5 9.5c-4.5-1.5-7.5-5-7.5-9.5V6z" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M9 12l2 2 4-4" })
+] });
+const IconTerminal = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "4", width: "18", height: "16", rx: "2.5" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M7 9l3 3-3 3" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12.5 15H17" })
+] });
+const IconGear = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "3.2" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M18.5 5.5l-1.8 1.8M7.3 16.7l-1.8 1.8" })
+] });
 const SpotlightNavbar = ({
   items = [
     { label: "Vox Type", id: "type" },
@@ -15835,8 +15916,9 @@ const SpotlightNavbar = ({
         const targetX = itemRect.left - navRect.left + itemRect.width / 2;
         animate(spotlightX.current, targetX, {
           type: "spring",
-          stiffness: 200,
-          damping: 20,
+          stiffness: 170,
+          damping: 22,
+          mass: 0.8,
           onUpdate: (v2) => {
             spotlightX.current = v2;
             nav.style.setProperty("--spotlight-x", `${v2}px`);
@@ -15861,8 +15943,9 @@ const SpotlightNavbar = ({
       const targetX = itemRect.left - navRect.left + itemRect.width / 2;
       animate(ambienceX.current, targetX, {
         type: "spring",
-        stiffness: 200,
-        damping: 20,
+        stiffness: 170,
+        damping: 22,
+        mass: 0.8,
         onUpdate: (v2) => {
           ambienceX.current = v2;
           nav.style.setProperty("--ambience-x", `${v2}px`);
@@ -15874,20 +15957,20 @@ const SpotlightNavbar = ({
     setActiveIndex(index);
     onItemClick?.(item, index);
   };
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: cn("relative flex justify-center py-2", className), children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: cn("relative flex justify-center", className), children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "nav",
     {
       ref: navRef,
       className: cn(
-        "relative h-11 rounded-full transition-all duration-300 overflow-hidden",
-        "bg-surface/80 border border-border/80 backdrop-blur-xl shadow-2xl"
+        "relative h-11 rounded-full transition-[border-color,box-shadow] duration-450 ease-glass overflow-hidden",
+        "bg-surface/80 border border-border/80 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.45)]"
       ),
       style: {
         "--spotlight-color": "rgba(255, 255, 255, 0.15)",
         "--ambience-color": "rgba(255, 255, 255, 1)"
       },
       children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("ul", { className: "relative flex items-center h-full px-2 gap-1 z-[10]", children: items.map((item, idx) => /* @__PURE__ */ jsxRuntimeExports.jsx("li", { className: "relative h-full flex items-center justify-center", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+        /* @__PURE__ */ jsxRuntimeExports.jsx("ul", { className: "relative flex items-center h-full px-2.5 gap-1 z-[10]", children: items.map((item, idx) => /* @__PURE__ */ jsxRuntimeExports.jsx("li", { className: "relative h-full flex items-center justify-center", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
           "button",
           {
             "data-index": idx,
@@ -15896,8 +15979,8 @@ const SpotlightNavbar = ({
               handleItemClick(item, idx);
             },
             className: cn(
-              "px-5 py-1.5 text-sm font-medium transition-colors duration-200 rounded-full cursor-pointer focus-visible:outline-none font-heading",
-              activeIndex === idx ? "text-white font-semibold" : "text-neutral-400 hover:text-white"
+              "px-5 py-1.5 text-sm font-medium transition-colors duration-250 ease-smooth rounded-full cursor-pointer focus-visible:outline-none font-heading tracking-tight",
+              activeIndex === idx ? "text-white font-semibold" : "text-text-secondary hover:text-white"
             ),
             children: item.label
           }
@@ -15905,7 +15988,7 @@ const SpotlightNavbar = ({
         /* @__PURE__ */ jsxRuntimeExports.jsx(
           "div",
           {
-            className: "pointer-events-none absolute bottom-0 left-0 w-full h-full z-[1] opacity-0 transition-opacity duration-300",
+            className: "pointer-events-none absolute bottom-0 left-0 w-full h-full z-[1] opacity-0 transition-opacity duration-350 ease-smooth",
             style: {
               opacity: hoverX !== null ? 1 : 0,
               background: `
@@ -15992,9 +16075,9 @@ const LiquidGlassCard = ({
   };
   const glowClasses = {
     none: "border-white/5",
-    sm: "border-white/10 hover:border-white/20",
-    md: "border-white/20 hover:border-white/30",
-    lg: "border-white/30 hover:border-white/50"
+    sm: "border-white/[0.08] hover:border-white/20",
+    md: "border-white/15 hover:border-white/30",
+    lg: "border-white/25 hover:border-white/50"
   };
   const Component = draggable ? motion.div : "div";
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
@@ -16002,8 +16085,8 @@ const LiquidGlassCard = ({
     {
       ...draggable ? { drag: true, dragConstraints: { left: -50, right: 50, top: -50, bottom: 50 } } : {},
       className: cn(
-        "relative overflow-hidden transition-all duration-300",
-        "bg-[#16161A]/70 backdrop-saturate-150 border",
+        "relative overflow-hidden transition-[border-color,box-shadow,transform] duration-450 ease-glass",
+        "bg-[#16161A]/50 backdrop-saturate-150 border",
         blurClasses[blurIntensity],
         shadowClasses[shadowIntensity],
         glowClasses[glowIntensity],
@@ -76517,9 +76600,9 @@ const AnimatedContent = ({
   return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { ref: ref2, className, style: { visibility: "hidden" }, ...props, children });
 };
 const inputWrapperClassName = cn(
-  "bg-background/70 border border-border/60 focus-within:border-accent relative w-full rounded-xl px-3.5 py-2.5 transition-colors"
+  "bg-background/70 border border-border/60 focus-within:border-accent/80 relative w-full rounded-xl px-3.5 py-2.5 transition-[border-color,box-shadow] duration-250 ease-smooth focus-within:shadow-[0_0_0_3px_rgba(255,255,255,0.06)]"
 );
-const inputClassName = "w-full bg-transparent outline-none text-sm font-mono text-text-primary placeholder:text-text-disabled";
+const inputClassName = "w-full bg-transparent outline-none text-sm font-sans font-medium tracking-tight text-text-primary placeholder:text-text-disabled placeholder:font-normal";
 const PASSWORD_CHAR = typeof navigator !== "undefined" && navigator.userAgent.match(/firefox|fxios/i) ? "●" : "•";
 const SmoothInput = ({
   className,
@@ -76712,13 +76795,13 @@ const SmoothInput = ({
           {
             ref: measureRef,
             "aria-hidden": true,
-            className: "pointer-events-none invisible absolute top-0 left-0 whitespace-pre font-mono text-sm"
+            className: "pointer-events-none invisible absolute top-0 left-0 whitespace-pre font-sans text-sm"
           }
         ),
         /* @__PURE__ */ jsxRuntimeExports.jsx(
           motion.div,
           {
-            className: "bg-accent pointer-events-none col-start-1 col-end-2 row-start-1 row-end-2 h-[1.1em] w-0.5 self-center shadow-[0_0_8px_rgba(248,113,113,0.8)]",
+            className: "bg-accent pointer-events-none col-start-1 col-end-2 row-start-1 row-end-2 h-[1.1em] w-0.5 self-center shadow-[0_0_8px_rgba(255,255,255,0.6)]",
             style: { x: springCaretX, opacity: caretOpacity }
           }
         )
@@ -76771,8 +76854,8 @@ const ShortcutInput = ({
         onKeyDown: handleKeyDown,
         placeholder,
         className: cn(
-          "w-full bg-background/70 border px-3 py-2 rounded-xl text-xs font-mono text-center transition-all cursor-pointer select-none focus:outline-none",
-          isRecording ? "border-accent text-accent animate-pulse bg-accent/15 ring-2 ring-accent/30 font-semibold" : "border-border/60 text-accent hover:border-accent/40",
+          "w-full bg-background/70 border px-3 py-2 rounded-xl text-xs font-mono font-medium text-center transition-[border-color,box-shadow,background-color] duration-250 ease-smooth cursor-pointer select-none focus:outline-none",
+          isRecording ? "border-accent text-accent animate-pulse bg-accent/15 shadow-[0_0_0_3px_rgba(255,255,255,0.08)] font-semibold" : "border-border/60 text-accent hover:border-accent/50 hover:bg-accent/[0.04]",
           className
         )
       }
@@ -76848,6 +76931,12 @@ const MainWindow = () => {
         await window.vox.clearAllSessions();
         fetchHistory();
       }
+    }
+  };
+  const handleDeleteSession = async (id2) => {
+    if (window.vox?.deleteSession) {
+      await window.vox.deleteSession(id2);
+      fetchHistory();
     }
   };
   const handleReExport = (session) => {
@@ -77298,8 +77387,8 @@ const MainWindow = () => {
     }
   };
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex h-screen w-screen bg-background text-text-primary overflow-hidden font-sans select-none", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("main", { className: "flex-1 flex flex-col min-w-0 h-screen overflow-y-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Beams, { beamWidth: 2, beamHeight: 15, beamNumber: 12, lightColor: "#ffffff", speed: 2, noiseIntensity: 1.75, scale: 0.2, rotation: 0, children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pt-5 flex items-center justify-center sticky top-0 z-20 pointer-events-none", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pointer-events-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+    /* @__PURE__ */ jsxRuntimeExports.jsx("main", { className: "flex-1 flex flex-col min-w-0 h-screen overflow-y-auto custom-scrollbar", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Beams, { beamWidth: 2, beamHeight: 15, beamNumber: 12, lightColor: "#ffffff", speed: 2, noiseIntensity: 1.75, scale: 0.2, rotation: 0, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pt-6 flex items-center justify-center sticky top-0 z-20 pointer-events-none", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pointer-events-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
         SpotlightNavbar,
         {
           activeId: activeTab,
@@ -77310,113 +77399,147 @@ const MainWindow = () => {
           onItemClick: (item) => setActiveTab(item.id)
         }
       ) }) }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-start justify-center px-6 py-6 pb-20", children: activeTab === "type" ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-5xl space-y-6", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-start justify-center px-4 sm:px-6 pt-10 pb-24", children: activeTab === "type" ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-3xl space-y-5", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.05, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-8 flex flex-col items-center text-center", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
             {
               onClick: handleToggleRecording,
-              className: `mx-auto flex items-center justify-center transition-all cursor-pointer focus:outline-none mb-6 ${isRecording ? "animate-pulse scale-110" : "hover:scale-105 active:scale-95"}`,
+              className: `mx-auto flex items-center justify-center transition-transform duration-450 ease-spring cursor-pointer focus:outline-none ${isRecording ? "scale-110" : "hover:scale-105 active:scale-95"}`,
               children: /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "img",
                 {
                   src: logoImg,
                   alt: "Vox",
-                  className: `w-32 h-32 object-contain transition-all filter ${isRecording ? "drop-shadow-[0_0_28px_rgba(248,113,113,0.9)]" : "drop-shadow-[0_0_14px_rgba(255,255,255,0.25)] hover:drop-shadow-[0_0_24px_rgba(255,255,255,0.55)]"}`
+                  className: `w-28 h-28 object-contain transition-all duration-500 ease-smooth filter ${isRecording ? "drop-shadow-[0_0_28px_rgba(255,255,255,0.75)]" : "drop-shadow-[0_0_14px_rgba(255,255,255,0.25)] hover:drop-shadow-[0_0_24px_rgba(255,255,255,0.55)]"}`
                 }
               )
             }
           ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-base font-semibold text-text-primary mb-4", children: isRecording ? "Fale agora..." : "Clique para Iniciar ou use um dos Atalhos" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center justify-center gap-4 sm:gap-8 mb-6", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-xl border border-border/40", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded font-semibold", children: '"Vox"' }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-4 text-lg font-semibold font-heading tracking-tight text-text-primary", children: isRecording ? "Fale agora..." : "Iniciar" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-5 mb-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md", children: '"Vox"' }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary font-medium", children: "Comando por Voz" })
             ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-xl border border-border/40", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded font-semibold", children: "F10" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md", children: "F10" }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary font-medium", children: "Toggle" })
             ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-xl border border-border/40", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded font-semibold", children: "F9" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md", children: "F9" }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary font-medium", children: "Push-to-Talk" })
             ] })
           ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(Badge, { variant: isRecording ? "error" : "neutral", children: isRecording ? "● Gravando" : "Aguardando" })
+          /* @__PURE__ */ jsxRuntimeExports.jsxs(Badge, { variant: isRecording ? "accent" : "neutral", children: [
+            isRecording && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "w-1.5 h-1.5 rounded-full bg-accent animate-pulse-dot" }),
+            isRecording ? "Gravando" : "Aguardando"
+          ] })
         ] }) }, `type-card-1-${activeTab}`),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.15, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-5", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-3 mb-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold text-text-secondary uppercase tracking-widest", children: "Última Transcrição" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.15, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-6", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-3 border-b border-border/40 pb-3 mb-4", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide", children: "Última Transcrição" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               SpecularButton,
               {
                 size: "sm",
                 onClick: handleCopyTranscript,
                 disabled: !lastTranscript,
-                tint: isCopied ? "#34d399" : "#ffffff",
-                tintOpacity: isCopied ? 0.2 : 0,
+                tint: "#ffffff",
+                tintOpacity: isCopied ? 0.12 : 0,
                 className: "transition-all duration-300 active:scale-95",
-                children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `inline-flex items-center gap-1.5 transition-all duration-300 ease-out ${isCopied ? "text-emerald-400 font-medium scale-105" : ""}`, children: isCopied ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { className: "w-3.5 h-3.5 animate-in fade-in zoom-in duration-200 stroke-emerald-400", fill: "none", viewBox: "0 0 24 24", stroke: "currentColor", strokeWidth: 2.5, children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M5 13l4 4L19 7" }) }),
+                children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `inline-flex items-center gap-1.5 transition-colors duration-250 ease-smooth ${isCopied ? "text-accent font-medium" : ""}`, children: isCopied ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(IconCheck, { className: "w-3.5 h-3.5", strokeWidth: 2.4 }),
                   "Copiado"
                 ] }) : "Copiar" })
               }
             )
           ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-4 bg-background/60 border border-border/50 rounded-xl font-mono text-sm sm:text-base text-text-primary min-h-[90px] leading-relaxed break-words", children: isRecording ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-accent animate-pulse", children: partialTranscript || "Gravando áudio..." }) : isTranscribing ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-accent animate-pulse", children: "Transcrevendo via Whisper Large V3 Turbo..." }) : lastTranscript ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: lastTranscript }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-disabled", children: 'Pressione F10 ou fale "Vox" para iniciar o ditado.' }) })
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-4 bg-background/60 border border-border/50 rounded-xl text-sm leading-relaxed text-text-primary min-h-[96px] break-words", children: isRecording ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-accent animate-pulse", children: partialTranscript || "Gravando áudio..." }) : isTranscribing ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-accent animate-pulse", children: "Transcrevendo via Whisper Large V3 Turbo..." }) : lastTranscript ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: lastTranscript }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-disabled", children: 'Pressione F10 ou fale "Vox" para iniciar o ditado.' }) })
         ] }) }, `type-card-2-${activeTab}`),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.25, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-5 space-y-4", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.25, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-6", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "button",
             {
               type: "button",
               onClick: () => setIsDictationHistoryOpen(!isDictationHistoryOpen),
-              className: "w-full flex items-center justify-between text-xs font-semibold text-text-secondary uppercase tracking-widest cursor-pointer hover:text-text-primary transition-colors",
+              className: "w-full flex items-center justify-between text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide cursor-pointer hover:text-text-primary transition-colors duration-250 ease-smooth",
               children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
                   "Histórico de Ditado (",
                   dictationHistory.length,
                   ")"
                 ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] text-text-muted", children: isDictationHistoryOpen ? "▲ Recolher" : "▼ Expandir" })
-              ]
-            }
-          ),
-          isDictationHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pt-2 border-t border-border/40", children: dictationHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-4", children: "Nenhum ditado gravado ainda." }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1", children: dictationHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            "div",
-            {
-              onClick: () => setLastTranscript(item.text),
-              className: "p-3.5 bg-background/50 border border-border/50 rounded-xl hover:border-accent/50 transition-all cursor-pointer flex items-center justify-between gap-3 group",
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0 text-left", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-primary line-clamp-2 font-mono text-left", children: item.text }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] text-text-disabled block mt-1 text-left", children: new Date(item.createdAt).toLocaleString("pt-BR") })
-                ] }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  "button",
+                  IconChevronDown,
                   {
-                    type: "button",
-                    onClick: (e) => {
-                      e.stopPropagation();
-                      navigator.clipboard.writeText(item.text);
-                    },
-                    className: "px-2.5 py-1 bg-surface border border-border text-[10px] text-text-secondary rounded-lg hover:text-text-primary hover:border-text-primary transition-all opacity-80 group-hover:opacity-100 cursor-pointer shrink-0",
-                    children: "Copiar"
+                    className: `w-4 h-4 text-text-muted transition-transform duration-300 ease-smooth ${isDictationHistoryOpen ? "rotate-180" : ""}`
                   }
                 )
               ]
-            },
-            item.id
-          )) }) })
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { initial: false, children: isDictationHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            motion.div,
+            {
+              initial: { height: 0, opacity: 0 },
+              animate: { height: "auto", opacity: 1 },
+              exit: { height: 0, opacity: 0 },
+              transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
+              className: "overflow-hidden",
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-4 pt-4 border-t border-border/40", children: dictationHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-4", children: "Nenhum ditado gravado ainda." }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar", children: dictationHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "div",
+                {
+                  onClick: () => setLastTranscript(item.text),
+                  className: "p-3.5 bg-background/50 border border-border/50 rounded-xl hover:border-accent/40 hover:bg-background/70 transition-[border-color,background-color] duration-250 ease-smooth cursor-pointer flex items-center justify-between gap-3 group",
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0 text-left", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-primary line-clamp-2 text-left leading-relaxed", children: item.text }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] text-text-muted block mt-1.5 text-left tnum", children: new Date(item.createdAt).toLocaleString("pt-BR") })
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "button",
+                        {
+                          type: "button",
+                          onClick: (e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(item.text);
+                          },
+                          className: "p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer",
+                          title: "Copiar",
+                          children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconCopy, { className: "w-3.5 h-3.5" })
+                        }
+                      ),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "button",
+                        {
+                          type: "button",
+                          onClick: (e) => {
+                            e.stopPropagation();
+                            handleDeleteSession(item.id);
+                          },
+                          className: "p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer",
+                          title: "Excluir",
+                          children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconTrash, { className: "w-3.5 h-3.5" })
+                        }
+                      )
+                    ] })
+                  ]
+                },
+                item.id
+              )) }) })
+            }
+          ) })
         ] }) }, `type-history-${activeTab}`)
-      ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-5xl space-y-6", children: [
-        mediaStep === "preview" && videoInfo && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 0.8, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "md", className: "p-6 flex flex-col gap-4 border border-border/60", children: [
+      ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-3xl space-y-5", children: [
+        mediaStep === "preview" && videoInfo && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 0.8, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "md", className: "p-6 flex flex-col gap-5 border border-border/60", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold uppercase tracking-wider text-text-secondary", children: "Preview da Mídia" }),
-            videoInfo.platform === "youtube" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "px-2 py-0.5 rounded text-[11px] font-semibold bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1", children: "YouTube" }),
-            videoInfo.platform === "tiktok" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "px-2 py-0.5 rounded text-[11px] font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center gap-1", children: "TikTok" }),
-            videoInfo.platform === "instagram" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "px-2 py-0.5 rounded text-[11px] font-semibold bg-pink-500/20 text-pink-400 border border-pink-500/30 flex items-center gap-1", children: "Instagram" }),
-            videoInfo.platform === "unknown" && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "px-2 py-0.5 rounded text-[11px] font-semibold bg-accent/20 text-accent border border-accent/30 flex items-center gap-1", children: "🌐 Mídia Web" })
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary", children: "Preview da Mídia" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-accent/10 text-accent border border-accent/20 capitalize", children: videoInfo.platform === "unknown" ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(IconGlobe, { className: "w-3 h-3" }),
+              "Mídia Web"
+            ] }) : videoInfo.platform })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col sm:flex-row gap-4 items-center sm:items-start", children: [
             videoInfo.thumbnail ? /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -77426,22 +77549,23 @@ const MainWindow = () => {
                 alt: "Thumbnail",
                 className: "w-32 h-24 object-cover rounded-xl border border-border/50 shrink-0 shadow-md"
               }
-            ) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-32 h-24 bg-surface border border-border/50 rounded-xl flex items-center justify-center text-3xl shrink-0", children: "🎬" }),
+            ) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-32 h-24 bg-surface border border-border/50 rounded-xl flex items-center justify-center shrink-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconFilm, { className: "w-7 h-7 text-text-muted", strokeWidth: 1.5 }) }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col justify-between flex-1 min-w-0 text-center sm:text-left gap-2", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold text-text-primary line-clamp-2 leading-tight", children: videoInfo.title }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-center sm:justify-start gap-2 text-xs text-text-secondary", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "⏱ Duração:" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono text-accent font-semibold", children: formatMMSS(videoInfo.duration) })
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold font-heading tracking-tight text-text-primary line-clamp-2 leading-snug", children: videoInfo.title }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-center sm:justify-start gap-1.5 text-xs text-text-secondary", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(IconClock, { className: "w-3.5 h-3.5 text-text-muted" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Duração:" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono text-accent font-semibold tnum", children: formatMMSS(videoInfo.duration) })
               ] })
             ] })
           ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-end gap-3 pt-3 border-t border-border/40 mt-1", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-end gap-3 pt-4 border-t border-border/40", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               "button",
               {
                 type: "button",
                 onClick: handleResetMedia,
-                className: "px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer",
+                className: "px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 ease-smooth cursor-pointer",
                 children: "Cancelar"
               }
             ),
@@ -77458,27 +77582,27 @@ const MainWindow = () => {
         ] }) }, `media-preview-${activeTab}`),
         mediaStep === "progress" && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 0.8, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "md", className: "p-6 flex flex-col gap-5 border border-border/60", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold uppercase tracking-wider text-text-secondary", children: "Processando Mídia" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-xs font-mono font-bold text-accent", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary", children: "Processando Mídia" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-xs font-mono font-bold text-accent tnum", children: [
               mediaProgress.percent,
               "%"
             ] })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-3 gap-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `p-2.5 rounded-xl border text-center flex flex-col items-center gap-1 transition-all ${mediaProgress.percent <= 40 ? "bg-accent/15 border-accent/50 text-accent" : "bg-surface/60 border-border/40 text-text-secondary"}`, children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-base", children: mediaProgress.percent <= 40 ? "📥" : "✓" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `p-3 rounded-xl border text-center flex flex-col items-center gap-1.5 transition-all duration-300 ${mediaProgress.percent <= 40 ? "bg-accent/15 border-accent/50 text-accent" : "bg-surface/60 border-border/40 text-text-secondary"}`, children: [
+              mediaProgress.percent <= 40 ? /* @__PURE__ */ jsxRuntimeExports.jsx(IconDownload, { className: "w-4 h-4" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(IconCheck, { className: "w-4 h-4", strokeWidth: 2.2 }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold", children: "Baixando Áudio" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] font-mono opacity-80", children: "0–40%" })
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] font-mono opacity-70 tnum", children: "0–40%" })
             ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `p-2.5 rounded-xl border text-center flex flex-col items-center gap-1 transition-all ${mediaProgress.percent > 40 && mediaProgress.percent <= 90 ? "bg-accent/15 border-accent/50 text-accent animate-pulse" : mediaProgress.percent > 90 ? "bg-surface/60 border-border/40 text-text-secondary" : "bg-surface/30 border-border/30 text-text-disabled"}`, children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-base", children: mediaProgress.percent > 40 && mediaProgress.percent <= 90 ? "🎙️" : mediaProgress.percent > 90 ? "✓" : "⏳" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `p-3 rounded-xl border text-center flex flex-col items-center gap-1.5 transition-all duration-300 ${mediaProgress.percent > 40 && mediaProgress.percent <= 90 ? "bg-accent/15 border-accent/50 text-accent" : mediaProgress.percent > 90 ? "bg-surface/60 border-border/40 text-text-secondary" : "bg-surface/30 border-border/30 text-text-disabled"}`, children: [
+              mediaProgress.percent > 90 ? /* @__PURE__ */ jsxRuntimeExports.jsx(IconCheck, { className: "w-4 h-4", strokeWidth: 2.2 }) : /* @__PURE__ */ jsxRuntimeExports.jsx(IconMic, { className: `w-4 h-4 ${mediaProgress.percent > 40 ? "animate-pulse" : ""}` }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold", children: "Transcrevendo" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] font-mono opacity-80", children: "40–90%" })
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] font-mono opacity-70 tnum", children: "40–90%" })
             ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `p-2.5 rounded-xl border text-center flex flex-col items-center gap-1 transition-all ${mediaProgress.percent > 90 ? "bg-accent/15 border-accent/50 text-accent animate-pulse" : "bg-surface/30 border-border/30 text-text-disabled"}`, children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-base", children: mediaProgress.percent > 90 ? "⚙️" : "⏳" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `p-3 rounded-xl border text-center flex flex-col items-center gap-1.5 transition-all duration-300 ${mediaProgress.percent > 90 ? "bg-accent/15 border-accent/50 text-accent" : "bg-surface/30 border-border/30 text-text-disabled"}`, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(IconGear, { className: `w-4 h-4 ${mediaProgress.percent > 90 ? "animate-spin [animation-duration:3s]" : ""}` }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold", children: "Exportando" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] font-mono opacity-80", children: "90–100%" })
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] font-mono opacity-70 tnum", children: "90–100%" })
             ] })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full py-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -77489,34 +77613,40 @@ const MainWindow = () => {
               sublabel: mediaProgress.speed ? `${mediaProgress.speed} | ETA: ${mediaProgress.eta}` : void 0
             }
           ) }),
-          mediaError ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 bg-error/15 border border-error/30 rounded-xl text-xs text-error font-medium text-center space-y-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: mediaError }),
+          mediaError ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3.5 bg-error/15 border border-error/30 rounded-xl text-xs text-error font-medium text-center space-y-2.5", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "flex items-center justify-center gap-1.5", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(IconAlert, { className: "w-3.5 h-3.5 shrink-0" }),
+              mediaError
+            ] }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(SpecularButton, { size: "sm", onClick: handleResetMedia, className: "!px-4", children: "Tentar Novamente" })
-          ] }) : mediaProgress.percent <= 40 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-end pt-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          ] }) : mediaProgress.percent <= 40 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-end pt-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
             {
               type: "button",
               onClick: handleCancelTranscription,
-              className: "px-4 py-1.5 bg-error/20 hover:bg-error/30 text-error text-xs font-semibold rounded-lg transition-colors cursor-pointer",
+              className: "px-4 py-1.5 bg-surface hover:bg-surface-elevated border border-border text-text-secondary hover:text-text-primary text-xs font-semibold rounded-lg transition-colors duration-250 cursor-pointer",
               children: "Cancelar Processo"
             }
           ) })
         ] }) }, `media-progress-${activeTab}`),
         mediaStep === "export" && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 0.8, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "md", className: "p-6 flex flex-col gap-5 border border-border/60", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold uppercase tracking-wider text-text-secondary", children: "Opções de Exportação" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30", children: "✓ Transcrito" })
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary", children: "Opções de Exportação" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/20", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(IconCheck, { className: "w-3 h-3", strokeWidth: 2.4 }),
+              "Transcrito"
+            ] })
           ] }),
-          transcriptionResult?.text && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-1.5", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-widest block", children: "Snippet da Transcrição" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 bg-background/60 border border-border/50 rounded-xl font-mono text-xs text-text-primary max-h-24 overflow-y-auto custom-scrollbar break-words", children: [
+          transcriptionResult?.text && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block", children: "Snippet da Transcrição" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3.5 bg-background/60 border border-border/50 rounded-xl font-mono text-xs leading-relaxed text-text-secondary max-h-24 overflow-y-auto custom-scrollbar break-words", children: [
               transcriptionResult.text.slice(0, 250),
               transcriptionResult.text.length > 250 ? "..." : ""
             ] })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-widest block", children: "Formatos Desejados" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-5 gap-2", children: ["txt", "md", "srt", "vtt", "json"].map((fmt) => {
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block", children: "Formatos Desejados" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-3 sm:grid-cols-5 gap-2", children: ["txt", "md", "srt", "vtt", "json"].map((fmt) => {
               const isSelected = selectedFormats.includes(fmt);
               return /* @__PURE__ */ jsxRuntimeExports.jsxs(
                 "button",
@@ -77527,7 +77657,7 @@ const MainWindow = () => {
                       (prev) => isSelected ? prev.filter((f2) => f2 !== fmt) : [...prev, fmt]
                     );
                   },
-                  className: `py-2 px-2 text-xs font-mono font-semibold rounded-xl border transition-all text-center uppercase cursor-pointer ${isSelected ? "bg-accent/20 border-accent text-accent shadow-[0_0_10px_rgba(255,255,255,0.15)]" : "bg-surface/50 border-border/40 text-text-secondary hover:text-text-primary"}`,
+                  className: `py-2 px-2 text-xs font-mono font-semibold rounded-xl border transition-all duration-250 ease-smooth text-center uppercase cursor-pointer ${isSelected ? "bg-accent/15 border-accent/60 text-accent" : "bg-surface/50 border-border/40 text-text-secondary hover:text-text-primary hover:border-border"}`,
                   children: [
                     ".",
                     fmt
@@ -77537,16 +77667,16 @@ const MainWindow = () => {
               );
             }) })
           ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-1.5", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-widest block", children: "Pasta de Destino" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex gap-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block", children: "Pasta de Destino" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col sm:flex-row gap-2", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "input",
                 {
                   type: "text",
                   readOnly: true,
                   value: exportFolderPath || "Pasta Padrão (Downloads)",
-                  className: "flex-1 bg-background/60 border border-border/60 px-3 py-2 rounded-xl text-xs font-mono text-text-secondary focus:outline-none"
+                  className: "flex-1 min-w-0 bg-background/60 border border-border/60 px-3 py-2 rounded-xl text-xs font-mono text-text-secondary focus:outline-none truncate"
                 }
               ),
               /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -77554,13 +77684,13 @@ const MainWindow = () => {
                 {
                   type: "button",
                   onClick: handleSelectExportFolder,
-                  className: "px-3.5 py-2 bg-surface hover:bg-surface-elevated border border-border text-xs font-medium text-text-primary rounded-xl transition-colors cursor-pointer shrink-0",
+                  className: "px-3.5 py-2 bg-surface hover:bg-surface-elevated border border-border text-xs font-medium text-text-primary rounded-xl transition-colors duration-250 cursor-pointer shrink-0",
                   children: "Alterar Pasta"
                 }
               )
             ] })
           ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between p-3 bg-background/40 border border-border/40 rounded-xl", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "flex items-center justify-between gap-4 p-3.5 bg-background/40 border border-border/40 rounded-xl cursor-pointer hover:border-border/70 transition-colors duration-250", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold text-text-primary block", children: "Incluir Timestamps" }),
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] text-text-secondary", children: "Formatos TXT e MD receberão marcas de tempo [MM:SS]" })
@@ -77571,18 +77701,21 @@ const MainWindow = () => {
                 type: "checkbox",
                 checked: includeTimestamps,
                 onChange: (e) => setIncludeTimestamps(e.target.checked),
-                className: "w-4 h-4 accent-accent cursor-pointer"
+                className: "vox-checkbox"
               }
             )
           ] }),
-          mediaError && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-error font-medium text-center", children: mediaError }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-end gap-3 pt-3 border-t border-border/40", children: [
+          mediaError && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "flex items-center justify-center gap-1.5 text-xs text-error font-medium text-center", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(IconAlert, { className: "w-3.5 h-3.5 shrink-0" }),
+            mediaError
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-end gap-3 pt-4 border-t border-border/40", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               "button",
               {
                 type: "button",
                 onClick: handleResetMedia,
-                className: "px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer",
+                className: "px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer",
                 children: "Cancelar"
               }
             ),
@@ -77604,54 +77737,66 @@ const MainWindow = () => {
         ] }) }, `media-export-${activeTab}`),
         mediaStep === "post_export" && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 0.8, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "md", className: "p-6 flex flex-col gap-5 border border-border/60", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold uppercase tracking-wider text-text-secondary", children: "Exportação Concluída" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30", children: "✓ Pronto" })
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary", children: "Exportação Concluída" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/20", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(IconCheck, { className: "w-3 h-3", strokeWidth: 2.4 }),
+              "Pronto"
+            ] })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-widest block", children: "Arquivos Gerados" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2 max-h-40 overflow-y-auto custom-scrollbar", children: exportedFiles.map((file, idx) => {
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block", children: "Arquivos Gerados" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar", children: exportedFiles.map((file, idx) => {
               const fileName = file.split(/[/\\]/).pop() || file;
-              return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between p-2.5 bg-background/60 border border-border/40 rounded-xl text-xs font-mono", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-text-primary truncate max-w-[280px]", title: file, children: [
-                  "📄 ",
-                  fileName
+              return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-3 p-2.5 pl-3.5 bg-background/60 border border-border/40 rounded-xl text-xs font-mono", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2 min-w-0 text-text-primary", title: file, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(IconFile, { className: "w-3.5 h-3.5 shrink-0 text-text-muted" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "truncate", children: fileName })
                 ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                /* @__PURE__ */ jsxRuntimeExports.jsxs(
                   "button",
                   {
                     type: "button",
                     onClick: () => window.vox?.openFolder(file),
-                    className: "px-2.5 py-1 bg-surface hover:bg-surface-elevated text-accent text-[11px] font-sans font-semibold rounded-lg border border-accent/30 transition-colors cursor-pointer shrink-0",
-                    children: "Abrir Pasta"
+                    className: "inline-flex items-center gap-1.5 px-2.5 py-1 bg-surface hover:bg-surface-elevated text-accent text-[11px] font-sans font-semibold rounded-lg border border-accent/30 transition-colors duration-250 cursor-pointer shrink-0",
+                    children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(IconFolder, { className: "w-3 h-3" }),
+                      "Abrir Pasta"
+                    ]
                   }
                 )
               ] }, idx);
             }) })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-4 bg-accent/10 border border-accent/30 rounded-xl space-y-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-primary font-medium text-center", children: "O arquivo de áudio temporário foi utilizado no processamento. Deseja mantê-lo ou excluí-lo?" }),
-            audioDeleted ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-2 bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-center text-xs text-emerald-400 font-semibold", children: "✓ Arquivo de áudio excluído com sucesso." }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-center gap-3", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-primary font-medium text-center leading-relaxed", children: "O arquivo de áudio temporário foi utilizado no processamento. Deseja mantê-lo ou excluí-lo?" }),
+            audioDeleted ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-2 bg-accent/10 border border-accent/20 rounded-lg flex items-center justify-center gap-1.5 text-xs text-text-primary font-medium", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(IconCheck, { className: "w-3.5 h-3.5", strokeWidth: 2.4 }),
+              "Arquivo de áudio excluído com sucesso."
+            ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col sm:flex-row items-center justify-center gap-2.5", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "button",
                 {
                   type: "button",
                   onClick: handleKeepAudio,
-                  className: "px-4 py-2 bg-accent/20 hover:bg-accent/30 text-accent text-xs font-semibold rounded-xl transition-colors cursor-pointer",
+                  className: "w-full sm:w-auto px-4 py-2 bg-accent/15 hover:bg-accent/25 border border-accent/20 text-accent text-xs font-semibold rounded-xl transition-colors duration-250 cursor-pointer",
                   children: "Manter Arquivo de Áudio"
                 }
               ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
+              /* @__PURE__ */ jsxRuntimeExports.jsxs(
                 "button",
                 {
                   type: "button",
                   onClick: handleDeleteAudio,
-                  className: "px-4 py-2 bg-error/20 hover:bg-error/30 text-error text-xs font-semibold rounded-xl transition-colors cursor-pointer",
-                  children: "Deletar Arquivo de Áudio"
+                  className: "w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-surface hover:bg-surface-elevated border border-border text-text-secondary hover:text-text-primary text-xs font-semibold rounded-xl transition-colors duration-250 cursor-pointer",
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(IconTrash, { className: "w-3.5 h-3.5" }),
+                    "Deletar Arquivo"
+                  ]
                 }
               )
             ] })
           ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-end pt-2 border-t border-border/40", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-end pt-4 border-t border-border/40", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
             SpecularButton,
             {
               size: "sm",
@@ -77662,18 +77807,18 @@ const MainWindow = () => {
           ) })
         ] }) }, `media-post-${activeTab}`),
         mediaStep === "input" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.05, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-6 flex flex-col items-center text-center", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.05, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-8 flex flex-col items-center text-center", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               "img",
               {
                 src: logoImg,
                 alt: "Vox",
-                className: "mx-auto w-28 h-28 object-contain mb-4 drop-shadow-[0_0_12px_rgba(255,255,255,0.25)]"
+                className: "mx-auto w-24 h-24 object-contain drop-shadow-[0_0_12px_rgba(255,255,255,0.25)]"
               }
             ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-medium text-text-primary mb-1", children: "Transcrição de Mídia" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-secondary mb-5", children: "YouTube · TikTok · Instagram · Arquivos Locais" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full flex flex-col gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-4 text-base font-semibold font-heading tracking-tight text-text-primary", children: "Transcrição de Mídia" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 mb-6 text-xs text-text-secondary", children: "YouTube · TikTok · Instagram · Arquivos Locais" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full flex flex-col gap-2.5", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "input",
                 {
@@ -77686,14 +77831,14 @@ const MainWindow = () => {
                       handleFetchVideoInfo();
                     }
                   },
-                  className: "w-full bg-background/60 border border-border/60 px-3.5 py-2.5 rounded-xl text-xs font-mono text-text-primary placeholder:text-text-disabled focus:outline-none focus:border-accent transition-colors text-center"
+                  className: "w-full bg-background/60 border border-border/60 px-4 py-2.5 rounded-xl text-xs font-mono text-text-primary placeholder:text-text-disabled focus:outline-none focus:border-accent/70 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)] transition-[border-color,box-shadow] duration-250 ease-smooth text-center"
                 }
               ),
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 SpecularButton,
                 {
                   size: "sm",
-                  className: "w-full mt-1",
+                  className: "w-full",
                   onClick: handleFetchVideoInfo,
                   disabled: !urlInput.trim() || isFetchingInfo,
                   children: isFetchingInfo ? "Obtendo informações..." : "Baixar e Transcrever"
@@ -77726,67 +77871,92 @@ const MainWindow = () => {
                 {
                   glowIntensity: isDragOver ? "md" : "sm",
                   blurIntensity: "sm",
-                  className: `p-8 text-center cursor-pointer transition-all border border-dashed ${isDragOver ? "border-accent bg-accent/10 scale-102" : "border-border/40 hover:border-accent/40"}`,
+                  className: `p-8 text-center cursor-pointer transition-all duration-300 ease-smooth border border-dashed ${isDragOver ? "border-accent bg-accent/10 scale-102" : "border-border/40 hover:border-accent/40"}`,
                   children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "text-3xl mb-2", children: "📁" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `mx-auto mb-3 w-10 h-10 rounded-full border flex items-center justify-center transition-colors duration-300 ${isDragOver ? "border-accent/50 text-accent" : "border-border/60 text-text-muted"}`, children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconUpload, { className: "w-[18px] h-[18px]" }) }),
                     /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-medium text-text-primary", children: isDragOver ? "Solte o arquivo local aqui!" : "Clique para escolher ou arraste um arquivo local" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-secondary mt-1", children: ".mp4 .mp3 .wav .mkv .mov .avi .m4a .webm .ogg" })
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] font-mono text-text-muted mt-1.5", children: ".mp4 .mp3 .wav .mkv .mov .avi .m4a .webm .ogg" })
                   ]
                 }
               )
             }
           ) }, `media-card-2-${activeTab}`),
-          mediaError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 bg-error/15 border border-error/30 rounded-xl text-xs text-error font-medium text-center animate-in fade-in duration-200", children: [
-            "⚠️ ",
+          mediaError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3.5 bg-error/15 border border-error/30 rounded-xl text-xs text-error font-medium text-center animate-fade-in flex items-center justify-center gap-1.5", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(IconAlert, { className: "w-3.5 h-3.5 shrink-0" }),
             mediaError
           ] })
         ] }),
-        mediaStep === "input" && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.25, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-4 space-y-3", children: [
+        mediaStep === "input" && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.25, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-6", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "button",
             {
               type: "button",
               onClick: () => setIsMediaHistoryOpen(!isMediaHistoryOpen),
-              className: "w-full flex items-center justify-between text-xs font-semibold text-text-secondary uppercase tracking-widest cursor-pointer hover:text-text-primary transition-colors",
+              className: "w-full flex items-center justify-between text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide cursor-pointer hover:text-text-primary transition-colors duration-250 ease-smooth",
               children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
                   "Transcrições Anteriores (",
                   mediaHistory.length,
                   ")"
                 ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] text-text-muted", children: isMediaHistoryOpen ? "▲ Recolher" : "▼ Expandir" })
-              ]
-            }
-          ),
-          isMediaHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pt-2 border-t border-border/40", children: mediaHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-4", children: "Nenhuma transcrição de mídia salva ainda." }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1", children: mediaHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            "div",
-            {
-              className: "p-3.5 bg-background/50 border border-border/50 rounded-xl flex items-center justify-between gap-4 group hover:border-accent/40 transition-all text-left",
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0 text-left", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs font-semibold text-text-primary line-clamp-1 text-left", children: item.title || item.source }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 text-[10px] text-text-secondary mt-1.5 text-left", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
-                      "⏱ ",
-                      formatMMSS(item.duration || 0)
-                    ] }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "•" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: new Date(item.createdAt).toLocaleDateString("pt-BR") })
-                  ] })
-                ] }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  SpecularButton,
+                  IconChevronDown,
                   {
-                    size: "sm",
-                    onClick: () => handleReExport(item),
-                    className: "shrink-0 text-xs",
-                    children: "Re-exportar"
+                    className: `w-4 h-4 text-text-muted transition-transform duration-300 ease-smooth ${isMediaHistoryOpen ? "rotate-180" : ""}`
                   }
                 )
               ]
-            },
-            item.id
-          )) }) })
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { initial: false, children: isMediaHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx(
+            motion.div,
+            {
+              initial: { height: 0, opacity: 0 },
+              animate: { height: "auto", opacity: 1 },
+              exit: { height: 0, opacity: 0 },
+              transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
+              className: "overflow-hidden",
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-4 pt-4 border-t border-border/40", children: mediaHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-4", children: "Nenhuma transcrição de mídia salva ainda." }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar", children: mediaHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                "div",
+                {
+                  className: "p-3.5 bg-background/50 border border-border/50 rounded-xl flex items-center justify-between gap-3 group hover:border-accent/40 hover:bg-background/70 transition-[border-color,background-color] duration-250 ease-smooth text-left",
+                  children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0 text-left", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs font-semibold text-text-primary line-clamp-1 text-left", children: item.title || item.source }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5 text-[10px] text-text-muted mt-1.5 text-left tnum", children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(IconClock, { className: "w-3 h-3 shrink-0" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: formatMMSS(item.duration || 0) }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "·" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: new Date(item.createdAt).toLocaleDateString("pt-BR") })
+                      ] })
+                    ] }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5 shrink-0", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        "button",
+                        {
+                          type: "button",
+                          onClick: () => handleDeleteSession(item.id),
+                          className: "p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer opacity-0 group-hover:opacity-100",
+                          title: "Excluir",
+                          children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconTrash, { className: "w-3.5 h-3.5" })
+                        }
+                      ),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(
+                        SpecularButton,
+                        {
+                          size: "sm",
+                          onClick: () => handleReExport(item),
+                          className: "text-xs",
+                          children: "Re-exportar"
+                        }
+                      )
+                    ] })
+                  ]
+                },
+                item.id
+              )) }) })
+            }
+          ) })
         ] }) }, `media-history-${activeTab}`)
       ] }) })
     ] }) }),
@@ -77815,7 +77985,7 @@ const MainWindow = () => {
           animate: { opacity: 1 },
           exit: { opacity: 0 },
           transition: { duration: 0.25, ease: "easeOut" },
-          className: "fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md",
+          className: "fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-md",
           onClick: (e) => {
             if (e.target === e.currentTarget) setIsSettingsOpen(false);
           },
@@ -77826,26 +77996,26 @@ const MainWindow = () => {
               animate: { opacity: 1, y: 0, scale: 1 },
               exit: { opacity: 0, y: 20, scale: 0.95 },
               transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
-              className: "w-full max-w-lg",
-              children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "lg", className: "p-6 flex flex-col gap-5 border border-border/80 shadow-2xl relative", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-4 mb-2", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: configImg, alt: "", className: "w-5 h-5 object-contain" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-base font-semibold text-text-primary", children: "Configurações" })
+              className: "w-full max-w-xl",
+              children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "lg", className: "p-6 sm:p-7 flex flex-col gap-6 border border-border/80 shadow-2xl relative max-h-[92vh] overflow-y-auto custom-scrollbar", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-4", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2.5", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: configImg, alt: "", className: "w-4 h-4 object-contain opacity-90" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-base font-semibold font-heading tracking-tight text-text-primary", children: "Configurações" })
                   ] }),
                   /* @__PURE__ */ jsxRuntimeExports.jsx(
                     "button",
                     {
                       type: "button",
                       onClick: () => setIsSettingsOpen(false),
-                      className: "text-text-secondary hover:text-text-primary p-1 rounded-lg hover:bg-surface transition-colors cursor-pointer",
-                      children: "✕"
+                      className: "text-text-secondary hover:text-text-primary p-1.5 rounded-lg hover:bg-surface transition-colors duration-250 cursor-pointer",
+                      children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconX, { className: "w-4 h-4" })
                     }
                   )
                 ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-4", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-5", children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Chave de API" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: "Chave de API" }),
                     /* @__PURE__ */ jsxRuntimeExports.jsx(
                       SmoothInput,
                       {
@@ -77855,21 +78025,21 @@ const MainWindow = () => {
                         placeholder: "gsk_..."
                       }
                     ),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] text-text-secondary/80 mt-1.5 leading-tight", children: "Assegure-se de que o provedor fornece acesso aos modelos abaixo." })
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] text-text-muted mt-2 leading-relaxed", children: "Assegure-se de que o provedor fornece acesso aos modelos abaixo." })
                   ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-2 gap-3", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-3", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Modelo STT (Voz)" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: "Modelo STT (Voz)" }),
                       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary", children: "Whisper Large V3 Turbo" })
                     ] }),
                     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Modelo LLM (Corretor)" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: "Modelo LLM (Corretor)" }),
                       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary", children: "GPT-OSS-20B" })
                     ] })
                   ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-2 gap-3", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-3", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Atalho Toggle" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: "Atalho Toggle" }),
                       /* @__PURE__ */ jsxRuntimeExports.jsx(
                         ShortcutInput,
                         {
@@ -77879,7 +78049,7 @@ const MainWindow = () => {
                       )
                     ] }),
                     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Atalho Push-to-Talk" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: "Atalho Push-to-Talk" }),
                       /* @__PURE__ */ jsxRuntimeExports.jsx(
                         ShortcutInput,
                         {
@@ -77890,23 +78060,23 @@ const MainWindow = () => {
                     ] })
                   ] }),
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-xs font-semibold text-text-secondary uppercase tracking-wider block mb-1.5", children: "Cookies do Navegador (Extração Mídia)" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-5 gap-1.5", children: ["none", "chrome", "edge", "firefox", "brave"].map((b) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: "Cookies do Navegador (Extração Mídia)" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-3 sm:grid-cols-5 gap-1.5", children: ["none", "chrome", "edge", "firefox", "brave"].map((b) => /* @__PURE__ */ jsxRuntimeExports.jsx(
                       "button",
                       {
                         type: "button",
                         onClick: () => setDraftBrowserCookies(b),
-                        className: `py-1.5 px-2 text-xs font-medium rounded-lg border transition-all text-center capitalize cursor-pointer ${draftBrowserCookies === b ? "bg-accent/15 text-accent border-accent/40 font-semibold" : "bg-transparent text-text-secondary border-border/50 hover:text-text-primary"}`,
+                        className: `py-1.5 px-2 text-xs font-medium rounded-lg border transition-all duration-250 ease-smooth text-center capitalize cursor-pointer ${draftBrowserCookies === b ? "bg-accent/15 text-accent border-accent/40 font-semibold" : "bg-transparent text-text-secondary border-border/50 hover:text-text-primary hover:border-border"}`,
                         children: b === "none" ? "Nenhum" : b
                       },
                       b
                     )) })
                   ] }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3.5 bg-background/50 border border-border/60 rounded-xl space-y-3", children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-4 bg-background/50 border border-border/60 rounded-xl space-y-3.5", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-4", children: [
                       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold text-text-primary block", children: "Wake Word (Ativação por Voz)" }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] text-text-secondary", children: "Acione o Vox falando em segundo plano (openWakeWord ONNX)" })
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold text-text-primary block leading-relaxed", children: "Wake Word (Ativação por Voz)" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] text-text-secondary leading-relaxed", children: "Acione o Vox falando em segundo plano (openWakeWord ONNX)" })
                       ] }),
                       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "switch-button", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "switch-outer", children: [
                         /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -77923,21 +78093,27 @@ const MainWindow = () => {
                         ] })
                       ] }) })
                     ] }),
-                    wakeWordModelMissing && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-2.5 bg-warning/15 border border-warning/30 rounded-lg text-[11px] text-warning font-medium", children: [
-                      "⚠️ Modelo ONNX (vox.onnx) não encontrado em ",
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono", children: "resources/models/wakeword/" }),
-                      ". Execute ",
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono", children: "npm run setup:wakeword" }),
-                      " para baixar."
+                    wakeWordModelMissing && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-2.5 bg-accent/10 border border-accent/20 rounded-lg text-[11px] text-text-primary font-medium flex items-start gap-1.5 leading-relaxed", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(IconAlert, { className: "w-3.5 h-3.5 shrink-0 mt-px" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+                        "Modelo ONNX (vox.onnx) não encontrado em ",
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono", children: "resources/models/wakeword/" }),
+                        ". Execute ",
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono", children: "npm run setup:wakeword" }),
+                        " para baixar."
+                      ] })
                     ] }),
-                    wakeWordError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-2.5 bg-error/15 border border-error/30 rounded-lg text-[11px] text-error font-medium", children: [
-                      "⚠️ Microfone de segundo plano: ",
-                      wakeWordError
+                    wakeWordError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-2.5 bg-error/15 border border-error/30 rounded-lg text-[11px] text-error font-medium flex items-start gap-1.5 leading-relaxed", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsx(IconAlert, { className: "w-3.5 h-3.5 shrink-0 mt-px" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+                        "Microfone de segundo plano: ",
+                        wakeWordError
+                      ] })
                     ] }),
-                    draftWakeWordEnabled && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "pt-2 border-t border-border/30", children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between text-xs mb-1", children: [
+                    draftWakeWordEnabled && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "pt-3 border-t border-border/30", children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between text-xs mb-1.5", children: [
                         /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-secondary font-medium", children: "Sensibilidade" }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-text-primary font-mono", children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-text-primary font-mono tnum", children: [
                           Math.round(draftWakeWordSensitivity * 100),
                           "%"
                         ] })
@@ -77957,14 +78133,17 @@ const MainWindow = () => {
                     ] })
                   ] })
                 ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-2.5 pt-4 mt-3 border-t border-border/40", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center justify-between gap-2.5 pt-5 border-t border-border/40", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs(
                     "button",
                     {
                       type: "button",
                       onClick: handleClearHistory,
-                      className: "px-3 py-1.5 text-xs font-medium text-error/80 hover:text-error hover:bg-error/10 border border-error/20 rounded-xl transition-all cursor-pointer",
-                      children: "🗑 Limpar Histórico"
+                      className: "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-surface border border-border/50 hover:border-border rounded-xl transition-all duration-250 cursor-pointer",
+                      children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx(IconTrash, { className: "w-3.5 h-3.5" }),
+                        "Limpar Histórico"
+                      ]
                     }
                   ),
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
@@ -77973,7 +78152,7 @@ const MainWindow = () => {
                       {
                         type: "button",
                         onClick: () => setIsSettingsOpen(false),
-                        className: "px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer",
+                        className: "px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer",
                         children: "Cancelar"
                       }
                     ),
@@ -78001,10 +78180,10 @@ const MainWindow = () => {
           animate: { opacity: 1 },
           exit: { opacity: 0 },
           className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md",
-          children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { className: "w-full max-w-md p-6 space-y-4 border border-warning/40 shadow-2xl", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 text-warning", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-2xl", children: "🍎" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-semibold text-text-primary", children: "Permissão de Acessibilidade Necessária" })
+          children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { className: "w-full max-w-md p-6 space-y-4 border border-border/60 shadow-2xl", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-9 h-9 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconShield, { className: "w-4 h-4 text-text-primary" }) }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold font-heading tracking-tight text-text-primary", children: "Permissão de Acessibilidade Necessária" })
             ] }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs text-text-secondary leading-relaxed", children: [
               "No macOS, o Vox precisa de permissão em ",
@@ -78017,7 +78196,7 @@ const MainWindow = () => {
                 {
                   type: "button",
                   onClick: () => setShowAccessibilityModal(false),
-                  className: "px-3.5 py-1.5 text-xs text-text-secondary hover:text-text-primary cursor-pointer",
+                  className: "px-3.5 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer",
                   children: "Entendi"
                 }
               ),
@@ -78043,10 +78222,10 @@ const MainWindow = () => {
           animate: { opacity: 1 },
           exit: { opacity: 0 },
           className: "fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md",
-          children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { className: "w-full max-w-md p-6 space-y-4 border border-warning/40 shadow-2xl", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 text-warning", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-2xl", children: "🐧" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-base font-semibold text-text-primary", children: xdotoolData?.isWayland ? "Utilitário wtype Necessário" : "Utilitário xdotool Necessário" })
+          children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { className: "w-full max-w-md p-6 space-y-4 border border-border/60 shadow-2xl", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-9 h-9 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconTerminal, { className: "w-4 h-4 text-text-primary" }) }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold font-heading tracking-tight text-text-primary", children: xdotoolData?.isWayland ? "Utilitário wtype Necessário" : "Utilitário xdotool Necessário" })
             ] }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs text-text-secondary leading-relaxed", children: [
               "Para colagem automática no Linux (",

@@ -22,16 +22,16 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   const clampedProgress = Math.min(100, Math.max(0, progress))
 
   return (
-    <div className="w-full space-y-1.5">
+    <div className="w-full space-y-2">
       {(label || sublabel) && (
-        <div className="flex justify-between text-xs">
+        <div className="flex justify-between items-baseline text-xs">
           {label && <span className="font-medium text-text-primary">{label}</span>}
-          {sublabel && <span className="text-text-secondary">{sublabel}</span>}
+          {sublabel && <span className="text-text-secondary font-mono text-[11px] tnum">{sublabel}</span>}
         </div>
       )}
-      <div className="h-2 w-full bg-surface-elevated rounded-full overflow-hidden border border-border">
+      <div className="h-1.5 w-full bg-surface-elevated rounded-full overflow-hidden">
         <div
-          className={`h-full transition-all duration-300 ${barColors[status]}`}
+          className={`h-full rounded-full transition-[width] duration-500 ease-smooth ${barColors[status]} shadow-[0_0_8px_rgba(255,255,255,0.35)]`}
           style={{ width: `${clampedProgress}%` }}
         />
       </div>

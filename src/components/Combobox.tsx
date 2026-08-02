@@ -104,7 +104,7 @@ export const ComboboxInput: React.FC<ComboboxInputProps> = ({
     <div
       onClick={() => setIsOpen(!isOpen)}
       className={cn(
-        'w-full bg-background/70 border border-border/60 hover:border-accent/50 focus-within:border-accent rounded-xl px-3.5 py-2.5 text-xs font-medium text-text-primary flex items-center justify-between cursor-pointer transition-colors select-none',
+        'w-full bg-background/70 border border-border/60 hover:border-accent/50 focus-within:border-accent/80 rounded-xl px-3.5 py-2.5 text-xs font-medium tracking-tight text-text-primary flex items-center justify-between cursor-pointer transition-[border-color,box-shadow] duration-250 ease-smooth focus-within:shadow-[0_0_0_3px_rgba(255,255,255,0.06)] select-none',
         className
       )}
     >
@@ -123,7 +123,7 @@ export const ComboboxInput: React.FC<ComboboxInputProps> = ({
         className="w-full bg-transparent outline-none cursor-pointer placeholder:text-text-disabled"
       />
       <svg
-        className={cn('w-4 h-4 text-text-secondary transition-transform duration-200 shrink-0 ml-2', isOpen && 'rotate-180')}
+        className={cn('w-4 h-4 text-text-secondary transition-transform duration-250 ease-smooth shrink-0 ml-2', isOpen && 'rotate-180')}
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -150,9 +150,9 @@ export const ComboboxContent: React.FC<ComboboxContentProps> = ({ children, clas
           initial={{ opacity: 0, y: -6, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -6, scale: 0.97 }}
-          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
           className={cn(
-            'absolute top-full left-0 right-0 mt-1.5 z-50 max-h-32 overflow-y-auto rounded-xl bg-background/95 border border-border/80 p-1.5 shadow-2xl backdrop-blur-xl custom-scrollbar space-y-0.5',
+            'absolute top-full left-0 right-0 mt-2 z-50 max-h-32 overflow-y-auto rounded-xl bg-background/95 border border-border/80 p-1.5 shadow-[0_12px_40px_0_rgba(0,0,0,0.5)] backdrop-blur-xl custom-scrollbar space-y-0.5',
             className
           )}
         >
@@ -182,7 +182,7 @@ export const ComboboxEmpty: React.FC<ComboboxEmptyProps> = ({
   if (filtered.length > 0) return null
 
   return (
-    <div className={cn('p-3 text-xs text-text-disabled text-center font-mono', className)}>
+    <div className={cn('p-3 text-xs text-text-disabled text-center font-sans', className)}>
       {children}
     </div>
   )
@@ -217,7 +217,7 @@ export const ComboboxItem: React.FC<ComboboxItemProps> = ({ value: itemValue, ch
     <div
       onClick={() => onSelect(itemValue)}
       className={cn(
-        'px-3 py-2 text-xs font-medium rounded-lg flex items-center justify-between cursor-pointer transition-colors',
+        'px-3 py-2 text-xs font-medium tracking-tight rounded-lg flex items-center justify-between cursor-pointer transition-colors duration-200 ease-smooth',
         isSelected
           ? 'bg-accent/15 text-accent font-semibold'
           : 'text-text-primary hover:bg-surface-elevated hover:text-text-primary',

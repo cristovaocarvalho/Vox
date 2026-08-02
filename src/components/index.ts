@@ -51,6 +51,28 @@ export {
 export { ShortcutInput } from './ShortcutInput'
 export type { ShortcutInputProps } from './ShortcutInput'
 
+export {
+  IconCheck,
+  IconClock,
+  IconDownload,
+  IconMic,
+  IconFile,
+  IconFolder,
+  IconGlobe,
+  IconFilm,
+  IconUpload,
+  IconTrash,
+  IconChevronDown,
+  IconAlert,
+  IconX,
+  IconCopy,
+  IconShield,
+  IconTerminal,
+  IconSparkle,
+  IconGear
+} from './icons'
+export type { IconProps } from './icons'
+
 
 
 

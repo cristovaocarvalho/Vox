@@ -40,9 +40,9 @@ export const LiquidGlassCard: React.FC<LiquidGlassCardProps> = ({
 
   const glowClasses = {
     none: 'border-white/5',
-    sm: 'border-white/10 hover:border-white/20',
-    md: 'border-white/20 hover:border-white/30',
-    lg: 'border-white/30 hover:border-white/50'
+    sm: 'border-white/[0.08] hover:border-white/20',
+    md: 'border-white/15 hover:border-white/30',
+    lg: 'border-white/25 hover:border-white/50'
   }
 
   const Component = draggable ? motion.div : 'div'
@@ -51,8 +51,8 @@ export const LiquidGlassCard: React.FC<LiquidGlassCardProps> = ({
     <Component
       {...(draggable ? { drag: true, dragConstraints: { left: -50, right: 50, top: -50, bottom: 50 } } : {})}
       className={cn(
-        'relative overflow-hidden transition-all duration-300',
-        'bg-[#16161A]/70 backdrop-saturate-150 border',
+        'relative overflow-hidden transition-[border-color,box-shadow,transform] duration-450 ease-glass',
+        'bg-[#16161A]/50 backdrop-saturate-150 border',
         blurClasses[blurIntensity],
         shadowClasses[shadowIntensity],
         glowClasses[glowIntensity],

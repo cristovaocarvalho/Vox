@@ -60,10 +60,10 @@ export const ShortcutInput: React.FC<ShortcutInputProps> = ({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className={cn(
-          'w-full bg-background/70 border px-3 py-2 rounded-xl text-xs font-mono text-center transition-all cursor-pointer select-none focus:outline-none',
+          'w-full bg-background/70 border px-3 py-2 rounded-xl text-xs font-mono font-medium text-center transition-[border-color,box-shadow,background-color] duration-250 ease-smooth cursor-pointer select-none focus:outline-none',
           isRecording
-            ? 'border-accent text-accent animate-pulse bg-accent/15 ring-2 ring-accent/30 font-semibold'
-            : 'border-border/60 text-accent hover:border-accent/40',
+            ? 'border-accent text-accent animate-pulse bg-accent/15 shadow-[0_0_0_3px_rgba(255,255,255,0.08)] font-semibold'
+            : 'border-border/60 text-accent hover:border-accent/50 hover:bg-accent/[0.04]',
           className
         )}
       />

@@ -63,8 +63,9 @@ export const SpotlightNavbar: React.FC<SpotlightNavbarProps> = ({
 
         animate(spotlightX.current, targetX, {
           type: 'spring',
-          stiffness: 200,
-          damping: 20,
+          stiffness: 170,
+          damping: 22,
+          mass: 0.8,
           onUpdate: (v) => {
             spotlightX.current = v
             nav.style.setProperty('--spotlight-x', `${v}px`)
@@ -95,8 +96,9 @@ export const SpotlightNavbar: React.FC<SpotlightNavbarProps> = ({
 
       animate(ambienceX.current, targetX, {
         type: 'spring',
-        stiffness: 200,
-        damping: 20,
+        stiffness: 170,
+        damping: 22,
+        mass: 0.8,
         onUpdate: (v) => {
           ambienceX.current = v
           nav.style.setProperty('--ambience-x', `${v}px`)
@@ -111,12 +113,12 @@ export const SpotlightNavbar: React.FC<SpotlightNavbarProps> = ({
   }
 
   return (
-    <div className={cn('relative flex justify-center py-2', className)}>
+    <div className={cn('relative flex justify-center', className)}>
       <nav
         ref={navRef}
         className={cn(
-          'relative h-11 rounded-full transition-all duration-300 overflow-hidden',
-          'bg-surface/80 border border-border/80 backdrop-blur-xl shadow-2xl'
+          'relative h-11 rounded-full transition-[border-color,box-shadow] duration-450 ease-glass overflow-hidden',
+          'bg-surface/80 border border-border/80 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.45)]'
         )}
         style={
           {
@@ -126,7 +128,7 @@ export const SpotlightNavbar: React.FC<SpotlightNavbarProps> = ({
         }
       >
         {/* Content */}
-        <ul className="relative flex items-center h-full px-2 gap-1 z-[10]">
+        <ul className="relative flex items-center h-full px-2.5 gap-1 z-[10]">
           {items.map((item, idx) => (
             <li key={item.id || idx} className="relative h-full flex items-center justify-center">
               <button
@@ -136,10 +138,10 @@ export const SpotlightNavbar: React.FC<SpotlightNavbarProps> = ({
                   handleItemClick(item, idx)
                 }}
                 className={cn(
-                  "px-5 py-1.5 text-sm font-medium transition-colors duration-200 rounded-full cursor-pointer focus-visible:outline-none font-heading",
+                  "px-5 py-1.5 text-sm font-medium transition-colors duration-250 ease-smooth rounded-full cursor-pointer focus-visible:outline-none font-heading tracking-tight",
                   activeIndex === idx
                     ? 'text-white font-semibold'
-                    : 'text-neutral-400 hover:text-white'
+                    : 'text-text-secondary hover:text-white'
                 )}
               >
                 {item.label}
@@ -150,7 +152,7 @@ export const SpotlightNavbar: React.FC<SpotlightNavbarProps> = ({
 
         {/* 1. The Moving Spotlight (Follows Mouse) */}
         <div
-          className="pointer-events-none absolute bottom-0 left-0 w-full h-full z-[1] opacity-0 transition-opacity duration-300"
+          className="pointer-events-none absolute bottom-0 left-0 w-full h-full z-[1] opacity-0 transition-opacity duration-350 ease-smooth"
           style={{
             opacity: hoverX !== null ? 1 : 0,
             background: `
