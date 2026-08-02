@@ -131,6 +131,7 @@ async function transcribeAudio(audioBuffer, language) {
     if (language) {
       formData.append("language", language);
     }
+    formData.append("response_format", "verbose_json");
     formData.append("prompt", "Transcrição direta e exata da fala no seu idioma original (sem traduzir para outro idioma).");
     formData.append("temperature", "0");
     const response = await fetch(endpoint, {
@@ -240,14 +241,42 @@ async function injectText(text, _mode = "clipboard", delayMs = 100, hwnd) {
     console.log(`[Injector] Injetando texto no cursor ativo (${text.length} chars)...`);
     clipboard.writeText(text);
     await new Promise((resolve) => setTimeout(resolve, delayMs));
-    const psCommand = hwnd && hwnd !== "0" ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${hwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait('^v')` : `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`;
-    child_process.execFile("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", psCommand], (err) => {
-      if (err) {
-        console.error("[Injector] Erro ao colar texto via PowerShell:", err);
+    const platform = process.platform;
+    if (platform === "win32") {
+      const psCommand = hwnd && hwnd !== "0" ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${hwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait('^v')` : `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`;
+      child_process.execFile("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", psCommand], (err) => {
+        if (err) {
+          console.error("[Injector] Erro ao colar texto via PowerShell (Windows):", err);
+        } else {
+          console.log("[Injector] Texto colado no cursor com sucesso (Windows)!");
+        }
+      });
+    } else if (platform === "darwin") {
+      const script = hwnd && hwnd !== "0" && hwnd !== "null" ? `tell application "${hwnd}" to activate
+delay 0.08
+tell application "System Events" to keystroke "v" using command down` : `tell application "System Events" to keystroke "v" using command down`;
+      child_process.execFile("osascript", ["-e", script], (err) => {
+        if (err) {
+          console.error("[Injector] Erro ao colar texto via AppleScript (macOS):", err);
+        } else {
+          console.log("[Injector] Texto colado no cursor com sucesso (macOS)!");
+        }
+      });
+    } else if (platform === "linux") {
+      if (hwnd && hwnd !== "0" && hwnd !== "null") {
+        child_process.execFile("xdotool", ["windowactivate", "--sync", hwnd], () => {
+          child_process.execFile("xdotool", ["key", "ctrl+v"], (err) => {
+            if (err) console.error("[Injector] Erro ao colar texto via xdotool (Linux):", err);
+            else console.log("[Injector] Texto colado no cursor com sucesso (Linux)!");
+          });
+        });
       } else {
-        console.log("[Injector] Texto colado no cursor com sucesso!");
+        child_process.execFile("xdotool", ["key", "ctrl+v"], (err) => {
+          if (err) console.error("[Injector] Erro ao colar texto via xdotool (Linux):", err);
+          else console.log("[Injector] Texto colado no cursor com sucesso (Linux)!");
+        });
       }
-    });
+    }
   } catch (err) {
     console.error("[Injector] Erro no processo de injeção:", err);
   }
@@ -284,10 +313,13 @@ async function downloadBinary(url, targetPath) {
   });
 }
 async function ensureExecutable() {
+  const isWin = process.platform === "win32";
+  const isMac = process.platform === "darwin";
+  const binaryName = isWin ? "yt-dlp.exe" : isMac ? "yt-dlp_macos" : "yt-dlp";
   const possiblePaths = [
-    path.join(process.cwd(), "resources", "binaries", "yt-dlp.exe"),
+    path.join(process.cwd(), "resources", "binaries", binaryName),
     path.join(process.cwd(), "resources", "binaries", "yt-dlp"),
-    path.join(__dirname, "..", "..", "resources", "binaries", "yt-dlp.exe"),
+    path.join(__dirname, "..", "..", "resources", "binaries", binaryName),
     path.join(__dirname, "..", "..", "resources", "binaries", "yt-dlp"),
     "yt-dlp"
   ];
@@ -300,11 +332,15 @@ async function ensureExecutable() {
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true });
   }
-  const targetFile = path.join(targetDir, "yt-dlp.exe");
+  const targetFile = path.join(targetDir, binaryName);
   if (!fs.existsSync(targetFile)) {
-    console.log("[Downloader] Baixando yt-dlp.exe automaticamente...");
+    const downloadUrl = isWin ? "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" : isMac ? "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos" : "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
+    console.log(`[Downloader] Baixando ${binaryName} automaticamente...`);
     try {
-      await downloadBinary("https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe", targetFile);
+      await downloadBinary(downloadUrl, targetFile);
+      if (!isWin) {
+        fs.chmodSync(targetFile, 493);
+      }
     } catch (err) {
       console.error("[Downloader] Erro no auto-download do yt-dlp:", err);
     }
@@ -378,6 +414,20 @@ async function getVideoInfo(url, cookiesFromBrowser) {
     }
   });
 }
+let activeDownloadProc = null;
+function cancelDownload() {
+  if (activeDownloadProc) {
+    try {
+      activeDownloadProc.kill("SIGKILL");
+      activeDownloadProc = null;
+      console.log("[Downloader] Processo yt-dlp cancelado com sucesso.");
+      return true;
+    } catch (err) {
+      console.error("[Downloader] Erro ao cancelar yt-dlp:", err);
+    }
+  }
+  return false;
+}
 async function downloadAudio(options) {
   const platform = detectPlatform(options.url);
   const executable = await ensureExecutable();
@@ -406,6 +456,7 @@ async function downloadAudio(options) {
     let stderrText = "";
     try {
       const proc = child_process.spawn(executable, args);
+      activeDownloadProc = proc;
       proc.stdout.on("data", (chunk) => {
         const text = chunk.toString();
         const match = text.match(/\[download\]\s+(\d+\.\d+)%\s+of\s+\S+\s+at\s+(\S+)\s+ETA\s+(\S+)/);
@@ -420,6 +471,9 @@ async function downloadAudio(options) {
         stderrText += chunk.toString();
       });
       proc.on("close", (code) => {
+        if (activeDownloadProc === proc) {
+          activeDownloadProc = null;
+        }
         try {
           const files = fs.readdirSync(options.outputDir);
           const downloadedFile = files.find((f) => f.startsWith(baseFileName));
@@ -455,9 +509,13 @@ async function downloadAudio(options) {
         reject(new Error("O arquivo de mídia não foi encontrado na pasta Downloads."));
       });
       proc.on("error", (err) => {
+        if (activeDownloadProc === proc) {
+          activeDownloadProc = null;
+        }
         reject(new Error(`Erro ao executar o downloader (${err.message}).`));
       });
     } catch (err) {
+      activeDownloadProc = null;
       reject(new Error(err?.message || "Erro inesperado ao baixar mídia."));
     }
   });
@@ -465,7 +523,205 @@ async function downloadAudio(options) {
 const downloader = {
   detectPlatform,
   getVideoInfo,
-  downloadAudio
+  downloadAudio,
+  cancelDownload
+};
+function formatTimestamp(seconds, decimalSeparator = ",") {
+  const s = Math.max(0, seconds || 0);
+  const hrs = Math.floor(s / 3600);
+  const mins = Math.floor(s % 3600 / 60);
+  const secs = Math.floor(s % 60);
+  const millis = Math.floor(s % 1 * 1e3);
+  const hh = String(hrs).padStart(2, "0");
+  const mm = String(mins).padStart(2, "0");
+  const ss = String(secs).padStart(2, "0");
+  const mmm = String(millis).padStart(3, "0");
+  return `${hh}:${mm}:${ss}${decimalSeparator}${mmm}`;
+}
+function formatShortTimestamp(seconds) {
+  const s = Math.max(0, seconds || 0);
+  const hrs = Math.floor(s / 3600);
+  const mins = Math.floor(s % 3600 / 60);
+  const secs = Math.floor(s % 60);
+  const mm = String(mins).padStart(2, "0");
+  const ss = String(secs).padStart(2, "0");
+  if (hrs > 0) {
+    const hh = String(hrs).padStart(2, "0");
+    return `${hh}:${mm}:${ss}`;
+  }
+  return `${mm}:${ss}`;
+}
+function generateContent(result, format, options = {}) {
+  const title = options.title || "Transcrição Vox";
+  const includeTimestamps = options.includeTimestamps ?? false;
+  const segments = result.segments || [];
+  switch (format.toLowerCase()) {
+    case "txt": {
+      if (includeTimestamps && segments.length > 0) {
+        return segments.map((s) => `[${formatShortTimestamp(s.start)}] ${s.text.trim()}`).join("\n");
+      }
+      return result.text;
+    }
+    case "md": {
+      let content = `# ${title}
+
+`;
+      if (includeTimestamps && segments.length > 0) {
+        content += segments.map((s) => `**[${formatShortTimestamp(s.start)}]** ${s.text.trim()}`).join("\n\n");
+      } else {
+        content += result.text;
+      }
+      return content;
+    }
+    case "srt": {
+      if (segments.length > 0) {
+        return segments.map((s, idx) => {
+          const start = formatTimestamp(s.start, ",");
+          const end = formatTimestamp(s.end, ",");
+          return `${idx + 1}
+${start} --> ${end}
+${s.text.trim()}
+`;
+        }).join("\n");
+      }
+      const duration = result.duration || 10;
+      return `1
+00:00:00,000 --> ${formatTimestamp(duration, ",")}
+${result.text}
+`;
+    }
+    case "vtt": {
+      let content = "WEBVTT\n\n";
+      if (segments.length > 0) {
+        content += segments.map((s, idx) => {
+          const start = formatTimestamp(s.start, ".");
+          const end = formatTimestamp(s.end, ".");
+          return `${idx + 1}
+${start} --> ${end}
+${s.text.trim()}
+`;
+        }).join("\n");
+      } else {
+        const duration = result.duration || 10;
+        content += `1
+00:00:00.000 --> ${formatTimestamp(duration, ".")}
+${result.text}
+`;
+      }
+      return content;
+    }
+    case "json": {
+      return JSON.stringify(
+        {
+          title,
+          duration: result.duration,
+          text: result.text,
+          segments: result.segments,
+          exportedAt: (/* @__PURE__ */ new Date()).toISOString()
+        },
+        null,
+        2
+      );
+    }
+    default:
+      return result.text;
+  }
+}
+async function exportTranscription(result, formats, outputPath, options = {}) {
+  if (!fs.existsSync(outputPath)) {
+    fs.mkdirSync(outputPath, { recursive: true });
+  }
+  const timestamp = Date.now();
+  const sanitizedTitle = (options.title || "vox_transcription").toLowerCase().replace(/[^a-z0-9_-]/gi, "_").slice(0, 30);
+  const createdFiles = [];
+  for (const fmt of formats) {
+    const ext = fmt.toLowerCase().replace(/^\./, "");
+    const fileName = `${sanitizedTitle}_${timestamp}.${ext}`;
+    const filePath = path.join(outputPath, fileName);
+    const content = generateContent(result, ext, options);
+    fs.writeFileSync(filePath, content, "utf-8");
+    console.log(`[Exporter] Arquivo exportado: ${filePath}`);
+    createdFiles.push(filePath);
+  }
+  return createdFiles;
+}
+const exporter = {
+  generateContent,
+  exportTranscription,
+  export: exportTranscription
+};
+async function ensureFfmpegExecutable() {
+  const isWin = process.platform === "win32";
+  const binaryName = isWin ? "ffmpeg.exe" : "ffmpeg";
+  const possiblePaths = [
+    path.join(process.cwd(), "resources", "binaries", binaryName),
+    path.join(__dirname, "..", "..", "resources", "binaries", binaryName),
+    "ffmpeg"
+  ];
+  for (const p of possiblePaths) {
+    if (p !== "ffmpeg" && fs.existsSync(p)) {
+      return p;
+    }
+  }
+  return "ffmpeg";
+}
+function isVideoFile(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  return [".mp4", ".mkv", ".mov", ".avi", ".webm"].includes(ext);
+}
+async function extractAudioFromVideo(videoPath, outputDir, onProgress) {
+  const ffmpegExec = await ensureFfmpegExecutable();
+  const timestamp = Date.now();
+  const audioPath = path.join(outputDir, `vox_extracted_${timestamp}.mp3`);
+  return new Promise((resolve, reject) => {
+    const args = [
+      "-y",
+      "-i",
+      videoPath,
+      "-vn",
+      "-acodec",
+      "libmp3lame",
+      "-q:a",
+      "2",
+      audioPath
+    ];
+    console.log(`[FFmpeg] Extraindo áudio de ${videoPath} para ${audioPath}...`);
+    try {
+      const proc = child_process.spawn(ffmpegExec, args);
+      proc.stderr.on("data", (data) => {
+        const text = data.toString();
+        const match = text.match(/time=(\d+):(\d+):(\d+\.\d+)/);
+        if (match && onProgress) {
+          onProgress(50);
+        }
+      });
+      proc.on("close", (code) => {
+        if (code === 0 && fs.existsSync(audioPath)) {
+          resolve(audioPath);
+        } else {
+          const fallbackArgs = ["-y", "-i", videoPath, "-vn", audioPath];
+          const fallbackProc = child_process.spawn(ffmpegExec, fallbackArgs);
+          fallbackProc.on("close", (fallbackCode) => {
+            if (fallbackCode === 0 && fs.existsSync(audioPath)) {
+              resolve(audioPath);
+            } else {
+              reject(new Error(`Falha ao extrair áudio via FFmpeg (código ${code})`));
+            }
+          });
+        }
+      });
+      proc.on("error", (err) => {
+        reject(new Error(`Erro no processo FFmpeg: ${err.message}`));
+      });
+    } catch (err) {
+      reject(new Error(`Exceção ao executar FFmpeg: ${err?.message || err}`));
+    }
+  });
+}
+const ffmpeg = {
+  ensureFfmpegExecutable,
+  isVideoFile,
+  extractAudioFromVideo
 };
 const { app: app$1 } = require("electron");
 let Database = null;
@@ -665,26 +921,41 @@ class WakeWordDetector extends events.EventEmitter {
   }
 }
 const wakewordDetector = new WakeWordDetector();
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, dialog, Tray, Menu, nativeImage } = require("electron");
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, dialog, Tray, Menu, nativeImage, shell } = require("electron");
 let mainWindow = null;
 let dockWindow = null;
 let tray = null;
 let targetWindowHwnd = null;
+let isQuitting = false;
 function captureActiveWindow() {
   try {
-    const result = child_process.execFileSync("powershell", [
-      "-NoProfile",
-      "-WindowStyle",
-      "Hidden",
-      "-Command",
-      `(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();' -Name FGW -Namespace VOX -PassThru)::GetForegroundWindow()`
-    ], { timeout: 1500, encoding: "utf8" });
-    targetWindowHwnd = result.trim() || null;
+    if (process.platform === "win32") {
+      const result = child_process.execFileSync("powershell", [
+        "-NoProfile",
+        "-WindowStyle",
+        "Hidden",
+        "-Command",
+        `(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();' -Name FGW -Namespace VOX -PassThru)::GetForegroundWindow()`
+      ], { timeout: 1500, encoding: "utf8" });
+      targetWindowHwnd = result.trim() || null;
+    } else if (process.platform === "darwin") {
+      const result = child_process.execFileSync("osascript", [
+        "-e",
+        'tell application "System Events" to get name of first process whose frontmost is true'
+      ], { timeout: 1500, encoding: "utf8" });
+      targetWindowHwnd = result.trim() || null;
+    } else if (process.platform === "linux") {
+      const result = child_process.execFileSync("xdotool", ["getactivewindow"], { timeout: 1500, encoding: "utf8" });
+      targetWindowHwnd = result.trim() || null;
+    }
   } catch {
     targetWindowHwnd = null;
   }
 }
 const getDevUrl = () => process.env["ELECTRON_RENDERER_URL"] || process.env["VITE_DEV_SERVER_URL"];
+function getAppIconPath() {
+  return app.isPackaged ? path.join(process.resourcesPath, "favicon.png") : path.join(app.getAppPath(), "src/favicon.png");
+}
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1040,
@@ -696,13 +967,22 @@ function createMainWindow() {
     resizable: false,
     maximizable: false,
     minimizable: true,
+    autoHideMenuBar: true,
     title: "Vox",
+    icon: getAppIconPath(),
     backgroundColor: "#0D0D0F",
     webPreferences: {
       preload: path.join(__dirname, "../preload/preload.js"),
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false
+    }
+  });
+  mainWindow?.setMenu(null);
+  mainWindow?.on("close", (e) => {
+    if (!isQuitting) {
+      e.preventDefault();
+      mainWindow?.hide();
     }
   });
   const devUrl = getDevUrl();
@@ -854,6 +1134,11 @@ function setupIpcHandlers() {
     mainWindow?.minimize();
     return true;
   });
+  const sendMediaProgress = (phase, percent, speed, eta) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("vox:media-progress", { phase, percent: Math.round(percent), speed, eta });
+    }
+  };
   ipcMain.handle("vox:get-video-info", async (_event, url, cookiesFromBrowser) => {
     try {
       const info = await downloader.getVideoInfo(url, cookiesFromBrowser);
@@ -861,6 +1146,137 @@ function setupIpcHandlers() {
     } catch (err) {
       console.error("[Main] Erro ao obter info do vídeo:", err);
       return { title: "Vídeo Desconhecido", duration: 0, thumbnail: "", platform: "unknown" };
+    }
+  });
+  ipcMain.handle("vox:start-media-transcription", async (_event, payload) => {
+    try {
+      let audioPath = "";
+      const downloadsDir = app.getPath("downloads");
+      if (payload.url) {
+        sendMediaProgress("Baixando áudio", 0, "0 B/s", "--:--");
+        const dlResult = await downloader.downloadAudio({
+          url: payload.url,
+          outputDir: downloadsDir,
+          cookiesFromBrowser: payload.cookiesFromBrowser,
+          onProgress: (pct, speed, eta) => {
+            const mappedPct = Math.min(40, pct / 100 * 40);
+            sendMediaProgress("Baixando áudio", mappedPct, speed, eta);
+          }
+        });
+        if (dlResult.audioPath) {
+          audioPath = dlResult.audioPath;
+        } else {
+          throw new Error("Caminho do áudio não retornado pelo downloader.");
+        }
+      } else if (payload.filePath) {
+        const isVideo = ffmpeg.isVideoFile(payload.filePath);
+        if (isVideo) {
+          sendMediaProgress("Baixando áudio", 10);
+          audioPath = await ffmpeg.extractAudioFromVideo(payload.filePath, downloadsDir, (pct) => {
+            const mappedPct = Math.min(40, pct / 100 * 40);
+            sendMediaProgress("Baixando áudio", mappedPct);
+          });
+        } else {
+          audioPath = payload.filePath;
+          sendMediaProgress("Baixando áudio", 40);
+        }
+      } else {
+        throw new Error("Nenhuma URL ou arquivo informado.");
+      }
+      sendMediaProgress("Transcrevendo", 40);
+      if (!fs.existsSync(audioPath)) {
+        throw new Error("Arquivo de áudio não encontrado no disco.");
+      }
+      const buffer = fs.readFileSync(audioPath);
+      sendMediaProgress("Transcrevendo", 55);
+      const sttRes = await transcribeAudio(buffer);
+      sendMediaProgress("Transcrevendo", 75);
+      let correctedText = sttRes.text || "";
+      if (correctedText && !correctedText.startsWith("[Erro")) {
+        correctedText = await correctTranscription(correctedText);
+        sttRes.text = correctedText;
+      }
+      sendMediaProgress("Transcrevendo", 90);
+      return {
+        audioPath,
+        result: sttRes,
+        text: sttRes.text
+      };
+    } catch (err) {
+      console.error("[Main] Erro em start-media-transcription:", err);
+      return { error: err?.message || "Falha ao processar mídia" };
+    }
+  });
+  ipcMain.handle("vox:cancel-media-transcription", async () => {
+    try {
+      const canceled = downloader.cancelDownload();
+      return { success: canceled };
+    } catch (err) {
+      console.error("[Main] Erro ao cancelar transcrição:", err);
+      return { success: false };
+    }
+  });
+  ipcMain.handle("vox:select-export-folder", async () => {
+    try {
+      if (!mainWindow) return null;
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: "Selecionar Pasta para Exportação",
+        buttonLabel: "Selecionar Pasta",
+        properties: ["openDirectory"]
+      });
+      if (!result.canceled && result.filePaths.length > 0) {
+        return result.filePaths[0];
+      }
+      return null;
+    } catch (err) {
+      console.error("[Main] Erro ao selecionar pasta de exportação:", err);
+      return null;
+    }
+  });
+  ipcMain.handle("vox:export-transcription", async (_event, payload) => {
+    try {
+      sendMediaProgress("Exportando", 92);
+      const files = await exporter.exportTranscription(
+        payload.result,
+        payload.formats,
+        payload.outputPath,
+        payload.options || {}
+      );
+      sendMediaProgress("Exportando", 100);
+      return { success: true, files };
+    } catch (err) {
+      console.error("[Main] Erro ao exportar transcrição:", err);
+      return { success: false, error: err?.message || "Falha ao exportar arquivos" };
+    }
+  });
+  ipcMain.handle("vox:delete-audio", async (_event, audioPath) => {
+    try {
+      if (audioPath && fs.existsSync(audioPath)) {
+        fs.unlinkSync(audioPath);
+        console.log("[Main] Áudio excluído com sucesso:", audioPath);
+        return { success: true };
+      }
+      return { success: false };
+    } catch (err) {
+      console.error("[Main] Erro ao excluir áudio:", err);
+      return { success: false };
+    }
+  });
+  ipcMain.handle("vox:open-folder", async (_event, folderOrFilePath) => {
+    try {
+      if (folderOrFilePath && fs.existsSync(folderOrFilePath)) {
+        const stat = fs.statSync(folderOrFilePath);
+        if (stat.isDirectory()) {
+          await shell.openPath(folderOrFilePath);
+        } else {
+          shell.showItemInFolder(folderOrFilePath);
+        }
+        return { success: true };
+      }
+      return { success: false };
+    } catch (err) {
+      console.error("[Main] Erro ao abrir pasta/arquivo:", err);
+      return { success: false };
     }
   });
   ipcMain.handle("vox:download-audio", async (_event, url, cookiesFromBrowser) => {
@@ -1076,6 +1492,9 @@ app.whenReady().then(async () => {
       createDockWindow();
     }
   });
+});
+app.on("before-quit", () => {
+  isQuitting = true;
 });
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();

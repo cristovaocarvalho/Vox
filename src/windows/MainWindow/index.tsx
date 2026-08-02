@@ -59,178 +59,166 @@ export const MainWindow: React.FC = () => {
   const [draftWakeWordEnabled, setDraftWakeWordEnabled] = useState(wakeWordEnabled)
   const [draftWakeWordSensitivity, setDraftWakeWordSensitivity] = useState(wakeWordSensitivity)
 
-  // Vox Media State
-  const [downloadProgress, setDownloadProgress] = useState<{ pct: number; speed: string; eta: string } | null>(null)
-  const [isDownloading, setIsDownloading] = useState(false)
-  const [mediaTranscript, setMediaTranscript] = useState('')
-  const [isDragOver, setIsDragOver] = useState(false)
-  const [downloadedFilePath, setDownloadedFilePath] = useState<string | null>(null)
-  const [showFileActionPrompt, setShowFileActionPrompt] = useState(false)
-  const [fileActionStatus, setFileActionStatus] = useState<string | null>(null)
+  // Vox Media State Machine
+  type MediaStep = 'input' | 'preview' | 'progress' | 'export' | 'post_export'
+  const [mediaStep, setMediaStep] = useState<MediaStep>('input')
+  const [videoInfo, setVideoInfo] = useState<{ title: string; duration: number; thumbnail: string; platform: string } | null>(null)
+  const [localFileInfo, setLocalFileInfo] = useState<{ name: string; size: string; path: string } | null>(null)
+  const [isFetchingInfo, setIsFetchingInfo] = useState(false)
+  const [mediaProgress, setMediaProgress] = useState<{ phase: string; percent: number; speed?: string; eta?: string }>({
+    phase: 'Baixando áudio',
+    percent: 0
+  })
+  const [transcriptionResult, setTranscriptionResult] = useState<any>(null)
+  const [mediaAudioPath, setMediaAudioPath] = useState<string | null>(null)
+  const [exportFolderPath, setExportFolderPath] = useState<string>('')
+  const [includeTimestamps, setIncludeTimestamps] = useState<boolean>(true)
+  const [exportedFiles, setExportedFiles] = useState<string[]>([])
+  const [audioDeleted, setAudioDeleted] = useState<boolean>(false)
+  const [mediaError, setMediaError] = useState<string | null>(null)
 
-  const handleOpenSettings = () => {
-    setDraftApiKey(apiKey)
-    setDraftShortcutToggle(shortcutToggle)
-    setDraftShortcutPushToTalk(shortcutPushToTalk)
-    setDraftBrowserCookies(browserCookies)
-    setDraftWakeWordEnabled(wakeWordEnabled)
-    setDraftWakeWordSensitivity(wakeWordSensitivity)
-    setIsSettingsOpen(true)
+  const formatMMSS = (totalSeconds: number) => {
+    if (!totalSeconds || isNaN(totalSeconds)) return '00:00'
+    const mins = Math.floor(totalSeconds / 60)
+    const secs = Math.floor(totalSeconds % 60)
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
   }
 
-  const handleSaveSettings = () => {
-    setApiKey(draftApiKey)
-    setShortcutToggle(draftShortcutToggle)
-    setShortcutPushToTalk(draftShortcutPushToTalk)
-    setBrowserCookies(draftBrowserCookies)
-    setWakeWordEnabled(draftWakeWordEnabled)
-    setWakeWordSensitivity(draftWakeWordSensitivity)
-    setIsSettingsOpen(false)
-
-    if (window.vox?.saveSettings) {
-      window.vox.saveSettings({
-        apiKey: draftApiKey,
-        sttModel,
-        llmModel,
-        shortcutToggle: draftShortcutToggle,
-        shortcutPushToTalk: draftShortcutPushToTalk,
-        browserCookies: draftBrowserCookies,
-        wakeWordEnabled: String(draftWakeWordEnabled),
-        wakeWordSensitivity: String(draftWakeWordSensitivity)
-      }).catch(console.error)
-    }
+  const formatBytes = (bytes: number) => {
+    if (!bytes || bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
   }
 
-  React.useEffect(() => {
-    if (window.vox?.getSettings) {
-      window.vox.getSettings().then((saved: Record<string, string>) => {
-        if (saved && typeof saved === 'object') {
-          if (saved.apiKey) setApiKey(saved.apiKey)
-          if (saved.sttModel) setSttModel(saved.sttModel)
-          if (saved.llmModel) setLlmModel(saved.llmModel)
-          if (saved.shortcutToggle) setShortcutToggle(saved.shortcutToggle)
-          if (saved.shortcutPushToTalk) setShortcutPushToTalk(saved.shortcutPushToTalk)
-          if (saved.browserCookies) setBrowserCookies(saved.browserCookies as any)
-          if (saved.wakeWordEnabled !== undefined) setWakeWordEnabled(saved.wakeWordEnabled === 'true')
-          if (saved.wakeWordSensitivity) setWakeWordSensitivity(parseFloat(saved.wakeWordSensitivity))
-        }
-      }).catch(console.error)
-    }
-  }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies, setWakeWordEnabled, setWakeWordSensitivity])
-
-
-
-  const handleStartTranscribeUrl = async () => {
+  const handleFetchVideoInfo = async () => {
     if (!urlInput.trim()) return
-    setIsDownloading(true)
-    setShowFileActionPrompt(false)
-    setFileActionStatus(null)
-    setTranscribeStatus('Baixando mídia...')
-    setDownloadProgress({ pct: 0, speed: '0 B/s', eta: '--:--' })
+    setIsFetchingInfo(true)
+    setMediaError(null)
+    try {
+      const info = await window.vox?.getVideoInfo(urlInput, browserCookies)
+      setVideoInfo(info || { title: 'Vídeo Sem Título', duration: 0, thumbnail: '', platform: 'unknown' })
+      setMediaStep('preview')
+    } catch (err: any) {
+      console.error('Erro ao obter vídeo:', err)
+      setMediaError(err?.message || 'Não foi possível obter informações do vídeo.')
+    } finally {
+      setIsFetchingInfo(false)
+    }
+  }
 
-    const removeProgressListener = window.vox?.onDownloadProgress?.((data) => {
-      setDownloadProgress(data)
-      setTranscribeProgress(Math.round(data.pct))
-      setTranscribeStatus(`Baixando (${Math.round(data.pct)}%) - ${data.speed} - ETA: ${data.eta}`)
+  const handleStartTranscription = async (payload: { url?: string; filePath?: string }) => {
+    setMediaStep('progress')
+    setMediaError(null)
+    setMediaProgress({ phase: payload.url ? 'Baixando áudio' : 'Extraindo áudio', percent: 5 })
+
+    const removeProgressListener = window.vox?.onMediaProgress?.((data) => {
+      setMediaProgress(data)
     })
 
     try {
-      const dlResult = await window.vox?.downloadAudio(urlInput, browserCookies)
-      if (dlResult?.error) {
-        setMediaTranscript(`[${dlResult.error}]`)
+      const res = await window.vox?.startMediaTranscription({
+        url: payload.url,
+        filePath: payload.filePath,
+        cookiesFromBrowser: browserCookies
+      })
+
+      if (res?.error) {
+        setMediaError(res.error)
         return
       }
 
-      setTranscribeStatus('Transcrevendo áudio via Whisper Large V3 Turbo...')
-      setTranscribeProgress(95)
-
-      if (dlResult && dlResult.audioPath) {
-        setDownloadedFilePath(dlResult.audioPath)
-        const transRes = await window.vox?.transcribeMedia({ audioPath: dlResult.audioPath })
-        setMediaTranscript(transRes?.text || 'Transcrição de mídia concluída com sucesso.')
-        if (transRes?.text && !transRes.text.startsWith('[Erro')) {
-          setShowFileActionPrompt(true)
-        }
+      if (res && res.result) {
+        setMediaAudioPath(res.audioPath)
+        setTranscriptionResult(res.result)
+        setMediaStep('export')
       } else {
-        setMediaTranscript('[Erro: Não foi possível obter o caminho do arquivo baixado]')
+        setMediaError('Falha ao obter o resultado da transcrição.')
       }
     } catch (err: any) {
       console.error('Erro na transcrição de mídia:', err)
-      setMediaTranscript(`[Erro: ${err?.message || 'Falha ao processar áudio da mídia'}]`)
+      setMediaError(err?.message || 'Erro inesperado na transcrição.')
     } finally {
       removeProgressListener?.()
-      setIsDownloading(false)
-      setTranscribeProgress(null)
-      setTranscribeStatus('')
     }
   }
 
-  const handleKeepFile = () => {
-    setShowFileActionPrompt(false)
-    setFileActionStatus('Arquivo salvo na pasta Downloads.')
-    setTimeout(() => setFileActionStatus(null), 4000)
+  const handleCancelTranscription = async () => {
+    await window.vox?.cancelMediaTranscription()
+    handleResetMedia()
   }
 
-  const handleDeleteFile = async () => {
-    if (downloadedFilePath && window.vox?.deleteFile) {
-      await window.vox.deleteFile(downloadedFilePath)
+  const handleSelectExportFolder = async () => {
+    const folder = await window.vox?.selectExportFolder()
+    if (folder) {
+      setExportFolderPath(folder)
     }
-    setShowFileActionPrompt(false)
-    setFileActionStatus('Arquivo excluído do computador.')
-    setTimeout(() => setFileActionStatus(null), 4000)
+  }
+
+  const handleExecuteExport = async () => {
+    if (!transcriptionResult || selectedFormats.length === 0) return
+    setMediaError(null)
+    const targetFolder = exportFolderPath || 'Downloads'
+    try {
+      const res = await window.vox?.exportTranscription({
+        result: transcriptionResult,
+        formats: selectedFormats,
+        outputPath: targetFolder,
+        options: {
+          includeTimestamps,
+          title: videoInfo?.title || localFileInfo?.name || 'transcricao_vox'
+        }
+      })
+
+      if (res && res.files) {
+        setExportedFiles(res.files)
+        setMediaStep('post_export')
+      } else {
+        setMediaError(res?.error || 'Falha ao exportar os arquivos.')
+      }
+    } catch (err: any) {
+      console.error('Erro ao exportar:', err)
+      setMediaError(err?.message || 'Erro ao exportar transcrição.')
+    }
+  }
+
+  const handleKeepAudio = () => {
+    setAudioDeleted(false)
+  }
+
+  const handleDeleteAudio = async () => {
+    if (mediaAudioPath) {
+      await window.vox?.deleteAudio(mediaAudioPath)
+      setAudioDeleted(true)
+    }
   }
 
   const handleResetMedia = () => {
+    setMediaStep('input')
     setUrlInput('')
-    setMediaTranscript('')
-    setIsDownloading(false)
-    setShowFileActionPrompt(false)
-    setFileActionStatus(null)
-    setDownloadedFilePath(null)
+    setVideoInfo(null)
+    setLocalFileInfo(null)
+    setTranscriptionResult(null)
+    setMediaAudioPath(null)
+    setExportedFiles([])
+    setAudioDeleted(false)
+    setMediaError(null)
+    setMediaProgress({ phase: 'Baixando áudio', percent: 0 })
   }
 
-  const handleExportFormat = (fmt: string) => {
-    if (!mediaTranscript) return
-    let content = mediaTranscript
-    if (fmt === 'json') {
-      content = JSON.stringify({ transcript: mediaTranscript, timestamp: new Date().toISOString() }, null, 2)
-    } else if (fmt === 'vtt') {
-      content = `WEBVTT\n\n00:00:00.000 --> 00:05:00.000\n${mediaTranscript}`
-    } else if (fmt === 'srt') {
-      content = `1\n00:00:00,000 --> 00:05:00,000\n${mediaTranscript}`
+  const allowedExtensions = ['.mp4', '.mp3', '.wav', '.mkv', '.mov', '.avi', '.m4a', '.webm', '.ogg']
+
+  const handleProcessLocalFilePath = (filePath: string, fileName: string, fileSize?: number) => {
+    const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase()
+    if (!allowedExtensions.includes(ext)) {
+      setMediaError('Formato não suportado. Aceitos: .mp4, .mp3, .wav, .mkv, .mov, .avi, .m4a, .webm, .ogg')
+      return
     }
-
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `vox_transcricao_${Date.now()}.${fmt}`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const processLocalFile = async (filePath: string, fileName: string) => {
-    setIsDownloading(true)
-    setShowFileActionPrompt(false)
-    setFileActionStatus(null)
-    setTranscribeStatus(`Transcrevendo arquivo: ${fileName}...`)
-    setTranscribeProgress(50)
-    setDownloadedFilePath(filePath)
-
-    try {
-      const transRes = await window.vox?.transcribeMedia({ audioPath: filePath })
-      setMediaTranscript(transRes?.text || `Transcrição do arquivo ${fileName} concluída.`)
-      if (transRes?.text && !transRes.text.startsWith('[Erro')) {
-        setShowFileActionPrompt(true)
-      }
-    } catch (err: any) {
-      console.error('Erro na transcrição de arquivo local:', err)
-      setMediaTranscript(`[Erro ao transcrever arquivo local: ${err?.message || 'Falha ao processar'}]`)
-    } finally {
-      setIsDownloading(false)
-      setTranscribeProgress(null)
-      setTranscribeStatus('')
-    }
+    setMediaError(null)
+    const formattedSize = fileSize ? formatBytes(fileSize) : 'Arquivo local'
+    setLocalFileInfo({ name: fileName, size: formattedSize, path: filePath })
+    handleStartTranscription({ filePath })
   }
 
   const handleSelectFile = async () => {
@@ -238,7 +226,7 @@ export const MainWindow: React.FC = () => {
     const filePath = await window.vox.selectFile()
     if (filePath) {
       const fileName = filePath.split(/[/\\]/).pop() || 'Arquivo Selecionado'
-      processLocalFile(filePath, fileName)
+      handleProcessLocalFilePath(filePath, fileName)
     }
   }
 
@@ -251,7 +239,7 @@ export const MainWindow: React.FC = () => {
       const file = e.dataTransfer.files[0]
       const filePath = (file as any).path || file.name
       if (filePath) {
-        processLocalFile(filePath, file.name)
+        handleProcessLocalFilePath(filePath, file.name, file.size)
       }
       return
     }
@@ -615,110 +603,342 @@ export const MainWindow: React.FC = () => {
             ) : (
 
               <div className="w-full max-w-lg space-y-4">
-                {isDownloading || mediaTranscript ? (
-                  /* SINGLE ACTIVE CARD DURING / AFTER TRANSCRIPTION */
-                  <AnimatedContent key={`media-process-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.05} ease="power3.out">
-                    <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-6 flex flex-col gap-4">
-                      {/* Header */}
-                      <div className="flex items-center justify-between border-b border-border/40 pb-4 mb-2">
-                        <span className="text-sm font-semibold text-text-primary">Transcrição de Mídia</span>
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded uppercase font-mono ${isDownloading
-                          ? 'bg-warning/15 text-warning'
-                          : mediaTranscript.startsWith('[Erro')
-                            ? 'bg-error/15 text-error'
-                            : 'bg-accent/15 text-accent'
-                          }`}>
-                          {isDownloading ? '● Processando' : mediaTranscript.startsWith('[Erro') ? 'Erro' : '● Concluído'}
-                        </span>
+                {/* FASE 1: PREVIEW ANTES DE TRANSCREVER */}
+                {mediaStep === 'preview' && videoInfo && (
+                  <AnimatedContent key={`media-preview-${activeTab}`} distance={30} direction="vertical" duration={0.8} ease="power3.out">
+                    <LiquidGlassCard glowIntensity="md" blurIntensity="md" className="p-6 flex flex-col gap-4 border border-border/60">
+                      <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Preview da Mídia</span>
+                        {videoInfo.platform === 'youtube' && (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-red-500/20 text-red-400 border border-red-500/30 flex items-center gap-1">
+                            YouTube
+                          </span>
+                        )}
+                        {videoInfo.platform === 'tiktok' && (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center gap-1">
+                            TikTok
+                          </span>
+                        )}
+                        {videoInfo.platform === 'instagram' && (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-pink-500/20 text-pink-400 border border-pink-500/30 flex items-center gap-1">
+                            Instagram
+                          </span>
+                        )}
+                        {videoInfo.platform === 'unknown' && (
+                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-accent/20 text-accent border border-accent/30 flex items-center gap-1">
+                            🌐 Mídia Web
+                          </span>
+                        )}
                       </div>
 
-                      {/* Real-time Progress Bar */}
-                      {isDownloading && (
-                        <div className="w-full py-2">
-                          <ProgressBar
-                            progress={transcribeProgress ?? 0}
-                            label={transcribeStatus}
-                            sublabel={downloadProgress ? `${downloadProgress.speed} | ETA: ${downloadProgress.eta}` : undefined}
+                      <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
+                        {videoInfo.thumbnail ? (
+                          <img
+                            src={videoInfo.thumbnail}
+                            alt="Thumbnail"
+                            className="w-32 h-24 object-cover rounded-xl border border-border/50 shrink-0 shadow-md"
                           />
-                        </div>
-                      )}
+                        ) : (
+                          <div className="w-32 h-24 bg-surface border border-border/50 rounded-xl flex items-center justify-center text-3xl shrink-0">
+                            🎬
+                          </div>
+                        )}
 
-                      {/* Transcribed Text Output */}
-                      {mediaTranscript && (
-                        <div className="space-y-2">
-                          <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest block">Resultado</span>
-                          <div className="p-3 bg-background/60 border border-border/50 rounded-xl font-mono text-sm text-text-primary max-h-48 overflow-y-auto custom-scrollbar break-words">
-                            {mediaTranscript}
+                        <div className="flex flex-col justify-between flex-1 min-w-0 text-center sm:text-left gap-2">
+                          <h3 className="text-sm font-semibold text-text-primary line-clamp-2 leading-tight">
+                            {videoInfo.title}
+                          </h3>
+                          <div className="flex items-center justify-center sm:justify-start gap-2 text-xs text-text-secondary">
+                            <span>⏱ Duração:</span>
+                            <span className="font-mono text-accent font-semibold">{formatMMSS(videoInfo.duration)}</span>
                           </div>
                         </div>
-                      )}
+                      </div>
 
-                      {/* Export Options (Shown ONLY after successful completion) */}
-                      {mediaTranscript && !mediaTranscript.startsWith('[Erro') && (
-                        <div className="pt-4 mt-3 border-t border-border/40 space-y-2">
-                          <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest block">Exportar como</span>
-                          <div className="flex flex-wrap gap-2">
-                            {['srt', 'vtt', 'txt', 'md', 'json'].map((fmt) => (
-                              <button
-                                key={fmt}
-                                type="button"
-                                onClick={() => handleExportFormat(fmt)}
-                                className="px-3 py-1.5 text-xs font-mono rounded-lg border border-border/60 bg-surface hover:border-accent/50 hover:bg-accent/15 text-text-primary hover:text-accent font-medium transition-all cursor-pointer"
-                              >
-                                .{fmt.toUpperCase()}
-                              </button>
-                            ))}
-                          </div>
+                      <div className="flex items-center justify-end gap-3 pt-3 border-t border-border/40 mt-1">
+                        <button
+                          type="button"
+                          onClick={handleResetMedia}
+                          className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <SpecularButton
+                          size="sm"
+                          onClick={() => handleStartTranscription({ url: urlInput })}
+                          className="!px-6"
+                        >
+                          Confirmar e Transcrever
+                        </SpecularButton>
+                      </div>
+                    </LiquidGlassCard>
+                  </AnimatedContent>
+                )}
+
+                {/* FASE 2: PROGRESSO EM TEMPO REAL */}
+                {mediaStep === 'progress' && (
+                  <AnimatedContent key={`media-progress-${activeTab}`} distance={30} direction="vertical" duration={0.8} ease="power3.out">
+                    <LiquidGlassCard glowIntensity="md" blurIntensity="md" className="p-6 flex flex-col gap-5 border border-border/60">
+                      <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Processando Mídia</span>
+                        <span className="text-xs font-mono font-bold text-accent">{mediaProgress.percent}%</span>
+                      </div>
+
+                      {/* 3 Fases Visuais */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className={`p-2.5 rounded-xl border text-center flex flex-col items-center gap-1 transition-all ${
+                          mediaProgress.percent <= 40
+                            ? 'bg-accent/15 border-accent/50 text-accent'
+                            : 'bg-surface/60 border-border/40 text-text-secondary'
+                        }`}>
+                          <span className="text-base">{mediaProgress.percent <= 40 ? '📥' : '✓'}</span>
+                          <span className="text-[11px] font-semibold">Baixando Áudio</span>
+                          <span className="text-[10px] font-mono opacity-80">0–40%</span>
                         </div>
-                      )}
 
-                      {/* Keep or Delete Prompt */}
-                      {showFileActionPrompt && (
-                        <div className="mt-3 p-3 bg-accent/10 border border-accent/30 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2.5 animate-in fade-in zoom-in-95 duration-200">
-                          <p className="text-xs text-text-primary font-medium text-center sm:text-left">
-                            Deseja manter a mídia em <span className="font-mono text-accent">Downloads</span> ou excluí-la?
-                          </p>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              type="button"
-                              onClick={handleKeepFile}
-                              className="px-3 py-1.5 bg-accent/20 hover:bg-accent/30 text-accent text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-                            >
-                              Manter Arquivo
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleDeleteFile}
-                              className="px-3 py-1.5 bg-error/20 hover:bg-error/30 text-error text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-                            >
-                              Excluir Arquivo
-                            </button>
-                          </div>
+                        <div className={`p-2.5 rounded-xl border text-center flex flex-col items-center gap-1 transition-all ${
+                          mediaProgress.percent > 40 && mediaProgress.percent <= 90
+                            ? 'bg-accent/15 border-accent/50 text-accent animate-pulse'
+                            : mediaProgress.percent > 90
+                            ? 'bg-surface/60 border-border/40 text-text-secondary'
+                            : 'bg-surface/30 border-border/30 text-text-disabled'
+                        }`}>
+                          <span className="text-base">{mediaProgress.percent > 40 && mediaProgress.percent <= 90 ? '🎙️' : mediaProgress.percent > 90 ? '✓' : '⏳'}</span>
+                          <span className="text-[11px] font-semibold">Transcrevendo</span>
+                          <span className="text-[10px] font-mono opacity-80">40–90%</span>
                         </div>
-                      )}
 
-                      {fileActionStatus && (
-                        <p className="mt-3 text-xs text-accent text-center font-medium animate-in fade-in duration-150">
-                          ✓ {fileActionStatus}
-                        </p>
-                      )}
+                        <div className={`p-2.5 rounded-xl border text-center flex flex-col items-center gap-1 transition-all ${
+                          mediaProgress.percent > 90
+                            ? 'bg-accent/15 border-accent/50 text-accent animate-pulse'
+                            : 'bg-surface/30 border-border/30 text-text-disabled'
+                        }`}>
+                          <span className="text-base">{mediaProgress.percent > 90 ? '⚙️' : '⏳'}</span>
+                          <span className="text-[11px] font-semibold">Exportando</span>
+                          <span className="text-[10px] font-mono opacity-80">90–100%</span>
+                        </div>
+                      </div>
 
-                      {/* Reset to Transcribe New Media */}
-                      {!isDownloading && (
-                        <div className="pt-4 mt-3 border-t border-border/40 flex justify-end">
-                          <SpecularButton
-                            size="sm"
-                            onClick={handleResetMedia}
-                            className="!px-5"
-                          >
-                            Transcrever Nova Mídia
+                      <div className="w-full py-1">
+                        <ProgressBar
+                          progress={mediaProgress.percent}
+                          label={mediaProgress.phase}
+                          sublabel={mediaProgress.speed ? `${mediaProgress.speed} | ETA: ${mediaProgress.eta}` : undefined}
+                        />
+                      </div>
+
+                      {mediaError ? (
+                        <div className="p-3 bg-error/15 border border-error/30 rounded-xl text-xs text-error font-medium text-center space-y-2">
+                          <p>{mediaError}</p>
+                          <SpecularButton size="sm" onClick={handleResetMedia} className="!px-4">
+                            Tentar Novamente
                           </SpecularButton>
                         </div>
+                      ) : (
+                        mediaProgress.percent <= 40 && (
+                          <div className="flex justify-end pt-2">
+                            <button
+                              type="button"
+                              onClick={handleCancelTranscription}
+                              className="px-4 py-1.5 bg-error/20 hover:bg-error/30 text-error text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Cancelar Processo
+                            </button>
+                          </div>
+                        )
                       )}
                     </LiquidGlassCard>
                   </AnimatedContent>
-                ) : (
-                  /* INITIAL STATE: INPUT CARD & DROPZONE */
+                )}
+
+                {/* FASE 3: SELEÇÃO DE FORMATOS ANTES DE EXPORTAR */}
+                {mediaStep === 'export' && (
+                  <AnimatedContent key={`media-export-${activeTab}`} distance={30} direction="vertical" duration={0.8} ease="power3.out">
+                    <LiquidGlassCard glowIntensity="md" blurIntensity="md" className="p-6 flex flex-col gap-5 border border-border/60">
+                      <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Opções de Exportação</span>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          ✓ Transcrito
+                        </span>
+                      </div>
+
+                      {/* Snippet do resultado */}
+                      {transcriptionResult?.text && (
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest block">Snippet da Transcrição</span>
+                          <div className="p-3 bg-background/60 border border-border/50 rounded-xl font-mono text-xs text-text-primary max-h-24 overflow-y-auto custom-scrollbar break-words">
+                            {transcriptionResult.text.slice(0, 250)}{transcriptionResult.text.length > 250 ? '...' : ''}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Checkboxes de formatos */}
+                      <div className="space-y-2">
+                        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest block">Formatos Desejados</span>
+                        <div className="grid grid-cols-5 gap-2">
+                          {['txt', 'md', 'srt', 'vtt', 'json'].map((fmt) => {
+                            const isSelected = selectedFormats.includes(fmt)
+                            return (
+                              <button
+                                key={fmt}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedFormats((prev) =>
+                                    isSelected ? prev.filter((f) => f !== fmt) : [...prev, fmt]
+                                  )
+                                }}
+                                className={`py-2 px-2 text-xs font-mono font-semibold rounded-xl border transition-all text-center uppercase cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-accent/20 border-accent text-accent shadow-[0_0_10px_rgba(255,255,255,0.15)]'
+                                    : 'bg-surface/50 border-border/40 text-text-secondary hover:text-text-primary'
+                                }`}
+                              >
+                                .{fmt}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Pasta de Destino */}
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest block">Pasta de Destino</span>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={exportFolderPath || 'Pasta Padrão (Downloads)'}
+                            className="flex-1 bg-background/60 border border-border/60 px-3 py-2 rounded-xl text-xs font-mono text-text-secondary focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSelectExportFolder}
+                            className="px-3.5 py-2 bg-surface hover:bg-surface-elevated border border-border text-xs font-medium text-text-primary rounded-xl transition-colors cursor-pointer shrink-0"
+                          >
+                            Alterar Pasta
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Toggle Timestamps */}
+                      <div className="flex items-center justify-between p-3 bg-background/40 border border-border/40 rounded-xl">
+                        <div>
+                          <span className="text-xs font-semibold text-text-primary block">Incluir Timestamps</span>
+                          <span className="text-[11px] text-text-secondary">Formatos TXT e MD receberão marcas de tempo [MM:SS]</span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={includeTimestamps}
+                          onChange={(e) => setIncludeTimestamps(e.target.checked)}
+                          className="w-4 h-4 accent-accent cursor-pointer"
+                        />
+                      </div>
+
+                      {mediaError && (
+                        <p className="text-xs text-error font-medium text-center">{mediaError}</p>
+                      )}
+
+                      {/* Ação de Exportar */}
+                      <div className="flex items-center justify-end gap-3 pt-3 border-t border-border/40">
+                        <button
+                          type="button"
+                          onClick={handleResetMedia}
+                          className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <SpecularButton
+                          size="sm"
+                          onClick={handleExecuteExport}
+                          disabled={selectedFormats.length === 0}
+                          className="!px-6"
+                        >
+                          Exportar Selecionados ({selectedFormats.length})
+                        </SpecularButton>
+                      </div>
+                    </LiquidGlassCard>
+                  </AnimatedContent>
+                )}
+
+                {/* FASE 4: MODAL PÓS-EXPORTAÇÃO */}
+                {mediaStep === 'post_export' && (
+                  <AnimatedContent key={`media-post-${activeTab}`} distance={30} direction="vertical" duration={0.8} ease="power3.out">
+                    <LiquidGlassCard glowIntensity="md" blurIntensity="md" className="p-6 flex flex-col gap-5 border border-border/60">
+                      <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">Exportação Concluída</span>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          ✓ Pronto
+                        </span>
+                      </div>
+
+                      {/* Lista de arquivos exportados */}
+                      <div className="space-y-2">
+                        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest block">Arquivos Gerados</span>
+                        <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+                          {exportedFiles.map((file, idx) => {
+                            const fileName = file.split(/[/\\]/).pop() || file
+                            return (
+                              <div key={idx} className="flex items-center justify-between p-2.5 bg-background/60 border border-border/40 rounded-xl text-xs font-mono">
+                                <span className="text-text-primary truncate max-w-[280px]" title={file}>📄 {fileName}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => window.vox?.openFolder(file)}
+                                  className="px-2.5 py-1 bg-surface hover:bg-surface-elevated text-accent text-[11px] font-sans font-semibold rounded-lg border border-accent/30 transition-colors cursor-pointer shrink-0"
+                                >
+                                  Abrir Pasta
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Opção de Áudio Temporário */}
+                      <div className="p-4 bg-accent/10 border border-accent/30 rounded-xl space-y-3">
+                        <p className="text-xs text-text-primary font-medium text-center">
+                          O arquivo de áudio temporário foi utilizado no processamento. Deseja mantê-lo ou excluí-lo?
+                        </p>
+
+                        {audioDeleted ? (
+                          <div className="p-2 bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-center text-xs text-emerald-400 font-semibold">
+                            ✓ Arquivo de áudio excluído com sucesso.
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={handleKeepAudio}
+                              className="px-4 py-2 bg-accent/20 hover:bg-accent/30 text-accent text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                            >
+                              Manter Arquivo de Áudio
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleDeleteAudio}
+                              className="px-4 py-2 bg-error/20 hover:bg-error/30 text-error text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                            >
+                              Deletar Arquivo de Áudio
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Reiniciar */}
+                      <div className="flex justify-end pt-2 border-t border-border/40">
+                        <SpecularButton
+                          size="sm"
+                          onClick={handleResetMedia}
+                          className="!px-6"
+                        >
+                          Transcrever Nova Mídia
+                        </SpecularButton>
+                      </div>
+                    </LiquidGlassCard>
+                  </AnimatedContent>
+                )}
+
+                {/* ESTADO INICIAL / FASE 5: INPUT & DRAG-AND-DROP */}
+                {mediaStep === 'input' && (
                   <>
                     <AnimatedContent key={`media-card-1-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.05} ease="power3.out">
                       <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-6 flex flex-col items-center text-center">
@@ -737,16 +957,21 @@ export const MainWindow: React.FC = () => {
                             placeholder="Cole a URL do vídeo (YouTube, TikTok, Instagram)..."
                             value={urlInput}
                             onChange={(e) => setUrlInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && urlInput.trim()) {
+                                handleFetchVideoInfo()
+                              }
+                            }}
                             className="w-full bg-background/60 border border-border/60 px-3.5 py-2.5 rounded-xl text-xs font-mono text-text-primary placeholder:text-text-disabled focus:outline-none focus:border-accent transition-colors text-center"
                           />
 
                           <SpecularButton
                             size="sm"
                             className="w-full mt-1"
-                            onClick={handleStartTranscribeUrl}
-                            disabled={!urlInput.trim()}
+                            onClick={handleFetchVideoInfo}
+                            disabled={!urlInput.trim() || isFetchingInfo}
                           >
-                            Baixar e Transcrever
+                            {isFetchingInfo ? 'Obtendo informações...' : 'Baixar e Transcrever'}
                           </SpecularButton>
                         </div>
                       </LiquidGlassCard>
@@ -770,12 +995,18 @@ export const MainWindow: React.FC = () => {
                         >
                           <div className="text-3xl mb-2">📁</div>
                           <p className="text-sm font-medium text-text-primary">
-                            {isDragOver ? 'Solte a URL ou arquivo aqui!' : 'Clique para escolher ou arraste um arquivo local'}
+                            {isDragOver ? 'Solte o arquivo local aqui!' : 'Clique para escolher ou arraste um arquivo local'}
                           </p>
-                          <p className="text-xs text-text-secondary mt-1">YouTube · TikTok · Instagram · MP4 · MP3 · WAV · MKV · MOV</p>
+                          <p className="text-xs text-text-secondary mt-1">.mp4 .mp3 .wav .mkv .mov .avi .m4a .webm .ogg</p>
                         </LiquidGlassCard>
                       </div>
                     </AnimatedContent>
+
+                    {mediaError && (
+                      <div className="p-3 bg-error/15 border border-error/30 rounded-xl text-xs text-error font-medium text-center animate-in fade-in duration-200">
+                        ⚠️ {mediaError}
+                      </div>
+                    )}
                   </>
                 )}
               </div>

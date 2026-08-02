@@ -1,12 +1,14 @@
 import type { BrowserWindow as BrowserWindowType } from 'electron'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, dialog, Tray, Menu, nativeImage } = require('electron')
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, dialog, Tray, Menu, nativeImage, shell } = require('electron')
 import path from 'path'
 import recorder from './modules/recorder'
 import { transcribeAudio } from './modules/stt'
 import { correctTranscription } from './modules/corrector'
 import { injectText } from './modules/injector'
 import downloader from './modules/downloader'
+import exporter from './modules/exporter'
+import ffmpeg from './modules/ffmpeg'
 import { initDatabase, getAllSettings, setSetting } from './modules/db'
 import wakewordDetector from './modules/wakeword'
 import fs from 'fs'
@@ -16,20 +18,37 @@ let mainWindow: BrowserWindowType | null = null
 let dockWindow: BrowserWindowType | null = null
 let tray: InstanceType<typeof Tray> | null = null
 let targetWindowHwnd: string | null = null
+let isQuitting = false
 
 function captureActiveWindow(): void {
   try {
-    const result = execFileSync('powershell', [
-      '-NoProfile', '-WindowStyle', 'Hidden', '-Command',
-      `(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();' -Name FGW -Namespace VOX -PassThru)::GetForegroundWindow()`
-    ], { timeout: 1500, encoding: 'utf8' }) as string
-    targetWindowHwnd = result.trim() || null
+    if (process.platform === 'win32') {
+      const result = execFileSync('powershell', [
+        '-NoProfile', '-WindowStyle', 'Hidden', '-Command',
+        `(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();' -Name FGW -Namespace VOX -PassThru)::GetForegroundWindow()`
+      ], { timeout: 1500, encoding: 'utf8' }) as string
+      targetWindowHwnd = result.trim() || null
+    } else if (process.platform === 'darwin') {
+      const result = execFileSync('osascript', [
+        '-e', 'tell application "System Events" to get name of first process whose frontmost is true'
+      ], { timeout: 1500, encoding: 'utf8' }) as string
+      targetWindowHwnd = result.trim() || null
+    } else if (process.platform === 'linux') {
+      const result = execFileSync('xdotool', ['getactivewindow'], { timeout: 1500, encoding: 'utf8' }) as string
+      targetWindowHwnd = result.trim() || null
+    }
   } catch {
     targetWindowHwnd = null
   }
 }
 
 const getDevUrl = () => process.env['ELECTRON_RENDERER_URL'] || process.env['VITE_DEV_SERVER_URL']
+
+function getAppIconPath() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'favicon.png')
+    : path.join(app.getAppPath(), 'src/favicon.png')
+}
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -42,13 +61,24 @@ function createMainWindow() {
     resizable: false,
     maximizable: false,
     minimizable: true,
+    autoHideMenuBar: true,
     title: 'Vox',
+    icon: getAppIconPath(),
     backgroundColor: '#0D0D0F',
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false
+    }
+  })
+
+  mainWindow?.setMenu(null)
+
+  mainWindow?.on('close', (e) => {
+    if (!isQuitting) {
+      e.preventDefault()
+      mainWindow?.hide()
     }
   })
 
@@ -227,6 +257,12 @@ function setupIpcHandlers() {
   })
 
   // Vox Media Handlers
+  const sendMediaProgress = (phase: string, percent: number, speed?: string, eta?: string) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('vox:media-progress', { phase, percent: Math.round(percent), speed, eta })
+    }
+  }
+
   ipcMain.handle('vox:get-video-info', async (_event: unknown, url: string, cookiesFromBrowser?: string) => {
     try {
       const info = await downloader.getVideoInfo(url, cookiesFromBrowser)
@@ -237,6 +273,149 @@ function setupIpcHandlers() {
     }
   })
 
+  ipcMain.handle('vox:start-media-transcription', async (_event: unknown, payload: { url?: string; filePath?: string; cookiesFromBrowser?: string }) => {
+    try {
+      let audioPath = ''
+      const downloadsDir = app.getPath('downloads')
+
+      if (payload.url) {
+        sendMediaProgress('Baixando áudio', 0, '0 B/s', '--:--')
+        const dlResult = await downloader.downloadAudio({
+          url: payload.url,
+          outputDir: downloadsDir,
+          cookiesFromBrowser: payload.cookiesFromBrowser as any,
+          onProgress: (pct, speed, eta) => {
+            const mappedPct = Math.min(40, (pct / 100) * 40)
+            sendMediaProgress('Baixando áudio', mappedPct, speed, eta)
+          }
+        })
+        if (dlResult.audioPath) {
+          audioPath = dlResult.audioPath
+        } else {
+          throw new Error('Caminho do áudio não retornado pelo downloader.')
+        }
+      } else if (payload.filePath) {
+        const isVideo = ffmpeg.isVideoFile(payload.filePath)
+        if (isVideo) {
+          sendMediaProgress('Baixando áudio', 10)
+          audioPath = await ffmpeg.extractAudioFromVideo(payload.filePath, downloadsDir, (pct) => {
+            const mappedPct = Math.min(40, (pct / 100) * 40)
+            sendMediaProgress('Baixando áudio', mappedPct)
+          })
+        } else {
+          audioPath = payload.filePath
+          sendMediaProgress('Baixando áudio', 40)
+        }
+      } else {
+        throw new Error('Nenhuma URL ou arquivo informado.')
+      }
+
+      sendMediaProgress('Transcrevendo', 40)
+      if (!fs.existsSync(audioPath)) {
+        throw new Error('Arquivo de áudio não encontrado no disco.')
+      }
+
+      const buffer = fs.readFileSync(audioPath)
+      sendMediaProgress('Transcrevendo', 55)
+      const sttRes = await transcribeAudio(buffer)
+      sendMediaProgress('Transcrevendo', 75)
+
+      let correctedText = sttRes.text || ''
+      if (correctedText && !correctedText.startsWith('[Erro')) {
+        correctedText = await correctTranscription(correctedText)
+        sttRes.text = correctedText
+      }
+      sendMediaProgress('Transcrevendo', 90)
+
+      return {
+        audioPath,
+        result: sttRes,
+        text: sttRes.text
+      }
+    } catch (err: any) {
+      console.error('[Main] Erro em start-media-transcription:', err)
+      return { error: err?.message || 'Falha ao processar mídia' }
+    }
+  })
+
+  ipcMain.handle('vox:cancel-media-transcription', async () => {
+    try {
+      const canceled = downloader.cancelDownload()
+      return { success: canceled }
+    } catch (err) {
+      console.error('[Main] Erro ao cancelar transcrição:', err)
+      return { success: false }
+    }
+  })
+
+  ipcMain.handle('vox:select-export-folder', async () => {
+    try {
+      if (!mainWindow) return null
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: 'Selecionar Pasta para Exportação',
+        buttonLabel: 'Selecionar Pasta',
+        properties: ['openDirectory']
+      })
+      if (!result.canceled && result.filePaths.length > 0) {
+        return result.filePaths[0]
+      }
+      return null
+    } catch (err) {
+      console.error('[Main] Erro ao selecionar pasta de exportação:', err)
+      return null
+    }
+  })
+
+  ipcMain.handle('vox:export-transcription', async (_event: unknown, payload: { result: any; formats: string[]; outputPath: string; options?: any }) => {
+    try {
+      sendMediaProgress('Exportando', 92)
+      const files = await exporter.exportTranscription(
+        payload.result,
+        payload.formats,
+        payload.outputPath,
+        payload.options || {}
+      )
+      sendMediaProgress('Exportando', 100)
+      return { success: true, files }
+    } catch (err: any) {
+      console.error('[Main] Erro ao exportar transcrição:', err)
+      return { success: false, error: err?.message || 'Falha ao exportar arquivos' }
+    }
+  })
+
+  ipcMain.handle('vox:delete-audio', async (_event: unknown, audioPath: string) => {
+    try {
+      if (audioPath && fs.existsSync(audioPath)) {
+        fs.unlinkSync(audioPath)
+        console.log('[Main] Áudio excluído com sucesso:', audioPath)
+        return { success: true }
+      }
+      return { success: false }
+    } catch (err) {
+      console.error('[Main] Erro ao excluir áudio:', err)
+      return { success: false }
+    }
+  })
+
+  ipcMain.handle('vox:open-folder', async (_event: unknown, folderOrFilePath: string) => {
+    try {
+      if (folderOrFilePath && fs.existsSync(folderOrFilePath)) {
+        const stat = fs.statSync(folderOrFilePath)
+        if (stat.isDirectory()) {
+          await shell.openPath(folderOrFilePath)
+        } else {
+          shell.showItemInFolder(folderOrFilePath)
+        }
+        return { success: true }
+      }
+      return { success: false }
+    } catch (err) {
+      console.error('[Main] Erro ao abrir pasta/arquivo:', err)
+      return { success: false }
+    }
+  })
+
+  // Compatibilidade com handlers legados
   ipcMain.handle('vox:download-audio', async (_event: unknown, url: string, cookiesFromBrowser?: string) => {
     try {
       const downloadsDir = app.getPath('downloads')
@@ -479,6 +658,10 @@ app.whenReady().then(async () => {
       createDockWindow()
     }
   })
+})
+
+app.on('before-quit', () => {
+  isQuitting = true
 })
 
 app.on('will-quit', () => {

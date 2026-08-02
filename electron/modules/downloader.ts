@@ -59,10 +59,14 @@ async function downloadBinary(url: string, targetPath: string): Promise<void> {
 }
 
 export async function ensureExecutable(): Promise<string> {
+  const isWin = process.platform === 'win32'
+  const isMac = process.platform === 'darwin'
+  const binaryName = isWin ? 'yt-dlp.exe' : (isMac ? 'yt-dlp_macos' : 'yt-dlp')
+
   const possiblePaths = [
-    path.join(process.cwd(), 'resources', 'binaries', 'yt-dlp.exe'),
+    path.join(process.cwd(), 'resources', 'binaries', binaryName),
     path.join(process.cwd(), 'resources', 'binaries', 'yt-dlp'),
-    path.join(__dirname, '..', '..', 'resources', 'binaries', 'yt-dlp.exe'),
+    path.join(__dirname, '..', '..', 'resources', 'binaries', binaryName),
     path.join(__dirname, '..', '..', 'resources', 'binaries', 'yt-dlp'),
     'yt-dlp'
   ]
@@ -77,12 +81,21 @@ export async function ensureExecutable(): Promise<string> {
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true })
   }
-  const targetFile = path.join(targetDir, 'yt-dlp.exe')
+  const targetFile = path.join(targetDir, binaryName)
 
   if (!fs.existsSync(targetFile)) {
-    console.log('[Downloader] Baixando yt-dlp.exe automaticamente...')
+    const downloadUrl = isWin
+      ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe'
+      : (isMac
+          ? 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos'
+          : 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp')
+
+    console.log(`[Downloader] Baixando ${binaryName} automaticamente...`)
     try {
-      await downloadBinary('https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe', targetFile)
+      await downloadBinary(downloadUrl, targetFile)
+      if (!isWin) {
+        fs.chmodSync(targetFile, 0o755)
+      }
     } catch (err) {
       console.error('[Downloader] Erro no auto-download do yt-dlp:', err)
     }
@@ -171,6 +184,22 @@ export async function getVideoInfo(url: string, cookiesFromBrowser?: string): Pr
   })
 }
 
+let activeDownloadProc: any = null
+
+export function cancelDownload(): boolean {
+  if (activeDownloadProc) {
+    try {
+      activeDownloadProc.kill('SIGKILL')
+      activeDownloadProc = null
+      console.log('[Downloader] Processo yt-dlp cancelado com sucesso.')
+      return true
+    } catch (err) {
+      console.error('[Downloader] Erro ao cancelar yt-dlp:', err)
+    }
+  }
+  return false
+}
+
 export async function downloadAudio(options: DownloadOptions): Promise<DownloadResult> {
   const platform = detectPlatform(options.url)
   const executable = await ensureExecutable()
@@ -204,6 +233,7 @@ export async function downloadAudio(options: DownloadOptions): Promise<DownloadR
 
     try {
       const proc = spawn(executable, args)
+      activeDownloadProc = proc
 
       proc.stdout.on('data', (chunk) => {
         const text = chunk.toString()
@@ -221,6 +251,9 @@ export async function downloadAudio(options: DownloadOptions): Promise<DownloadR
       })
 
       proc.on('close', (code) => {
+        if (activeDownloadProc === proc) {
+          activeDownloadProc = null
+        }
         // 1. Check if a file matching vox_media_${timestamp}.* was generated on disk
         try {
           const files = fs.readdirSync(options.outputDir)
@@ -267,9 +300,13 @@ export async function downloadAudio(options: DownloadOptions): Promise<DownloadR
       })
 
       proc.on('error', (err) => {
+        if (activeDownloadProc === proc) {
+          activeDownloadProc = null
+        }
         reject(new Error(`Erro ao executar o downloader (${err.message}).`))
       })
     } catch (err: any) {
+      activeDownloadProc = null
       reject(new Error(err?.message || 'Erro inesperado ao baixar mídia.'))
     }
   })
@@ -278,5 +315,6 @@ export async function downloadAudio(options: DownloadOptions): Promise<DownloadR
 export default {
   detectPlatform,
   getVideoInfo,
-  downloadAudio
+  downloadAudio,
+  cancelDownload
 }

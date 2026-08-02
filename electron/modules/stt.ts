@@ -49,6 +49,7 @@ export async function transcribeAudio(
       formData.append('language', language)
     }
     
+    formData.append('response_format', 'verbose_json')
     formData.append('prompt', 'Transcrição direta e exata da fala no seu idioma original (sem traduzir para outro idioma).')
     formData.append('temperature', '0')
 

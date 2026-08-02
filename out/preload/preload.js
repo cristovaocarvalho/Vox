@@ -13,6 +13,12 @@ const voxApi = {
   minimize: () => ipcRenderer.invoke("vox:minimize"),
   // Vox Media (Transcrição de mídia)
   getVideoInfo: (url, cookiesFromBrowser) => ipcRenderer.invoke("vox:get-video-info", url, cookiesFromBrowser),
+  startMediaTranscription: (payload) => ipcRenderer.invoke("vox:start-media-transcription", payload),
+  cancelMediaTranscription: () => ipcRenderer.invoke("vox:cancel-media-transcription"),
+  selectExportFolder: () => ipcRenderer.invoke("vox:select-export-folder"),
+  exportTranscription: (payload) => ipcRenderer.invoke("vox:export-transcription", payload),
+  deleteAudio: (audioPath) => ipcRenderer.invoke("vox:delete-audio", audioPath),
+  openFolder: (folderOrFilePath) => ipcRenderer.invoke("vox:open-folder", folderOrFilePath),
   downloadAudio: (url, cookiesFromBrowser) => ipcRenderer.invoke("vox:download-audio", url, cookiesFromBrowser),
   transcribeMedia: (options) => ipcRenderer.invoke("vox:transcribe-media", options),
   deleteFile: (filePath) => ipcRenderer.invoke("vox:delete-file", filePath),
@@ -50,6 +56,11 @@ const voxApi = {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on("vox:download-progress", handler);
     return () => ipcRenderer.removeListener("vox:download-progress", handler);
+  },
+  onMediaProgress: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("vox:media-progress", handler);
+    return () => ipcRenderer.removeListener("vox:media-progress", handler);
   }
 };
 contextBridge.exposeInMainWorld("vox", voxApi);

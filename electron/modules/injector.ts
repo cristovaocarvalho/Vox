@@ -16,21 +16,50 @@ export async function injectText(text: string, _mode: InjectionMode = 'clipboard
     // 2. Pequeno delay para garantir que a área de transferência foi atualizada
     await new Promise((resolve) => setTimeout(resolve, delayMs))
 
-    // 3. Monta o comando PowerShell:
-    //    - Se temos o HWND da janela original: restaura o foco e cola com SendKeys
-    //    - Caso contrário: cola direto na janela em foco atual
-    const psCommand = hwnd && hwnd !== '0'
-      ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${hwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait('^v')`
-      : `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`
+    // 3. Executa a colagem de acordo com o Sistema Operacional
+    const platform = process.platform
 
-    // 4. Executa via execFile (sem shell) com janela oculta para não roubar o foco
-    execFile('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', psCommand], (err) => {
-      if (err) {
-        console.error('[Injector] Erro ao colar texto via PowerShell:', err)
+    if (platform === 'win32') {
+      const psCommand = hwnd && hwnd !== '0'
+        ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${hwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait('^v')`
+        : `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`
+
+      execFile('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', psCommand], (err) => {
+        if (err) {
+          console.error('[Injector] Erro ao colar texto via PowerShell (Windows):', err)
+        } else {
+          console.log('[Injector] Texto colado no cursor com sucesso (Windows)!')
+        }
+      })
+    } else if (platform === 'darwin') {
+      // macOS: Ativa a aplicação original via AppleScript e cola com Cmd + V (⌘V)
+      const script = hwnd && hwnd !== '0' && hwnd !== 'null'
+        ? `tell application "${hwnd}" to activate\ndelay 0.08\ntell application "System Events" to keystroke "v" using command down`
+        : `tell application "System Events" to keystroke "v" using command down`
+
+      execFile('osascript', ['-e', script], (err) => {
+        if (err) {
+          console.error('[Injector] Erro ao colar texto via AppleScript (macOS):', err)
+        } else {
+          console.log('[Injector] Texto colado no cursor com sucesso (macOS)!')
+        }
+      })
+    } else if (platform === 'linux') {
+      // Linux: Restaura foco via xdotool e cola com Ctrl + V
+      if (hwnd && hwnd !== '0' && hwnd !== 'null') {
+        execFile('xdotool', ['windowactivate', '--sync', hwnd], () => {
+          execFile('xdotool', ['key', 'ctrl+v'], (err) => {
+            if (err) console.error('[Injector] Erro ao colar texto via xdotool (Linux):', err)
+            else console.log('[Injector] Texto colado no cursor com sucesso (Linux)!')
+          })
+        })
       } else {
-        console.log('[Injector] Texto colado no cursor com sucesso!')
+        execFile('xdotool', ['key', 'ctrl+v'], (err) => {
+          if (err) console.error('[Injector] Erro ao colar texto via xdotool (Linux):', err)
+          else console.log('[Injector] Texto colado no cursor com sucesso (Linux)!')
+        })
       }
-    })
+    }
   } catch (err) {
     console.error('[Injector] Erro no processo de injeção:', err)
   }
