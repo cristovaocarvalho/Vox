@@ -76821,10 +76821,57 @@ const MainWindow = () => {
   const [draftBrowserCookies, setDraftBrowserCookies] = reactExports.useState(browserCookies);
   const [draftWakeWordEnabled, setDraftWakeWordEnabled] = reactExports.useState(wakeWordEnabled);
   const [draftWakeWordSensitivity, setDraftWakeWordSensitivity] = reactExports.useState(wakeWordSensitivity);
+  const handleOpenSettings = () => {
+    setDraftApiKey(apiKey);
+    setDraftShortcutToggle(shortcutToggle);
+    setDraftShortcutPushToTalk(shortcutPushToTalk);
+    setDraftBrowserCookies(browserCookies);
+    setDraftWakeWordEnabled(wakeWordEnabled);
+    setDraftWakeWordSensitivity(wakeWordSensitivity);
+    setIsSettingsOpen(true);
+  };
+  const handleSaveSettings = () => {
+    setApiKey(draftApiKey);
+    setShortcutToggle(draftShortcutToggle);
+    setShortcutPushToTalk(draftShortcutPushToTalk);
+    setBrowserCookies(draftBrowserCookies);
+    setWakeWordEnabled(draftWakeWordEnabled);
+    setWakeWordSensitivity(draftWakeWordSensitivity);
+    setIsSettingsOpen(false);
+    if (window.vox?.saveSettings) {
+      window.vox.saveSettings({
+        apiKey: draftApiKey,
+        sttModel,
+        llmModel,
+        shortcutToggle: draftShortcutToggle,
+        shortcutPushToTalk: draftShortcutPushToTalk,
+        browserCookies: draftBrowserCookies,
+        wakeWordEnabled: String(draftWakeWordEnabled),
+        wakeWordSensitivity: String(draftWakeWordSensitivity)
+      }).catch(console.error);
+    }
+  };
+  React.useEffect(() => {
+    if (window.vox?.getSettings) {
+      window.vox.getSettings().then((saved) => {
+        if (saved && typeof saved === "object") {
+          if (saved.apiKey) setApiKey(saved.apiKey);
+          if (saved.sttModel) setSttModel(saved.sttModel);
+          if (saved.llmModel) setLlmModel(saved.llmModel);
+          if (saved.shortcutToggle) setShortcutToggle(saved.shortcutToggle);
+          if (saved.shortcutPushToTalk) setShortcutPushToTalk(saved.shortcutPushToTalk);
+          if (saved.browserCookies) setBrowserCookies(saved.browserCookies);
+          if (saved.wakeWordEnabled !== void 0) setWakeWordEnabled(saved.wakeWordEnabled === "true");
+          if (saved.wakeWordSensitivity) setWakeWordSensitivity(parseFloat(saved.wakeWordSensitivity));
+        }
+      }).catch(console.error);
+    }
+  }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies, setWakeWordEnabled, setWakeWordSensitivity]);
   const [mediaStep, setMediaStep] = reactExports.useState("input");
   const [videoInfo, setVideoInfo] = reactExports.useState(null);
   const [localFileInfo, setLocalFileInfo] = reactExports.useState(null);
   const [isFetchingInfo, setIsFetchingInfo] = reactExports.useState(false);
+  const [isDragOver, setIsDragOver] = reactExports.useState(false);
   const [mediaProgress, setMediaProgress] = reactExports.useState({
     phase: "Baixando áudio",
     percent: 0

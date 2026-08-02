@@ -59,12 +59,63 @@ export const MainWindow: React.FC = () => {
   const [draftWakeWordEnabled, setDraftWakeWordEnabled] = useState(wakeWordEnabled)
   const [draftWakeWordSensitivity, setDraftWakeWordSensitivity] = useState(wakeWordSensitivity)
 
+  const handleOpenSettings = () => {
+    setDraftApiKey(apiKey)
+    setDraftShortcutToggle(shortcutToggle)
+    setDraftShortcutPushToTalk(shortcutPushToTalk)
+    setDraftBrowserCookies(browserCookies)
+    setDraftWakeWordEnabled(wakeWordEnabled)
+    setDraftWakeWordSensitivity(wakeWordSensitivity)
+    setIsSettingsOpen(true)
+  }
+
+  const handleSaveSettings = () => {
+    setApiKey(draftApiKey)
+    setShortcutToggle(draftShortcutToggle)
+    setShortcutPushToTalk(draftShortcutPushToTalk)
+    setBrowserCookies(draftBrowserCookies)
+    setWakeWordEnabled(draftWakeWordEnabled)
+    setWakeWordSensitivity(draftWakeWordSensitivity)
+    setIsSettingsOpen(false)
+
+    if (window.vox?.saveSettings) {
+      window.vox.saveSettings({
+        apiKey: draftApiKey,
+        sttModel,
+        llmModel,
+        shortcutToggle: draftShortcutToggle,
+        shortcutPushToTalk: draftShortcutPushToTalk,
+        browserCookies: draftBrowserCookies,
+        wakeWordEnabled: String(draftWakeWordEnabled),
+        wakeWordSensitivity: String(draftWakeWordSensitivity)
+      }).catch(console.error)
+    }
+  }
+
+  React.useEffect(() => {
+    if (window.vox?.getSettings) {
+      window.vox.getSettings().then((saved: Record<string, string>) => {
+        if (saved && typeof saved === 'object') {
+          if (saved.apiKey) setApiKey(saved.apiKey)
+          if (saved.sttModel) setSttModel(saved.sttModel)
+          if (saved.llmModel) setLlmModel(saved.llmModel)
+          if (saved.shortcutToggle) setShortcutToggle(saved.shortcutToggle)
+          if (saved.shortcutPushToTalk) setShortcutPushToTalk(saved.shortcutPushToTalk)
+          if (saved.browserCookies) setBrowserCookies(saved.browserCookies as any)
+          if (saved.wakeWordEnabled !== undefined) setWakeWordEnabled(saved.wakeWordEnabled === 'true')
+          if (saved.wakeWordSensitivity) setWakeWordSensitivity(parseFloat(saved.wakeWordSensitivity))
+        }
+      }).catch(console.error)
+    }
+  }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies, setWakeWordEnabled, setWakeWordSensitivity])
+
   // Vox Media State Machine
   type MediaStep = 'input' | 'preview' | 'progress' | 'export' | 'post_export'
   const [mediaStep, setMediaStep] = useState<MediaStep>('input')
   const [videoInfo, setVideoInfo] = useState<{ title: string; duration: number; thumbnail: string; platform: string } | null>(null)
   const [localFileInfo, setLocalFileInfo] = useState<{ name: string; size: string; path: string } | null>(null)
   const [isFetchingInfo, setIsFetchingInfo] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
   const [mediaProgress, setMediaProgress] = useState<{ phase: string; percent: number; speed?: string; eta?: string }>({
     phase: 'Baixando áudio',
     percent: 0
