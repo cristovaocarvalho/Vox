@@ -1314,14 +1314,12 @@ function getAppIconPath() {
 }
 function createMainWindow() {
   mainWindow = new BrowserWindow({
-    width: 1040,
-    height: 740,
-    minWidth: 1040,
-    maxWidth: 1040,
-    minHeight: 740,
-    maxHeight: 740,
-    resizable: false,
-    maximizable: false,
+    width: 1280,
+    height: 820,
+    minWidth: 900,
+    minHeight: 600,
+    resizable: true,
+    maximizable: true,
     minimizable: true,
     autoHideMenuBar: true,
     title: "Vox",

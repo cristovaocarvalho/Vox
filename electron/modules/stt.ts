@@ -6,6 +6,7 @@ export interface TranscriptionSegment {
 
 export interface TranscriptionResult {
   text: string
+  rawText?: string
   segments: TranscriptionSegment[]
   duration: number
 }

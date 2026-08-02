@@ -77310,43 +77310,43 @@ const MainWindow = () => {
           onItemClick: (item) => setActiveTab(item.id)
         }
       ) }) }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-start justify-center px-6 py-6 pb-20", children: activeTab === "type" ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-lg space-y-4", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.05, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-6 flex flex-col items-center text-center", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-start justify-center px-6 py-6 pb-20", children: activeTab === "type" ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-5xl space-y-6", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.05, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-8 flex flex-col items-center text-center", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
             {
               onClick: handleToggleRecording,
-              className: `mx-auto flex items-center justify-center transition-all cursor-pointer focus:outline-none mb-5 ${isRecording ? "animate-pulse scale-110" : "hover:scale-105 active:scale-95"}`,
+              className: `mx-auto flex items-center justify-center transition-all cursor-pointer focus:outline-none mb-6 ${isRecording ? "animate-pulse scale-110" : "hover:scale-105 active:scale-95"}`,
               children: /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "img",
                 {
                   src: logoImg,
                   alt: "Vox",
-                  className: `w-28 h-28 object-contain transition-all filter ${isRecording ? "drop-shadow-[0_0_24px_rgba(248,113,113,0.9)]" : "drop-shadow-[0_0_12px_rgba(255,255,255,0.25)] hover:drop-shadow-[0_0_22px_rgba(255,255,255,0.55)]"}`
+                  className: `w-32 h-32 object-contain transition-all filter ${isRecording ? "drop-shadow-[0_0_28px_rgba(248,113,113,0.9)]" : "drop-shadow-[0_0_14px_rgba(255,255,255,0.25)] hover:drop-shadow-[0_0_24px_rgba(255,255,255,0.55)]"}`
                 }
               )
             }
           ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-medium text-text-primary mb-3", children: isRecording ? "Fale agora..." : "Para Começar" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center gap-1.5 mb-5", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-base font-semibold text-text-primary mb-4", children: isRecording ? "Fale agora..." : "Clique para Iniciar ou use um dos Atalhos" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center justify-center gap-4 sm:gap-8 mb-6", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-xl border border-border/40", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded font-semibold", children: '"Vox"' }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary", children: "Comando por Voz" })
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary font-medium", children: "Comando por Voz" })
             ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded", children: "F10" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary", children: "Toggle" })
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-xl border border-border/40", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded font-semibold", children: "F10" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary font-medium", children: "Toggle" })
             ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded", children: "F9" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary", children: "Push-to-Talk" })
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-xl border border-border/40", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded font-semibold", children: "F9" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary font-medium", children: "Push-to-Talk" })
             ] })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsx(Badge, { variant: isRecording ? "error" : "neutral", children: isRecording ? "● Gravando" : "Aguardando" })
         ] }) }, `type-card-1-${activeTab}`),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.15, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-4", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.15, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-5", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-3 mb-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-widest", children: "Última Transcrição" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold text-text-secondary uppercase tracking-widest", children: "Última Transcrição" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx(
               SpecularButton,
               {
@@ -77363,9 +77363,9 @@ const MainWindow = () => {
               }
             )
           ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-3 bg-background/60 border border-border/50 rounded-xl font-mono text-sm text-text-primary min-h-[60px] break-words", children: isRecording ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-accent animate-pulse", children: partialTranscript || "Gravando áudio..." }) : isTranscribing ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-accent animate-pulse", children: "Transcrevendo via Whisper Large V3 Turbo..." }) : lastTranscript ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: lastTranscript }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-disabled", children: "Pressione F10 para falar." }) })
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-4 bg-background/60 border border-border/50 rounded-xl font-mono text-sm sm:text-base text-text-primary min-h-[90px] leading-relaxed break-words", children: isRecording ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-accent animate-pulse", children: partialTranscript || "Gravando áudio..." }) : isTranscribing ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-accent animate-pulse", children: "Transcrevendo via Whisper Large V3 Turbo..." }) : lastTranscript ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: lastTranscript }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-disabled", children: 'Pressione F10 ou fale "Vox" para iniciar o ditado.' }) })
         ] }) }, `type-card-2-${activeTab}`),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.25, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-4 space-y-3", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.25, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-5 space-y-4", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "button",
             {
@@ -77374,7 +77374,7 @@ const MainWindow = () => {
               className: "w-full flex items-center justify-between text-xs font-semibold text-text-secondary uppercase tracking-widest cursor-pointer hover:text-text-primary transition-colors",
               children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2", children: [
-                  "📜 Histórico de Ditado (",
+                  "Histórico de Ditado (",
                   dictationHistory.length,
                   ")"
                 ] }),
@@ -77382,15 +77382,15 @@ const MainWindow = () => {
               ]
             }
           ),
-          isDictationHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2 max-h-64 overflow-y-auto pr-1 pt-1 border-t border-border/40", children: dictationHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-3", children: "Nenhum ditado gravado ainda." }) : dictationHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          isDictationHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pt-2 border-t border-border/40", children: dictationHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-4", children: "Nenhum ditado gravado ainda." }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1", children: dictationHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "div",
             {
               onClick: () => setLastTranscript(item.text),
-              className: "p-2.5 bg-background/50 border border-border/50 rounded-xl hover:border-accent/50 transition-all cursor-pointer flex items-center justify-between gap-3 group",
+              className: "p-3.5 bg-background/50 border border-border/50 rounded-xl hover:border-accent/50 transition-all cursor-pointer flex items-center justify-between gap-3 group",
               children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-primary line-clamp-1 font-mono", children: item.text }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] text-text-disabled block mt-0.5", children: new Date(item.createdAt).toLocaleString("pt-BR") })
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0 text-left", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-primary line-clamp-2 font-mono text-left", children: item.text }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] text-text-disabled block mt-1 text-left", children: new Date(item.createdAt).toLocaleString("pt-BR") })
                 ] }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx(
                   "button",
@@ -77407,9 +77407,9 @@ const MainWindow = () => {
               ]
             },
             item.id
-          )) })
+          )) }) })
         ] }) }, `type-history-${activeTab}`)
-      ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-lg space-y-4", children: [
+      ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-5xl space-y-6", children: [
         mediaStep === "preview" && videoInfo && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 0.8, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "md", className: "p-6 flex flex-col gap-4 border border-border/60", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-3", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold uppercase tracking-wider text-text-secondary", children: "Preview da Mídia" }),
@@ -77758,14 +77758,14 @@ const MainWindow = () => {
               ]
             }
           ),
-          isMediaHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2 max-h-80 overflow-y-auto pr-1 pt-1 border-t border-border/40", children: mediaHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-3", children: "Nenhuma transcrição de mídia salva ainda." }) : mediaHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          isMediaHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pt-2 border-t border-border/40", children: mediaHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-4", children: "Nenhuma transcrição de mídia salva ainda." }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1", children: mediaHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "div",
             {
-              className: "p-3 bg-background/50 border border-border/50 rounded-xl flex items-center justify-between gap-4 group hover:border-accent/40 transition-all text-left",
+              className: "p-3.5 bg-background/50 border border-border/50 rounded-xl flex items-center justify-between gap-4 group hover:border-accent/40 transition-all text-left",
               children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0 text-left", children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs font-semibold text-text-primary line-clamp-1 text-left", children: item.title || item.source }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 text-[10px] text-text-secondary mt-1 text-left", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2 text-[10px] text-text-secondary mt-1.5 text-left", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
                       "⏱ ",
                       formatMMSS(item.duration || 0)
@@ -77786,7 +77786,7 @@ const MainWindow = () => {
               ]
             },
             item.id
-          )) })
+          )) }) })
         ] }) }, `media-history-${activeTab}`)
       ] }) })
     ] }) }),

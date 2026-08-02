@@ -639,43 +639,43 @@ export const MainWindow: React.FC = () => {
           <div className="flex items-start justify-center px-6 py-6 pb-20">
             {activeTab === 'type' ? (
 
-              <div className="w-full max-w-lg space-y-4">
+              <div className="w-full max-w-5xl space-y-6">
 
                 {/* Main action card */}
                 <AnimatedContent key={`type-card-1-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.05} ease="power3.out">
-                  <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-6 flex flex-col items-center text-center">
+                  <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-8 flex flex-col items-center text-center">
                     {/* Mic button */}
                     <button
                       onClick={handleToggleRecording}
-                      className={`mx-auto flex items-center justify-center transition-all cursor-pointer focus:outline-none mb-5 ${isRecording ? 'animate-pulse scale-110' : 'hover:scale-105 active:scale-95'
+                      className={`mx-auto flex items-center justify-center transition-all cursor-pointer focus:outline-none mb-6 ${isRecording ? 'animate-pulse scale-110' : 'hover:scale-105 active:scale-95'
                         }`}
                     >
                       <img
                         src={logoImg}
                         alt="Vox"
-                        className={`w-28 h-28 object-contain transition-all filter ${isRecording
-                          ? 'drop-shadow-[0_0_24px_rgba(248,113,113,0.9)]'
-                          : 'drop-shadow-[0_0_12px_rgba(255,255,255,0.25)] hover:drop-shadow-[0_0_22px_rgba(255,255,255,0.55)]'
+                        className={`w-32 h-32 object-contain transition-all filter ${isRecording
+                          ? 'drop-shadow-[0_0_28px_rgba(248,113,113,0.9)]'
+                          : 'drop-shadow-[0_0_14px_rgba(255,255,255,0.25)] hover:drop-shadow-[0_0_24px_rgba(255,255,255,0.55)]'
                           }`}
                       />
                     </button>
 
-                    <p className="text-sm font-medium text-text-primary mb-3">
-                      {isRecording ? 'Fale agora...' : 'Para Começar'}
+                    <p className="text-base font-semibold text-text-primary mb-4">
+                      {isRecording ? 'Fale agora...' : 'Clique para Iniciar ou use um dos Atalhos'}
                     </p>
 
-                    <div className="flex flex-col items-center gap-1.5 mb-5">
-                      <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 mb-6">
+                      <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-xl border border-border/40">
                         <kbd className="px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded font-semibold">"Vox"</kbd>
-                        <span className="text-xs text-text-secondary">Comando por Voz</span>
+                        <span className="text-xs text-text-secondary font-medium">Comando por Voz</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <kbd className="px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded">F10</kbd>
-                        <span className="text-xs text-text-secondary">Toggle</span>
+                      <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-xl border border-border/40">
+                        <kbd className="px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded font-semibold">F10</kbd>
+                        <span className="text-xs text-text-secondary font-medium">Toggle</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <kbd className="px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded">F9</kbd>
-                        <span className="text-xs text-text-secondary">Push-to-Talk</span>
+                      <div className="flex items-center gap-2 bg-background/50 px-3 py-1.5 rounded-xl border border-border/40">
+                        <kbd className="px-2 py-0.5 bg-surface border border-border text-accent text-xs font-mono rounded font-semibold">F9</kbd>
+                        <span className="text-xs text-text-secondary font-medium">Push-to-Talk</span>
                       </div>
                     </div>
 
@@ -687,9 +687,9 @@ export const MainWindow: React.FC = () => {
 
                 {/* Transcript output */}
                 <AnimatedContent key={`type-card-2-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.15} ease="power3.out">
-                  <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-4">
+                  <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-5">
                     <div className="flex items-center justify-between gap-3 mb-3">
-                      <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-widest">Última Transcrição</span>
+                      <span className="text-xs font-semibold text-text-secondary uppercase tracking-widest">Última Transcrição</span>
                       <SpecularButton
                         size="sm"
                         onClick={handleCopyTranscript}
@@ -712,7 +712,7 @@ export const MainWindow: React.FC = () => {
                         </span>
                       </SpecularButton>
                     </div>
-                    <div className="p-3 bg-background/60 border border-border/50 rounded-xl font-mono text-sm text-text-primary min-h-[60px] break-words">
+                    <div className="p-4 bg-background/60 border border-border/50 rounded-xl font-mono text-sm sm:text-base text-text-primary min-h-[90px] leading-relaxed break-words">
                       {isRecording ? (
                         <span className="text-accent animate-pulse">{partialTranscript || 'Gravando áudio...'}</span>
                       ) : isTranscribing ? (
@@ -720,7 +720,7 @@ export const MainWindow: React.FC = () => {
                       ) : lastTranscript ? (
                         <span>{lastTranscript}</span>
                       ) : (
-                        <span className="text-text-disabled">Pressione F10 para falar.</span>
+                        <span className="text-text-disabled">Pressione F10 ou fale "Vox" para iniciar o ditado.</span>
                       )}
                     </div>
                   </LiquidGlassCard>
@@ -728,47 +728,49 @@ export const MainWindow: React.FC = () => {
 
                 {/* Histórico de Ditado */}
                 <AnimatedContent key={`type-history-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.25} ease="power3.out">
-                  <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-4 space-y-3">
+                  <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-5 space-y-4">
                     <button
                       type="button"
                       onClick={() => setIsDictationHistoryOpen(!isDictationHistoryOpen)}
                       className="w-full flex items-center justify-between text-xs font-semibold text-text-secondary uppercase tracking-widest cursor-pointer hover:text-text-primary transition-colors"
                     >
                       <span className="flex items-center gap-2">
-                        📜 Histórico de Ditado ({dictationHistory.length})
+                        Histórico de Ditado ({dictationHistory.length})
                       </span>
                       <span className="text-[10px] text-text-muted">{isDictationHistoryOpen ? '▲ Recolher' : '▼ Expandir'}</span>
                     </button>
 
                     {isDictationHistoryOpen && (
-                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1 pt-1 border-t border-border/40">
+                      <div className="pt-2 border-t border-border/40">
                         {dictationHistory.length === 0 ? (
-                          <p className="text-xs text-text-disabled text-center py-3">Nenhum ditado gravado ainda.</p>
+                          <p className="text-xs text-text-disabled text-center py-4">Nenhum ditado gravado ainda.</p>
                         ) : (
-                          dictationHistory.map((item) => (
-                            <div
-                              key={item.id}
-                              onClick={() => setLastTranscript(item.text)}
-                              className="p-2.5 bg-background/50 border border-border/50 rounded-xl hover:border-accent/50 transition-all cursor-pointer flex items-center justify-between gap-3 group"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs text-text-primary line-clamp-1 font-mono">{item.text}</p>
-                                <span className="text-[10px] text-text-disabled block mt-0.5">
-                                  {new Date(item.createdAt).toLocaleString('pt-BR')}
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  navigator.clipboard.writeText(item.text)
-                                }}
-                                className="px-2.5 py-1 bg-surface border border-border text-[10px] text-text-secondary rounded-lg hover:text-text-primary hover:border-text-primary transition-all opacity-80 group-hover:opacity-100 cursor-pointer shrink-0"
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
+                            {dictationHistory.map((item) => (
+                              <div
+                                key={item.id}
+                                onClick={() => setLastTranscript(item.text)}
+                                className="p-3.5 bg-background/50 border border-border/50 rounded-xl hover:border-accent/50 transition-all cursor-pointer flex items-center justify-between gap-3 group"
                               >
-                                Copiar
-                              </button>
-                            </div>
-                          ))
+                                <div className="flex-1 min-w-0 text-left">
+                                  <p className="text-xs text-text-primary line-clamp-2 font-mono text-left">{item.text}</p>
+                                  <span className="text-[10px] text-text-disabled block mt-1 text-left">
+                                    {new Date(item.createdAt).toLocaleString('pt-BR')}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    navigator.clipboard.writeText(item.text)
+                                  }}
+                                  className="px-2.5 py-1 bg-surface border border-border text-[10px] text-text-secondary rounded-lg hover:text-text-primary hover:border-text-primary transition-all opacity-80 group-hover:opacity-100 cursor-pointer shrink-0"
+                                >
+                                  Copiar
+                                </button>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     )}
@@ -778,7 +780,7 @@ export const MainWindow: React.FC = () => {
 
             ) : (
 
-              <div className="w-full max-w-lg space-y-4">
+              <div className="w-full max-w-5xl space-y-6">
                 {/* FASE 1: PREVIEW ANTES DE TRANSCREVER */}
                 {mediaStep === 'preview' && videoInfo && (
                   <AnimatedContent key={`media-preview-${activeTab}`} distance={30} direction="vertical" duration={0.8} ease="power3.out">
@@ -1202,33 +1204,35 @@ export const MainWindow: React.FC = () => {
                       </button>
 
                       {isMediaHistoryOpen && (
-                        <div className="space-y-2 max-h-80 overflow-y-auto pr-1 pt-1 border-t border-border/40">
+                        <div className="pt-2 border-t border-border/40">
                           {mediaHistory.length === 0 ? (
-                            <p className="text-xs text-text-disabled text-center py-3">Nenhuma transcrição de mídia salva ainda.</p>
+                            <p className="text-xs text-text-disabled text-center py-4">Nenhuma transcrição de mídia salva ainda.</p>
                           ) : (
-                            mediaHistory.map((item) => (
-                              <div
-                                key={item.id}
-                                className="p-3 bg-background/50 border border-border/50 rounded-xl flex items-center justify-between gap-4 group hover:border-accent/40 transition-all text-left"
-                              >
-                                <div className="flex-1 min-w-0 text-left">
-                                  <p className="text-xs font-semibold text-text-primary line-clamp-1 text-left">{item.title || item.source}</p>
-                                  <div className="flex items-center gap-2 text-[10px] text-text-secondary mt-1 text-left">
-                                    <span>⏱ {formatMMSS(item.duration || 0)}</span>
-                                    <span>•</span>
-                                    <span>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</span>
-                                  </div>
-                                </div>
-
-                                <SpecularButton
-                                  size="sm"
-                                  onClick={() => handleReExport(item)}
-                                  className="shrink-0 text-xs"
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
+                              {mediaHistory.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="p-3.5 bg-background/50 border border-border/50 rounded-xl flex items-center justify-between gap-4 group hover:border-accent/40 transition-all text-left"
                                 >
-                                  Re-exportar
-                                </SpecularButton>
-                              </div>
-                            ))
+                                  <div className="flex-1 min-w-0 text-left">
+                                    <p className="text-xs font-semibold text-text-primary line-clamp-1 text-left">{item.title || item.source}</p>
+                                    <div className="flex items-center gap-2 text-[10px] text-text-secondary mt-1.5 text-left">
+                                      <span>⏱ {formatMMSS(item.duration || 0)}</span>
+                                      <span>•</span>
+                                      <span>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</span>
+                                    </div>
+                                  </div>
+
+                                  <SpecularButton
+                                    size="sm"
+                                    onClick={() => handleReExport(item)}
+                                    className="shrink-0 text-xs"
+                                  >
+                                    Re-exportar
+                                  </SpecularButton>
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
                       )}
