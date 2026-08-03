@@ -1,3 +1,5 @@
+import { getSetting } from './db'
+
 export interface TranscriptionSegment {
   start: number
   end: number
@@ -11,7 +13,6 @@ export interface TranscriptionResult {
   duration: number
 }
 
-const GROQ_API_KEY = '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'
 const GROQ_STT_ENDPOINT = 'https://api.groq.com/openai/v1/audio/transcriptions'
 const DEFAULT_MODEL = 'whisper-large-v3-turbo'
 
@@ -24,9 +25,17 @@ export async function transcribeAudio(
     return { text: '', segments: [], duration: 0 }
   }
 
-  const apiKey = process.env.GROQ_API_KEY || GROQ_API_KEY
+  const apiKey = getSetting('apiKey', '').trim()
+  if (!apiKey) {
+    console.warn('[STT] API Key não configurada.')
+    return {
+      text: '[Erro: Configure sua API Key nas configurações do Vox]',
+      segments: [],
+      duration: 0
+    }
+  }
   const endpoint = GROQ_STT_ENDPOINT
-  const model = process.env.WHISPER_MODEL || DEFAULT_MODEL
+  const model = getSetting('sttModel') || process.env.WHISPER_MODEL || DEFAULT_MODEL
 
   const isWebm = audioBuffer.length >= 4 && audioBuffer[0] === 0x1a && audioBuffer[1] === 0x45 && audioBuffer[2] === 0xdf && audioBuffer[3] === 0xa3
   const mimeType = isWebm ? 'audio/webm' : 'audio/wav'

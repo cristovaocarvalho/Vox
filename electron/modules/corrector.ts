@@ -1,12 +1,17 @@
-const GROQ_API_KEY = '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'
+import { getSetting } from './db'
+
 const GROQ_CHAT_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
 const DEFAULT_LLM_MODEL = 'openai/gpt-oss-20b'
 
 export async function correctTranscription(text: string): Promise<string> {
   if (!text || text.trim().length === 0) return text
 
-  const apiKey = process.env.GROQ_API_KEY || GROQ_API_KEY
-  const model = process.env.LLM_MODEL || DEFAULT_LLM_MODEL
+  const apiKey = getSetting('apiKey', '').trim()
+  if (!apiKey) {
+    console.warn('[Corrector] API Key não configurada, retornando texto original.')
+    return text
+  }
+  const model = getSetting('llmModel') || process.env.LLM_MODEL || DEFAULT_LLM_MODEL
 
   console.log(`[Corrector] Revisando texto via Groq (${model})...`)
 

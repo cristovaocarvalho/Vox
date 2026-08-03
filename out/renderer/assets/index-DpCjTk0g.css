@@ -654,6 +654,9 @@ video {
 .z-\[2\] {
   z-index: 2;
 }
+.z-\[60\] {
+  z-index: 60;
+}
 .col-start-1 {
   grid-column-start: 1;
 }
@@ -687,6 +690,9 @@ video {
 }
 .ml-2 {
   margin-left: 0.5rem;
+}
+.mt-0\.5 {
+  margin-top: 0.125rem;
 }
 .mt-1 {
   margin-top: 0.25rem;
@@ -1247,6 +1253,9 @@ video {
 }
 .bg-black\/60 {
   background-color: rgb(0 0 0 / 0.6);
+}
+.bg-black\/75 {
+  background-color: rgb(0 0 0 / 0.75);
 }
 .bg-error {
   --tw-bg-opacity: 1;

@@ -66,6 +66,10 @@ export const MainWindow: React.FC = () => {
   const [partialTranscript, setPartialTranscript] = useState('')
   const [isCopied, setIsCopied] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [showApiKeySetup, setShowApiKeySetup] = useState(false)
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
+  const [setupApiKey, setSetupApiKey] = useState('')
+  const [setupError, setSetupError] = useState('')
 
   // Local drafts for Settings modal (so Cancel reverts changes)
   const [draftApiKey, setDraftApiKey] = useState(apiKey)
@@ -135,17 +139,23 @@ export const MainWindow: React.FC = () => {
   }
 
   const handleSaveSettings = () => {
-    setApiKey(draftApiKey)
+    const trimmedKey = draftApiKey.trim()
+    if (!trimmedKey) {
+      return
+    }
+
+    setApiKey(trimmedKey)
     setShortcutToggle(draftShortcutToggle)
     setShortcutPushToTalk(draftShortcutPushToTalk)
     setBrowserCookies(draftBrowserCookies)
     setWakeWordEnabled(draftWakeWordEnabled)
     setWakeWordSensitivity(draftWakeWordSensitivity)
     setIsSettingsOpen(false)
+    setShowApiKeySetup(false)
 
     if (window.vox?.saveSettings) {
       window.vox.saveSettings({
-        apiKey: draftApiKey,
+        apiKey: trimmedKey,
         sttModel,
         llmModel,
         shortcutToggle: draftShortcutToggle,
@@ -165,6 +175,32 @@ export const MainWindow: React.FC = () => {
     }
   }
 
+  const handleSaveApiKeySetup = () => {
+    const trimmedKey = setupApiKey.trim()
+    if (!trimmedKey) {
+      setSetupError('Informe sua chave de API para continuar.')
+      return
+    }
+
+    setSetupError('')
+    setApiKey(trimmedKey)
+    setDraftApiKey(trimmedKey)
+    setShowApiKeySetup(false)
+
+    if (window.vox?.saveSettings) {
+      window.vox.saveSettings({
+        apiKey: trimmedKey,
+        sttModel,
+        llmModel,
+        shortcutToggle,
+        shortcutPushToTalk,
+        browserCookies,
+        wakeWordEnabled: String(wakeWordEnabled),
+        wakeWordSensitivity: String(wakeWordSensitivity)
+      }).catch(console.error)
+    }
+  }
+
   React.useEffect(() => {
     if (window.vox?.getSettings) {
       window.vox.getSettings().then((saved: Record<string, string>) => {
@@ -177,8 +213,21 @@ export const MainWindow: React.FC = () => {
           if (saved.browserCookies) setBrowserCookies(saved.browserCookies as any)
           if (saved.wakeWordEnabled !== undefined) setWakeWordEnabled(saved.wakeWordEnabled === 'true')
           if (saved.wakeWordSensitivity) setWakeWordSensitivity(parseFloat(saved.wakeWordSensitivity))
+
+          if (!saved.apiKey?.trim()) {
+            setShowApiKeySetup(true)
+          }
+        } else {
+          setShowApiKeySetup(true)
         }
-      }).catch(console.error)
+        setSettingsLoaded(true)
+      }).catch(() => {
+        setShowApiKeySetup(true)
+        setSettingsLoaded(true)
+      })
+    } else {
+      setShowApiKeySetup(true)
+      setSettingsLoaded(true)
     }
 
     fetchHistory()
@@ -1336,6 +1385,87 @@ export const MainWindow: React.FC = () => {
         </SpecularButton>
       </div>
 
+      {/* First-run API Key setup (blocking) */}
+      <AnimatePresence>
+        {settingsLoaded && showApiKeySetup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full max-w-md"
+            >
+              <LiquidGlassCard glowIntensity="md" blurIntensity="lg" className="p-6 sm:p-7 flex flex-col gap-5 border border-border/80 shadow-2xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
+                    <IconGear className="w-4 h-4 text-text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold font-heading tracking-tight text-text-primary">
+                      Configure sua API Key
+                    </h2>
+                    <p className="text-[11px] text-text-secondary mt-0.5">
+                      Necessária para transcrição e correção de texto
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  Informe a chave do seu provedor (ex.: Groq). Ela será salva localmente no banco de dados e não será solicitada novamente.
+                </p>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
+                    Chave de API
+                  </label>
+                  <SmoothInput
+                    type="password"
+                    value={setupApiKey}
+                    onChange={(e) => {
+                      setSetupApiKey(e.target.value)
+                      if (setupError) setSetupError('')
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveApiKeySetup()
+                    }}
+                    placeholder="gsk_..."
+                    autoFocus
+                  />
+                  {setupError ? (
+                    <p className="text-[11px] text-error mt-2 flex items-center gap-1.5">
+                      <IconAlert className="w-3.5 h-3.5 shrink-0" />
+                      {setupError}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-text-muted mt-2 leading-relaxed">
+                      O provedor deve oferecer Whisper Large V3 Turbo e um modelo de chat compatível.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <SpecularButton
+                    size="sm"
+                    radius={12}
+                    onClick={handleSaveApiKeySetup}
+                    className="!px-6"
+                  >
+                    Salvar e Continuar
+                  </SpecularButton>
+                </div>
+              </LiquidGlassCard>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Settings Modal (LiquidGlassCard aesthetic) */}
       <AnimatePresence>
         {isSettingsOpen && (
@@ -1346,7 +1476,7 @@ export const MainWindow: React.FC = () => {
             transition={{ duration: 0.25, ease: 'easeOut' }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-md"
             onClick={(e) => {
-              if (e.target === e.currentTarget) setIsSettingsOpen(false)
+              if (e.target === e.currentTarget && apiKey.trim()) setIsSettingsOpen(false)
             }}
           >
             <motion.div
@@ -1363,13 +1493,15 @@ export const MainWindow: React.FC = () => {
                     <img src={configImg} alt="" className="w-4 h-4 object-contain opacity-90" />
                     <h2 className="text-base font-semibold font-heading tracking-tight text-text-primary">Configurações</h2>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsSettingsOpen(false)}
-                    className="text-text-secondary hover:text-text-primary p-1.5 rounded-lg hover:bg-surface transition-colors duration-250 cursor-pointer"
-                  >
-                    <IconX className="w-4 h-4" />
-                  </button>
+                  {apiKey.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => setIsSettingsOpen(false)}
+                      className="text-text-secondary hover:text-text-primary p-1.5 rounded-lg hover:bg-surface transition-colors duration-250 cursor-pointer"
+                    >
+                      <IconX className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Form Fields */}
@@ -1386,7 +1518,7 @@ export const MainWindow: React.FC = () => {
                       placeholder="gsk_..."
                     />
                     <p className="text-[11px] text-text-muted mt-2 leading-relaxed">
-                      Assegure-se de que o provedor fornece acesso aos modelos abaixo.
+                      Salva localmente no banco de dados. O provedor deve oferecer os modelos abaixo.
                     </p>
                   </div>
 
@@ -1525,18 +1657,21 @@ export const MainWindow: React.FC = () => {
                     Limpar Histórico
                   </button>
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsSettingsOpen(false)}
-                      className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
+                    {apiKey.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => setIsSettingsOpen(false)}
+                        className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                    )}
                     <SpecularButton
                       size="sm"
                       radius={12}
                       onClick={handleSaveSettings}
                       className="!px-6"
+                      disabled={!draftApiKey.trim()}
                     >
                       Salvar Configurações
                     </SpecularButton>
