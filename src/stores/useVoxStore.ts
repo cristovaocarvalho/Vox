@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 
+export type AppLocale = 'en' | 'pt-BR'
+
 export interface VoxState {
   activeTab: 'type' | 'media'
   setActiveTab: (tab: 'type' | 'media') => void
@@ -27,6 +29,8 @@ export interface VoxState {
   setWakeWordEnabled: (enabled: boolean) => void
   wakeWordSensitivity: number
   setWakeWordSensitivity: (sensitivity: number) => void
+  language: AppLocale
+  setLanguage: (language: AppLocale) => void
 }
 
 export const useVoxStore = create<VoxState>((set) => ({
@@ -56,5 +60,6 @@ export const useVoxStore = create<VoxState>((set) => ({
   setWakeWordEnabled: (wakeWordEnabled) => set({ wakeWordEnabled }),
   wakeWordSensitivity: 0.5,
   setWakeWordSensitivity: (wakeWordSensitivity) => set({ wakeWordSensitivity }),
+  language: 'pt-BR',
+  setLanguage: (language) => set({ language }),
 }))
-

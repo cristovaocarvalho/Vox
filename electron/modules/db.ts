@@ -132,7 +132,8 @@ export function getAllSettings() {
     shortcutPushToTalk: 'F9',
     browserCookies: 'chrome',
     wakeWordEnabled: 'true',
-    wakeWordSensitivity: '0.5'
+    wakeWordSensitivity: '0.5',
+    language: 'pt-BR'
   }
 
   const result: Record<string, string> = { ...defaults }

@@ -28,8 +28,12 @@ export async function transcribeAudio(
   const apiKey = getSetting('apiKey', '').trim()
   if (!apiKey) {
     console.warn('[STT] API Key não configurada.')
+    const lang = getSetting('language', 'pt-BR')
+    const msg = lang === 'en'
+      ? '[Error: Configure your API Key in Vox settings]'
+      : '[Erro: Configure sua API Key nas configurações do Vox]'
     return {
-      text: '[Erro: Configure sua API Key nas configurações do Vox]',
+      text: msg,
       segments: [],
       duration: 0
     }

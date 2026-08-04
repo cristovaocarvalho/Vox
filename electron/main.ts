@@ -299,14 +299,14 @@ function setupIpcHandlers() {
       const downloadsDir = app.getPath('downloads')
 
       if (payload.url) {
-        sendMediaProgress('Baixando áudio', 0, '0 B/s', '--:--')
+        sendMediaProgress('downloading', 0, '0 B/s', '--:--')
         const dlResult = await downloader.downloadAudio({
           url: payload.url,
           outputDir: downloadsDir,
           cookiesFromBrowser: payload.cookiesFromBrowser as any,
           onProgress: (pct, speed, eta) => {
             const mappedPct = Math.min(40, (pct / 100) * 40)
-            sendMediaProgress('Baixando áudio', mappedPct, speed, eta)
+            sendMediaProgress('downloading', mappedPct, speed, eta)
           }
         })
         if (dlResult.audioPath) {
@@ -317,28 +317,28 @@ function setupIpcHandlers() {
       } else if (payload.filePath) {
         const isVideo = ffmpeg.isVideoFile(payload.filePath)
         if (isVideo) {
-          sendMediaProgress('Baixando áudio', 10)
+          sendMediaProgress('downloading', 10)
           audioPath = await ffmpeg.extractAudioFromVideo(payload.filePath, downloadsDir, (pct) => {
             const mappedPct = Math.min(40, (pct / 100) * 40)
-            sendMediaProgress('Baixando áudio', mappedPct)
+            sendMediaProgress('downloading', mappedPct)
           })
         } else {
           audioPath = payload.filePath
-          sendMediaProgress('Baixando áudio', 40)
+          sendMediaProgress('downloading', 40)
         }
       } else {
         throw new Error('Nenhuma URL ou arquivo informado.')
       }
 
-      sendMediaProgress('Transcrevendo', 40)
+      sendMediaProgress('transcribing', 40)
       if (!fs.existsSync(audioPath)) {
         throw new Error('Arquivo de áudio não encontrado no disco.')
       }
 
       const buffer = fs.readFileSync(audioPath)
-      sendMediaProgress('Transcrevendo', 55)
+      sendMediaProgress('transcribing', 55)
       const sttRes = await transcribeAudio(buffer)
-      sendMediaProgress('Transcrevendo', 75)
+      sendMediaProgress('transcribing', 75)
 
       let correctedText = sttRes.text || ''
       if (correctedText && !correctedText.startsWith('[Erro')) {
@@ -374,7 +374,7 @@ function setupIpcHandlers() {
       }
       saveSession(mediaSession)
 
-      sendMediaProgress('Transcrevendo', 90)
+      sendMediaProgress('transcribing', 90)
 
       return {
         audioPath,
@@ -418,14 +418,14 @@ function setupIpcHandlers() {
 
   ipcMain.handle('vox:export-transcription', async (_event: unknown, payload: { result: any; formats: string[]; outputPath: string; options?: any }) => {
     try {
-      sendMediaProgress('Exportando', 92)
+      sendMediaProgress('exporting', 92)
       const files = await exporter.exportTranscription(
         payload.result,
         payload.formats,
         payload.outputPath,
         payload.options || {}
       )
-      sendMediaProgress('Exportando', 100)
+      sendMediaProgress('exporting', 100)
       return { success: true, files }
     } catch (err: any) {
       console.error('[Main] Erro ao exportar transcrição:', err)
@@ -794,10 +794,12 @@ app.whenReady().then(async () => {
   const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 })
   tray = new Tray(trayIcon)
   tray.setToolTip('Vox')
+  const lang = (settings.language || 'pt-BR').toLowerCase()
+  const isEn = lang === 'en' || lang.startsWith('en')
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Abrir Vox', click: () => { mainWindow?.show() } },
+    { label: isEn ? 'Open Vox' : 'Abrir Vox', click: () => { mainWindow?.show() } },
     { type: 'separator' },
-    { label: 'Sair', click: () => { tray?.destroy(); wakewordDetector.stop(); app.exit(0) } }
+    { label: isEn ? 'Quit' : 'Sair', click: () => { tray?.destroy(); wakewordDetector.stop(); app.exit(0) } }
   ]))
   tray.on('double-click', () => { mainWindow?.show() })
 

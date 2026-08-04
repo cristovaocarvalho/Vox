@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { useVoxStore } from '../../stores/useVoxStore'
+import { useVoxStore, type AppLocale } from '../../stores/useVoxStore'
+import { useI18n } from '../../i18n'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Badge,
@@ -33,6 +34,7 @@ import logoImg from '../../assets/logo.png'
 import configImg from '../../assets/config.png'
 
 export const MainWindow: React.FC = () => {
+  const { t, localeTag } = useI18n()
   const {
     activeTab,
     setActiveTab,
@@ -55,7 +57,9 @@ export const MainWindow: React.FC = () => {
     wakeWordEnabled,
     setWakeWordEnabled,
     wakeWordSensitivity,
-    setWakeWordSensitivity
+    setWakeWordSensitivity,
+    language,
+    setLanguage
   } = useVoxStore()
 
   const [urlInput, setUrlInput] = useState('')
@@ -78,6 +82,7 @@ export const MainWindow: React.FC = () => {
   const [draftBrowserCookies, setDraftBrowserCookies] = useState(browserCookies)
   const [draftWakeWordEnabled, setDraftWakeWordEnabled] = useState(wakeWordEnabled)
   const [draftWakeWordSensitivity, setDraftWakeWordSensitivity] = useState(wakeWordSensitivity)
+  const [draftLanguage, setDraftLanguage] = useState<AppLocale>(language)
 
   const [wakeWordModelMissing, setWakeWordModelMissing] = useState(false)
   const [wakeWordError, setWakeWordError] = useState<string | null>(null)
@@ -89,6 +94,21 @@ export const MainWindow: React.FC = () => {
   const [mediaHistory, setMediaHistory] = useState<any[]>([])
   const [isDictationHistoryOpen, setIsDictationHistoryOpen] = useState(true)
   const [isMediaHistoryOpen, setIsMediaHistoryOpen] = useState(true)
+
+  const translatePhase = (phase: string) => {
+    const map: Record<string, string> = {
+      downloading: t('media.phaseDownloadingAudio'),
+      extracting: t('media.phaseExtractingAudio'),
+      transcribing: t('media.phaseTranscribing'),
+      exporting: t('media.phaseExporting'),
+    }
+    return map[phase] || phase
+  }
+
+
+  React.useEffect(() => {
+    document.documentElement.lang = language === 'en' ? 'en' : 'pt-BR'
+  }, [language])
 
   const fetchHistory = React.useCallback(async () => {
     if (window.vox?.listSessions) {
@@ -104,7 +124,7 @@ export const MainWindow: React.FC = () => {
   }, [])
 
   const handleClearHistory = async () => {
-    if (window.confirm('Tem certeza que deseja apagar todo o histórico de transcrições e ditados?')) {
+    if (window.confirm(t('settings.clearConfirm'))) {
       if (window.vox?.clearAllSessions) {
         await window.vox.clearAllSessions()
         fetchHistory()
@@ -135,6 +155,7 @@ export const MainWindow: React.FC = () => {
     setDraftBrowserCookies(browserCookies)
     setDraftWakeWordEnabled(wakeWordEnabled)
     setDraftWakeWordSensitivity(wakeWordSensitivity)
+    setDraftLanguage(language)
     setIsSettingsOpen(true)
   }
 
@@ -150,6 +171,7 @@ export const MainWindow: React.FC = () => {
     setBrowserCookies(draftBrowserCookies)
     setWakeWordEnabled(draftWakeWordEnabled)
     setWakeWordSensitivity(draftWakeWordSensitivity)
+    setLanguage(draftLanguage)
     setIsSettingsOpen(false)
     setShowApiKeySetup(false)
 
@@ -162,7 +184,8 @@ export const MainWindow: React.FC = () => {
         shortcutPushToTalk: draftShortcutPushToTalk,
         browserCookies: draftBrowserCookies,
         wakeWordEnabled: String(draftWakeWordEnabled),
-        wakeWordSensitivity: String(draftWakeWordSensitivity)
+        wakeWordSensitivity: String(draftWakeWordSensitivity),
+        language: draftLanguage
       }).catch(console.error)
     }
 
@@ -178,7 +201,7 @@ export const MainWindow: React.FC = () => {
   const handleSaveApiKeySetup = () => {
     const trimmedKey = setupApiKey.trim()
     if (!trimmedKey) {
-      setSetupError('Informe sua chave de API para continuar.')
+      setSetupError(t('setup.required'))
       return
     }
 
@@ -196,7 +219,8 @@ export const MainWindow: React.FC = () => {
         shortcutPushToTalk,
         browserCookies,
         wakeWordEnabled: String(wakeWordEnabled),
-        wakeWordSensitivity: String(wakeWordSensitivity)
+        wakeWordSensitivity: String(wakeWordSensitivity),
+        language
       }).catch(console.error)
     }
   }
@@ -213,6 +237,10 @@ export const MainWindow: React.FC = () => {
           if (saved.browserCookies) setBrowserCookies(saved.browserCookies as any)
           if (saved.wakeWordEnabled !== undefined) setWakeWordEnabled(saved.wakeWordEnabled === 'true')
           if (saved.wakeWordSensitivity) setWakeWordSensitivity(parseFloat(saved.wakeWordSensitivity))
+          if (saved.language === 'en' || saved.language === 'pt-BR') {
+            setLanguage(saved.language)
+            setDraftLanguage(saved.language)
+          }
 
           if (!saved.apiKey?.trim()) {
             setShowApiKeySetup(true)
@@ -237,7 +265,7 @@ export const MainWindow: React.FC = () => {
     })
 
     const unsubError = window.vox?.onWakeWordError?.((data) => {
-      setWakeWordError(data?.error || 'Erro no microfone de segundo plano')
+      setWakeWordError(data?.error || 'mic')
     })
 
     const unsubAccess = window.vox?.onAccessibilityRequired?.(() => {
@@ -255,7 +283,7 @@ export const MainWindow: React.FC = () => {
       unsubAccess?.()
       unsubXdo?.()
     }
-  }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies, setWakeWordEnabled, setWakeWordSensitivity])
+  }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies, setWakeWordEnabled, setWakeWordSensitivity, setLanguage])
 
   // Vox Media State Machine
   type MediaStep = 'input' | 'preview' | 'progress' | 'export' | 'post_export'
@@ -265,7 +293,7 @@ export const MainWindow: React.FC = () => {
   const [isFetchingInfo, setIsFetchingInfo] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const [mediaProgress, setMediaProgress] = useState<{ phase: string; percent: number; speed?: string; eta?: string }>({
-    phase: 'Baixando áudio',
+    phase: 'downloading',
     percent: 0
   })
   const [transcriptionResult, setTranscriptionResult] = useState<any>(null)
@@ -297,11 +325,11 @@ export const MainWindow: React.FC = () => {
     setMediaError(null)
     try {
       const info = await window.vox?.getVideoInfo(urlInput, browserCookies)
-      setVideoInfo(info || { title: 'Vídeo Sem Título', duration: 0, thumbnail: '', platform: 'unknown' })
+      setVideoInfo(info || { title: t('media.untitled'), duration: 0, thumbnail: '', platform: 'unknown' })
       setMediaStep('preview')
     } catch (err: any) {
       console.error('Erro ao obter vídeo:', err)
-      setMediaError(err?.message || 'Não foi possível obter informações do vídeo.')
+      setMediaError(err?.message || t('media.fetchError'))
     } finally {
       setIsFetchingInfo(false)
     }
@@ -310,7 +338,7 @@ export const MainWindow: React.FC = () => {
   const handleStartTranscription = async (payload: { url?: string; filePath?: string }) => {
     setMediaStep('progress')
     setMediaError(null)
-    setMediaProgress({ phase: payload.url ? 'Baixando áudio' : 'Extraindo áudio', percent: 5 })
+    setMediaProgress({ phase: payload.url ? 'downloading' : 'extracting', percent: 5 })
 
     const removeProgressListener = window.vox?.onMediaProgress?.((data) => {
       setMediaProgress(data)
@@ -333,11 +361,11 @@ export const MainWindow: React.FC = () => {
         setTranscriptionResult(res.result)
         setMediaStep('export')
       } else {
-        setMediaError('Falha ao obter o resultado da transcrição.')
+        setMediaError(t('media.resultError'))
       }
     } catch (err: any) {
       console.error('Erro na transcrição de mídia:', err)
-      setMediaError(err?.message || 'Erro inesperado na transcrição.')
+      setMediaError(err?.message || t('media.unexpectedError'))
     } finally {
       removeProgressListener?.()
     }
@@ -374,11 +402,11 @@ export const MainWindow: React.FC = () => {
         setExportedFiles(res.files)
         setMediaStep('post_export')
       } else {
-        setMediaError(res?.error || 'Falha ao exportar os arquivos.')
+        setMediaError(res?.error || t('media.exportFail'))
       }
     } catch (err: any) {
       console.error('Erro ao exportar:', err)
-      setMediaError(err?.message || 'Erro ao exportar transcrição.')
+      setMediaError(err?.message || t('media.exportError'))
     }
   }
 
@@ -403,7 +431,7 @@ export const MainWindow: React.FC = () => {
     setExportedFiles([])
     setAudioDeleted(false)
     setMediaError(null)
-    setMediaProgress({ phase: 'Baixando áudio', percent: 0 })
+    setMediaProgress({ phase: 'downloading', percent: 0 })
   }
 
   const allowedExtensions = ['.mp4', '.mp3', '.wav', '.mkv', '.mov', '.avi', '.m4a', '.webm', '.ogg']
@@ -411,11 +439,11 @@ export const MainWindow: React.FC = () => {
   const handleProcessLocalFilePath = (filePath: string, fileName: string, fileSize?: number) => {
     const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase()
     if (!allowedExtensions.includes(ext)) {
-      setMediaError('Formato não suportado. Aceitos: .mp4, .mp3, .wav, .mkv, .mov, .avi, .m4a, .webm, .ogg')
+      setMediaError(t('media.unsupportedFormat'))
       return
     }
     setMediaError(null)
-    const formattedSize = fileSize ? formatBytes(fileSize) : 'Arquivo local'
+    const formattedSize = fileSize ? formatBytes(fileSize) : t('media.localFile')
     setLocalFileInfo({ name: fileName, size: formattedSize, path: filePath })
     handleStartTranscription({ filePath })
   }
@@ -424,7 +452,7 @@ export const MainWindow: React.FC = () => {
     if (!window.vox?.selectFile) return
     const filePath = await window.vox.selectFile()
     if (filePath) {
-      const fileName = filePath.split(/[/\\]/).pop() || 'Arquivo Selecionado'
+      const fileName = filePath.split(/[/\\]/).pop() || t('media.selectedFile')
       handleProcessLocalFilePath(filePath, fileName)
     }
   }
@@ -700,8 +728,8 @@ export const MainWindow: React.FC = () => {
               <SpotlightNavbar
                 activeId={activeTab}
                 items={[
-                  { label: 'Vox Type', id: 'type' },
-                  { label: 'Vox Media', id: 'media' }
+                  { label: t('nav.type'), id: 'type' },
+                  { label: t('nav.media'), id: 'media' }
                 ]}
                 onItemClick={(item) => setActiveTab(item.id as 'type' | 'media')}
               />
@@ -733,27 +761,27 @@ export const MainWindow: React.FC = () => {
                     </button>
 
                     <p className="mt-4 text-lg font-semibold font-heading tracking-tight text-text-primary">
-                      {isRecording ? 'Fale agora...' : 'Iniciar'}
+                      {isRecording ? t('type.speakNow') : t('type.start')}
                     </p>
 
                     <div className="mt-5 mb-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
                       <div className="flex items-center gap-2">
                         <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">"Vox"</kbd>
-                        <span className="text-xs text-text-secondary font-medium">Comando por Voz</span>
+                        <span className="text-xs text-text-secondary font-medium">{t('type.voiceCommand')}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">F10</kbd>
-                        <span className="text-xs text-text-secondary font-medium">Toggle</span>
+                        <span className="text-xs text-text-secondary font-medium">{t('type.toggle')}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">F9</kbd>
-                        <span className="text-xs text-text-secondary font-medium">Push-to-Talk</span>
+                        <span className="text-xs text-text-secondary font-medium">{t('type.pushToTalk')}</span>
                       </div>
                     </div>
 
                     <Badge variant={isRecording ? 'accent' : 'neutral'}>
                       {isRecording && <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-dot" />}
-                      {isRecording ? 'Gravando' : 'Aguardando'}
+                      {isRecording ? t('type.recording') : t('type.waiting')}
                     </Badge>
                   </LiquidGlassCard>
                 </AnimatedContent>
@@ -762,7 +790,7 @@ export const MainWindow: React.FC = () => {
                 <AnimatedContent key={`type-card-2-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.15} ease="power3.out">
                   <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-6">
                     <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-3 mb-4">
-                      <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide">Última Transcrição</span>
+                      <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide">{t('type.lastTranscript')}</span>
                       <SpecularButton
                         size="sm"
                         onClick={handleCopyTranscript}
@@ -775,23 +803,23 @@ export const MainWindow: React.FC = () => {
                           {isCopied ? (
                             <>
                               <IconCheck className="w-3.5 h-3.5" strokeWidth={2.4} />
-                              Copiado
+                              {t('type.copied')}
                             </>
                           ) : (
-                            'Copiar'
+                            t('type.copy')
                           )}
                         </span>
                       </SpecularButton>
                     </div>
                     <div className="p-4 bg-background/60 border border-border/50 rounded-xl text-sm leading-relaxed text-text-primary min-h-[96px] break-words">
                       {isRecording ? (
-                        <span className="text-accent animate-pulse">{partialTranscript || 'Gravando áudio...'}</span>
+                        <span className="text-accent animate-pulse">{partialTranscript || t('type.recordingAudio')}</span>
                       ) : isTranscribing ? (
-                        <span className="text-accent animate-pulse">Transcrevendo via Whisper Large V3 Turbo...</span>
+                        <span className="text-accent animate-pulse">{t('type.transcribing')}</span>
                       ) : lastTranscript ? (
                         <span>{lastTranscript}</span>
                       ) : (
-                        <span className="text-text-disabled">Pressione F10 ou fale "Vox" para iniciar o ditado.</span>
+                        <span className="text-text-disabled">{t('type.emptyHint')}</span>
                       )}
                     </div>
                   </LiquidGlassCard>
@@ -805,7 +833,7 @@ export const MainWindow: React.FC = () => {
                       onClick={() => setIsDictationHistoryOpen(!isDictationHistoryOpen)}
                       className="w-full flex items-center justify-between text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide cursor-pointer hover:text-text-primary transition-colors duration-250 ease-smooth"
                     >
-                      <span>Histórico de Ditado ({dictationHistory.length})</span>
+                      <span>{t('type.history')} ({dictationHistory.length})</span>
                       <IconChevronDown
                         className={`w-4 h-4 text-text-muted transition-transform duration-300 ease-smooth ${isDictationHistoryOpen ? 'rotate-180' : ''}`}
                       />
@@ -822,7 +850,7 @@ export const MainWindow: React.FC = () => {
                         >
                           <div className="mt-4 pt-4 border-t border-border/40">
                             {dictationHistory.length === 0 ? (
-                              <p className="text-xs text-text-disabled text-center py-4">Nenhum ditado gravado ainda.</p>
+                              <p className="text-xs text-text-disabled text-center py-4">{t('type.historyEmpty')}</p>
                             ) : (
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
                                 {dictationHistory.map((item) => (
@@ -834,7 +862,7 @@ export const MainWindow: React.FC = () => {
                                     <div className="flex-1 min-w-0 text-left">
                                       <p className="text-xs text-text-primary line-clamp-2 text-left leading-relaxed">{item.text}</p>
                                       <span className="text-[10px] text-text-muted block mt-1.5 text-left tnum">
-                                        {new Date(item.createdAt).toLocaleString('pt-BR')}
+                                        {new Date(item.createdAt).toLocaleString(localeTag)}
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -845,7 +873,7 @@ export const MainWindow: React.FC = () => {
                                           navigator.clipboard.writeText(item.text)
                                         }}
                                         className="p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer"
-                                        title="Copiar"
+                                        title={t('type.copy')}
                                       >
                                         <IconCopy className="w-3.5 h-3.5" />
                                       </button>
@@ -856,7 +884,7 @@ export const MainWindow: React.FC = () => {
                                           handleDeleteSession(item.id)
                                         }}
                                         className="p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer"
-                                        title="Excluir"
+                                        title={t('type.delete')}
                                       >
                                         <IconTrash className="w-3.5 h-3.5" />
                                       </button>
@@ -881,12 +909,12 @@ export const MainWindow: React.FC = () => {
                   <AnimatedContent key={`media-preview-${activeTab}`} distance={30} direction="vertical" duration={0.8} ease="power3.out">
                     <LiquidGlassCard glowIntensity="md" blurIntensity="md" className="p-6 flex flex-col gap-5 border border-border/60">
                       <div className="flex items-center justify-between border-b border-border/40 pb-3">
-                        <span className="text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary">Preview da Mídia</span>
+                        <span className="text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary">{t('media.preview')}</span>
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-accent/10 text-accent border border-accent/20 capitalize">
                           {videoInfo.platform === 'unknown' ? (
                             <>
                               <IconGlobe className="w-3 h-3" />
-                              Mídia Web
+                              {t('media.webMedia')}
                             </>
                           ) : (
                             videoInfo.platform
@@ -913,7 +941,7 @@ export const MainWindow: React.FC = () => {
                           </h3>
                           <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs text-text-secondary">
                             <IconClock className="w-3.5 h-3.5 text-text-muted" />
-                            <span>Duração:</span>
+                            <span>{t('media.duration')}</span>
                             <span className="font-mono text-accent font-semibold tnum">{formatMMSS(videoInfo.duration)}</span>
                           </div>
                         </div>
@@ -925,14 +953,14 @@ export const MainWindow: React.FC = () => {
                           onClick={handleResetMedia}
                           className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 ease-smooth cursor-pointer"
                         >
-                          Cancelar
+                          {t('media.cancel')}
                         </button>
                         <SpecularButton
                           size="sm"
                           onClick={() => handleStartTranscription({ url: urlInput })}
                           className="!px-6"
                         >
-                          Confirmar e Transcrever
+                          {t('media.confirmTranscribe')}
                         </SpecularButton>
                       </div>
                     </LiquidGlassCard>
@@ -944,7 +972,7 @@ export const MainWindow: React.FC = () => {
                   <AnimatedContent key={`media-progress-${activeTab}`} distance={30} direction="vertical" duration={0.8} ease="power3.out">
                     <LiquidGlassCard glowIntensity="md" blurIntensity="md" className="p-6 flex flex-col gap-5 border border-border/60">
                       <div className="flex items-center justify-between border-b border-border/40 pb-3">
-                        <span className="text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary">Processando Mídia</span>
+                        <span className="text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary">{t('media.processing')}</span>
                         <span className="text-xs font-mono font-bold text-accent tnum">{mediaProgress.percent}%</span>
                       </div>
 
@@ -957,7 +985,7 @@ export const MainWindow: React.FC = () => {
                           {mediaProgress.percent <= 40
                             ? <IconDownload className="w-4 h-4" />
                             : <IconCheck className="w-4 h-4" strokeWidth={2.2} />}
-                          <span className="text-[11px] font-semibold">Baixando Áudio</span>
+                          <span className="text-[11px] font-semibold">{t('media.phaseDownloading')}</span>
                           <span className="text-[10px] font-mono opacity-70 tnum">0–40%</span>
                         </div>
 
@@ -970,7 +998,7 @@ export const MainWindow: React.FC = () => {
                           {mediaProgress.percent > 90
                             ? <IconCheck className="w-4 h-4" strokeWidth={2.2} />
                             : <IconMic className={`w-4 h-4 ${mediaProgress.percent > 40 ? 'animate-pulse' : ''}`} />}
-                          <span className="text-[11px] font-semibold">Transcrevendo</span>
+                          <span className="text-[11px] font-semibold">{t('media.phaseTranscribing')}</span>
                           <span className="text-[10px] font-mono opacity-70 tnum">40–90%</span>
                         </div>
 
@@ -979,7 +1007,7 @@ export const MainWindow: React.FC = () => {
                           : 'bg-surface/30 border-border/30 text-text-disabled'
                           }`}>
                           <IconGear className={`w-4 h-4 ${mediaProgress.percent > 90 ? 'animate-spin [animation-duration:3s]' : ''}`} />
-                          <span className="text-[11px] font-semibold">Exportando</span>
+                          <span className="text-[11px] font-semibold">{t('media.phaseExporting')}</span>
                           <span className="text-[10px] font-mono opacity-70 tnum">90–100%</span>
                         </div>
                       </div>
@@ -987,7 +1015,7 @@ export const MainWindow: React.FC = () => {
                       <div className="w-full py-1">
                         <ProgressBar
                           progress={mediaProgress.percent}
-                          label={mediaProgress.phase}
+                          label={translatePhase(mediaProgress.phase)}
                           sublabel={mediaProgress.speed ? `${mediaProgress.speed} | ETA: ${mediaProgress.eta}` : undefined}
                         />
                       </div>
@@ -999,7 +1027,7 @@ export const MainWindow: React.FC = () => {
                             {mediaError}
                           </p>
                           <SpecularButton size="sm" onClick={handleResetMedia} className="!px-4">
-                            Tentar Novamente
+                            {t('media.tryAgain')}
                           </SpecularButton>
                         </div>
                       ) : (
@@ -1010,7 +1038,7 @@ export const MainWindow: React.FC = () => {
                               onClick={handleCancelTranscription}
                               className="px-4 py-1.5 bg-surface hover:bg-surface-elevated border border-border text-text-secondary hover:text-text-primary text-xs font-semibold rounded-lg transition-colors duration-250 cursor-pointer"
                             >
-                              Cancelar Processo
+                              {t('media.cancelProcess')}
                             </button>
                           </div>
                         )
@@ -1024,17 +1052,17 @@ export const MainWindow: React.FC = () => {
                   <AnimatedContent key={`media-export-${activeTab}`} distance={30} direction="vertical" duration={0.8} ease="power3.out">
                     <LiquidGlassCard glowIntensity="md" blurIntensity="md" className="p-6 flex flex-col gap-5 border border-border/60">
                       <div className="flex items-center justify-between border-b border-border/40 pb-3">
-                        <span className="text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary">Opções de Exportação</span>
+                        <span className="text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary">{t('media.exportOptions')}</span>
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/20">
                           <IconCheck className="w-3 h-3" strokeWidth={2.4} />
-                          Transcrito
+                          {t('media.transcribed')}
                         </span>
                       </div>
 
                       {/* Snippet do resultado */}
                       {transcriptionResult?.text && (
                         <div className="space-y-2">
-                          <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">Snippet da Transcrição</span>
+                          <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">{t('media.snippet')}</span>
                           <div className="p-3.5 bg-background/60 border border-border/50 rounded-xl font-mono text-xs leading-relaxed text-text-secondary max-h-24 overflow-y-auto custom-scrollbar break-words">
                             {transcriptionResult.text.slice(0, 250)}{transcriptionResult.text.length > 250 ? '...' : ''}
                           </div>
@@ -1043,7 +1071,7 @@ export const MainWindow: React.FC = () => {
 
                       {/* Checkboxes de formatos */}
                       <div className="space-y-2">
-                        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">Formatos Desejados</span>
+                        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">{t('media.formats')}</span>
                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                           {['txt', 'md', 'srt', 'vtt', 'json'].map((fmt) => {
                             const isSelected = selectedFormats.includes(fmt)
@@ -1068,14 +1096,14 @@ export const MainWindow: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Pasta de Destino */}
+                      {/* {t('media.destination')} */}
                       <div className="space-y-2">
-                        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">Pasta de Destino</span>
+                        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">{t('media.destination')}</span>
                         <div className="flex flex-col sm:flex-row gap-2">
                           <input
                             type="text"
                             readOnly
-                            value={exportFolderPath || 'Pasta Padrão (Downloads)'}
+                            value={exportFolderPath || t('media.defaultFolder')}
                             className="flex-1 min-w-0 bg-background/60 border border-border/60 px-3 py-2 rounded-xl text-xs font-mono text-text-secondary focus:outline-none truncate"
                           />
                           <button
@@ -1083,7 +1111,7 @@ export const MainWindow: React.FC = () => {
                             onClick={handleSelectExportFolder}
                             className="px-3.5 py-2 bg-surface hover:bg-surface-elevated border border-border text-xs font-medium text-text-primary rounded-xl transition-colors duration-250 cursor-pointer shrink-0"
                           >
-                            Alterar Pasta
+                            {t('media.changeFolder')}
                           </button>
                         </div>
                       </div>
@@ -1091,8 +1119,8 @@ export const MainWindow: React.FC = () => {
                       {/* Toggle Timestamps */}
                       <label className="flex items-center justify-between gap-4 p-3.5 bg-background/40 border border-border/40 rounded-xl cursor-pointer hover:border-border/70 transition-colors duration-250">
                         <div>
-                          <span className="text-xs font-semibold text-text-primary block">Incluir Timestamps</span>
-                          <span className="text-[11px] text-text-secondary">Formatos TXT e MD receberão marcas de tempo [MM:SS]</span>
+                          <span className="text-xs font-semibold text-text-primary block">{t('media.includeTimestamps')}</span>
+                          <span className="text-[11px] text-text-secondary">{t('media.timestampsHint')}</span>
                         </div>
                         <input
                           type="checkbox"
@@ -1116,7 +1144,7 @@ export const MainWindow: React.FC = () => {
                           onClick={handleResetMedia}
                           className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer"
                         >
-                          Cancelar
+                          {t('media.cancel')}
                         </button>
                         <SpecularButton
                           size="sm"
@@ -1124,7 +1152,7 @@ export const MainWindow: React.FC = () => {
                           disabled={selectedFormats.length === 0}
                           className="!px-6"
                         >
-                          Exportar Selecionados ({selectedFormats.length})
+                          {t('media.exportSelected')} ({selectedFormats.length})
                         </SpecularButton>
                       </div>
                     </LiquidGlassCard>
@@ -1136,16 +1164,16 @@ export const MainWindow: React.FC = () => {
                   <AnimatedContent key={`media-post-${activeTab}`} distance={30} direction="vertical" duration={0.8} ease="power3.out">
                     <LiquidGlassCard glowIntensity="md" blurIntensity="md" className="p-6 flex flex-col gap-5 border border-border/60">
                       <div className="flex items-center justify-between border-b border-border/40 pb-3">
-                        <span className="text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary">Exportação Concluída</span>
+                        <span className="text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary">{t('media.exportDone')}</span>
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/20">
                           <IconCheck className="w-3 h-3" strokeWidth={2.4} />
-                          Pronto
+                          {t('media.ready')}
                         </span>
                       </div>
 
                       {/* Lista de arquivos exportados */}
                       <div className="space-y-2">
-                        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">Arquivos Gerados</span>
+                        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">{t('media.generatedFiles')}</span>
                         <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
                           {exportedFiles.map((file, idx) => {
                             const fileName = file.split(/[/\\]/).pop() || file
@@ -1161,7 +1189,7 @@ export const MainWindow: React.FC = () => {
                                   className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-surface hover:bg-surface-elevated text-accent text-[11px] font-sans font-semibold rounded-lg border border-accent/30 transition-colors duration-250 cursor-pointer shrink-0"
                                 >
                                   <IconFolder className="w-3 h-3" />
-                                  Abrir Pasta
+                                  {t('media.openFolder')}
                                 </button>
                               </div>
                             )
@@ -1172,13 +1200,13 @@ export const MainWindow: React.FC = () => {
                       {/* Opção de Áudio Temporário */}
                       <div className="p-4 bg-accent/10 border border-accent/30 rounded-xl space-y-3">
                         <p className="text-xs text-text-primary font-medium text-center leading-relaxed">
-                          O arquivo de áudio temporário foi utilizado no processamento. Deseja mantê-lo ou excluí-lo?
+                          {t('media.keepAudioPrompt')}
                         </p>
 
                         {audioDeleted ? (
                           <div className="p-2 bg-accent/10 border border-accent/20 rounded-lg flex items-center justify-center gap-1.5 text-xs text-text-primary font-medium">
                             <IconCheck className="w-3.5 h-3.5" strokeWidth={2.4} />
-                            Arquivo de áudio excluído com sucesso.
+                            {t('media.audioDeleted')}
                           </div>
                         ) : (
                           <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5">
@@ -1187,7 +1215,7 @@ export const MainWindow: React.FC = () => {
                               onClick={handleKeepAudio}
                               className="w-full sm:w-auto px-4 py-2 bg-accent/15 hover:bg-accent/25 border border-accent/20 text-accent text-xs font-semibold rounded-xl transition-colors duration-250 cursor-pointer"
                             >
-                              Manter Arquivo de Áudio
+                              {t('media.keepAudio')}
                             </button>
                             <button
                               type="button"
@@ -1195,7 +1223,7 @@ export const MainWindow: React.FC = () => {
                               className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-surface hover:bg-surface-elevated border border-border text-text-secondary hover:text-text-primary text-xs font-semibold rounded-xl transition-colors duration-250 cursor-pointer"
                             >
                               <IconTrash className="w-3.5 h-3.5" />
-                              Deletar Arquivo
+                              {t('media.deleteAudio')}
                             </button>
                           </div>
                         )}
@@ -1208,7 +1236,7 @@ export const MainWindow: React.FC = () => {
                           onClick={handleResetMedia}
                           className="!px-6"
                         >
-                          Transcrever Nova Mídia
+                          {t('media.newMedia')}
                         </SpecularButton>
                       </div>
                     </LiquidGlassCard>
@@ -1226,13 +1254,13 @@ export const MainWindow: React.FC = () => {
                           className="mx-auto w-24 h-24 object-contain drop-shadow-[0_0_12px_rgba(255,255,255,0.25)]"
                         />
 
-                        <p className="mt-4 text-base font-semibold font-heading tracking-tight text-text-primary">Transcrição de Mídia</p>
-                        <p className="mt-1 mb-6 text-xs text-text-secondary">YouTube · TikTok · Instagram · Arquivos Locais</p>
+                        <p className="mt-4 text-base font-semibold font-heading tracking-tight text-text-primary">{t('media.title')}</p>
+                        <p className="mt-1 mb-6 text-xs text-text-secondary">{t('media.subtitle')}</p>
 
                         <div className="w-full flex flex-col gap-2.5">
                           <input
                             type="text"
-                            placeholder="Cole a URL do vídeo (YouTube, TikTok, Instagram)..."
+                            placeholder={t('media.urlPlaceholder')}
                             value={urlInput}
                             onChange={(e) => setUrlInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -1249,7 +1277,7 @@ export const MainWindow: React.FC = () => {
                             onClick={handleFetchVideoInfo}
                             disabled={!urlInput.trim() || isFetchingInfo}
                           >
-                            {isFetchingInfo ? 'Obtendo informações...' : 'Baixar e Transcrever'}
+                            {isFetchingInfo ? t('media.fetchingInfo') : t('media.fetchInfo')}
                           </SpecularButton>
                         </div>
                       </LiquidGlassCard>
@@ -1275,7 +1303,7 @@ export const MainWindow: React.FC = () => {
                             <IconUpload className="w-[18px] h-[18px]" />
                           </div>
                           <p className="text-sm font-medium text-text-primary">
-                            {isDragOver ? 'Solte o arquivo local aqui!' : 'Clique para escolher ou arraste um arquivo local'}
+                            {isDragOver ? t('media.dropActive') : t('media.dropHint')}
                           </p>
                           <p className="text-[11px] font-mono text-text-muted mt-1.5">.mp4 .mp3 .wav .mkv .mov .avi .m4a .webm .ogg</p>
                         </LiquidGlassCard>
@@ -1300,7 +1328,7 @@ export const MainWindow: React.FC = () => {
                         onClick={() => setIsMediaHistoryOpen(!isMediaHistoryOpen)}
                         className="w-full flex items-center justify-between text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide cursor-pointer hover:text-text-primary transition-colors duration-250 ease-smooth"
                       >
-                        <span>Transcrições Anteriores ({mediaHistory.length})</span>
+                        <span>{t('media.previous')} ({mediaHistory.length})</span>
                         <IconChevronDown
                           className={`w-4 h-4 text-text-muted transition-transform duration-300 ease-smooth ${isMediaHistoryOpen ? 'rotate-180' : ''}`}
                         />
@@ -1317,7 +1345,7 @@ export const MainWindow: React.FC = () => {
                           >
                             <div className="mt-4 pt-4 border-t border-border/40">
                               {mediaHistory.length === 0 ? (
-                                <p className="text-xs text-text-disabled text-center py-4">Nenhuma transcrição de mídia salva ainda.</p>
+                                <p className="text-xs text-text-disabled text-center py-4">{t('media.previousEmpty')}</p>
                               ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
                                   {mediaHistory.map((item) => (
@@ -1331,7 +1359,7 @@ export const MainWindow: React.FC = () => {
                                           <IconClock className="w-3 h-3 shrink-0" />
                                           <span>{formatMMSS(item.duration || 0)}</span>
                                           <span>·</span>
-                                          <span>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</span>
+                                          <span>{new Date(item.createdAt).toLocaleDateString(localeTag)}</span>
                                         </div>
                                       </div>
 
@@ -1340,7 +1368,7 @@ export const MainWindow: React.FC = () => {
                                           type="button"
                                           onClick={() => handleDeleteSession(item.id)}
                                           className="p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer opacity-0 group-hover:opacity-100"
-                                          title="Excluir"
+                                          title={t('type.delete')}
                                         >
                                           <IconTrash className="w-3.5 h-3.5" />
                                         </button>
@@ -1349,7 +1377,7 @@ export const MainWindow: React.FC = () => {
                                           onClick={() => handleReExport(item)}
                                           className="text-xs"
                                         >
-                                          Re-exportar
+                                          {t('media.reExport')}
                                         </SpecularButton>
                                       </div>
                                     </div>
@@ -1379,7 +1407,7 @@ export const MainWindow: React.FC = () => {
         >
           <img
             src={configImg}
-            alt="Configurações"
+            alt={t('common.settings')}
             className="w-4 h-4 object-contain opacity-80 group-hover:opacity-100 transition-opacity filter drop-shadow-[0_0_6px_rgba(255,255,255,0.3)]"
           />
         </SpecularButton>
@@ -1402,28 +1430,19 @@ export const MainWindow: React.FC = () => {
               transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
               className="w-full max-w-md"
             >
-              <LiquidGlassCard glowIntensity="md" blurIntensity="lg" className="p-6 sm:p-7 flex flex-col gap-5 border border-border/80 shadow-2xl">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
-                    <IconGear className="w-4 h-4 text-text-primary" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-semibold font-heading tracking-tight text-text-primary">
-                      Configure sua API Key
-                    </h2>
-                    <p className="text-[11px] text-text-secondary mt-0.5">
-                      Necessária para transcrição e correção de texto
-                    </p>
-                  </div>
+              <LiquidGlassCard glowIntensity="md" blurIntensity="lg" className="p-8 sm:p-10 flex flex-col gap-8 border border-border/80 shadow-2xl">
+                <div className="space-y-5">
+                  <h2 className="text-base font-semibold font-heading tracking-tight text-text-primary">
+                    {t('setup.title')}
+                  </h2>
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    {t('setup.description')}
+                  </p>
                 </div>
 
-                <p className="text-xs text-text-secondary leading-relaxed">
-                  Informe a chave do seu provedor (ex.: Groq). Ela será salva localmente no banco de dados e não será solicitada novamente.
-                </p>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                    Chave de API
+                <div className="space-y-3">
+                  <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">
+                    {t('setup.apiKey')}
                   </label>
                   <SmoothInput
                     type="password"
@@ -1439,25 +1458,34 @@ export const MainWindow: React.FC = () => {
                     autoFocus
                   />
                   {setupError ? (
-                    <p className="text-[11px] text-error mt-2 flex items-center gap-1.5">
-                      <IconAlert className="w-3.5 h-3.5 shrink-0" />
+                    <p className="text-[11px] text-error leading-relaxed">
                       {setupError}
                     </p>
                   ) : (
-                    <p className="text-[11px] text-text-muted mt-2 leading-relaxed">
-                      O provedor deve oferecer Whisper Large V3 Turbo e um modelo de chat compatível.
+                    <p className="text-[11px] text-text-muted leading-relaxed">
+                      {t('setup.hint')}
                     </p>
                   )}
                 </div>
 
-                <div className="flex justify-end pt-1">
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSetupError('')
+                      setShowApiKeySetup(false)
+                    }}
+                    className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer"
+                  >
+                    {t('setup.later')}
+                  </button>
                   <SpecularButton
                     size="sm"
                     radius={12}
                     onClick={handleSaveApiKeySetup}
                     className="!px-6"
                   >
-                    Salvar e Continuar
+                    {t('setup.save')}
                   </SpecularButton>
                 </div>
               </LiquidGlassCard>
@@ -1486,22 +1514,20 @@ export const MainWindow: React.FC = () => {
               transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
               className="w-full max-w-xl"
             >
-              <LiquidGlassCard glowIntensity="md" blurIntensity="lg" className="p-6 sm:p-7 flex flex-col gap-6 border border-border/80 shadow-2xl relative max-h-[92vh] overflow-y-auto custom-scrollbar">
+              <LiquidGlassCard glowIntensity="md" blurIntensity="lg" className="p-6 sm:p-7 flex flex-col gap-10 border border-border/80 shadow-2xl relative">
                 {/* Header */}
-                <div className="flex items-center justify-between border-b border-border/40 pb-4">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <img src={configImg} alt="" className="w-4 h-4 object-contain opacity-90" />
-                    <h2 className="text-base font-semibold font-heading tracking-tight text-text-primary">Configurações</h2>
+                    <h2 className="text-base font-semibold font-heading tracking-tight text-text-primary">{t('settings.title')}</h2>
                   </div>
-                  {apiKey.trim() && (
-                    <button
-                      type="button"
-                      onClick={() => setIsSettingsOpen(false)}
-                      className="text-text-secondary hover:text-text-primary p-1.5 rounded-lg hover:bg-surface transition-colors duration-250 cursor-pointer"
-                    >
-                      <IconX className="w-4 h-4" />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsSettingsOpen(false)}
+                    className="text-text-secondary hover:text-text-primary p-1.5 rounded-lg hover:bg-surface transition-colors duration-250 cursor-pointer"
+                  >
+                    <IconX className="w-4 h-4" />
+                  </button>
                 </div>
 
                 {/* Form Fields */}
@@ -1509,7 +1535,7 @@ export const MainWindow: React.FC = () => {
                   {/* API Key */}
                   <div>
                     <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                      Chave de API
+                      {t('settings.apiKey')}
                     </label>
                     <SmoothInput
                       type="password"
@@ -1518,7 +1544,7 @@ export const MainWindow: React.FC = () => {
                       placeholder="gsk_..."
                     />
                     <p className="text-[11px] text-text-muted mt-2 leading-relaxed">
-                      Salva localmente no banco de dados. O provedor deve oferecer os modelos abaixo.
+                      {t('settings.apiKeyHint')}
                     </p>
                   </div>
 
@@ -1526,7 +1552,7 @@ export const MainWindow: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                        Modelo STT (Voz)
+                        {t('settings.sttModel')}
                       </label>
                       <div className="p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary">
                         Whisper Large V3 Turbo
@@ -1535,7 +1561,7 @@ export const MainWindow: React.FC = () => {
 
                     <div>
                       <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                        Modelo LLM (Corretor)
+                        {t('settings.llmModel')}
                       </label>
                       <div className="p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary">
                         GPT-OSS-20B
@@ -1547,7 +1573,7 @@ export const MainWindow: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                        Atalho Toggle
+                        {t('settings.shortcutToggle')}
                       </label>
                       <ShortcutInput
                         value={draftShortcutToggle}
@@ -1557,7 +1583,7 @@ export const MainWindow: React.FC = () => {
 
                     <div>
                       <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                        Atalho Push-to-Talk
+                        {t('settings.shortcutPtt')}
                       </label>
                       <ShortcutInput
                         value={draftShortcutPushToTalk}
@@ -1569,7 +1595,7 @@ export const MainWindow: React.FC = () => {
                   {/* Browser Cookies for yt-dlp */}
                   <div>
                     <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                      Cookies do Navegador (Extração Mídia)
+                      {t('settings.cookies')}
                     </label>
                     <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                       {(['none', 'chrome', 'edge', 'firefox', 'brave'] as const).map((b) => (
@@ -1582,18 +1608,44 @@ export const MainWindow: React.FC = () => {
                             : 'bg-transparent text-text-secondary border-border/50 hover:text-text-primary hover:border-border'
                             }`}
                         >
-                          {b === 'none' ? 'Nenhum' : b}
+                          {b === 'none' ? t('settings.none') : b}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Language */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
+                      {t('settings.language')}
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {([
+                        { id: 'en' as const, label: t('settings.langEn') },
+                        { id: 'pt-BR' as const, label: t('settings.langPt') }
+                      ]).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setDraftLanguage(opt.id)}
+                          className={`py-1.5 px-2 text-xs font-medium rounded-lg border transition-all duration-250 ease-smooth text-center cursor-pointer ${draftLanguage === opt.id
+                            ? 'bg-accent/15 text-accent border-accent/40 font-semibold'
+                            : 'bg-transparent text-text-secondary border-border/50 hover:text-text-primary hover:border-border'
+                            }`}
+                        >
+                          {opt.label}
                         </button>
                       ))}
                     </div>
                   </div>
 
                   {/* Wake Word (Comando de Voz Offline) */}
+
                   <div className="p-4 bg-background/50 border border-border/60 rounded-xl space-y-3.5">
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <span className="text-xs font-semibold text-text-primary block leading-relaxed">Wake Word (Ativação por Voz)</span>
-                        <span className="text-[11px] text-text-secondary leading-relaxed">Acione o Vox falando em segundo plano (openWakeWord ONNX)</span>
+                        <span className="text-xs font-semibold text-text-primary block leading-relaxed">{t('settings.wakeWord')}</span>
+                        <span className="text-[11px] text-text-secondary leading-relaxed">{t('settings.wakeWordHint')}</span>
                       </div>
                       <div className="switch-button">
                         <label className="switch-outer">
@@ -1613,21 +1665,21 @@ export const MainWindow: React.FC = () => {
                     {wakeWordModelMissing && (
                       <div className="p-2.5 bg-accent/10 border border-accent/20 rounded-lg text-[11px] text-text-primary font-medium flex items-start gap-1.5 leading-relaxed">
                         <IconAlert className="w-3.5 h-3.5 shrink-0 mt-px" />
-                        <span>Modelo ONNX (vox.onnx) não encontrado em <span className="font-mono">resources/models/wakeword/</span>. Execute <span className="font-mono">npm run setup:wakeword</span> para baixar.</span>
+                        <span>{t('settings.wakeWordMissing')}</span>
                       </div>
                     )}
 
                     {wakeWordError && (
                       <div className="p-2.5 bg-error/15 border border-error/30 rounded-lg text-[11px] text-error font-medium flex items-start gap-1.5 leading-relaxed">
                         <IconAlert className="w-3.5 h-3.5 shrink-0 mt-px" />
-                        <span>Microfone de segundo plano: {wakeWordError}</span>
+                        <span>{t('settings.micError')} {wakeWordError}</span>
                       </div>
                     )}
 
                     {draftWakeWordEnabled && (
                       <div className="pt-3 border-t border-border/30">
                         <div className="flex items-center justify-between text-xs mb-1.5">
-                          <span className="text-text-secondary font-medium">Sensibilidade</span>
+                          <span className="text-text-secondary font-medium">{t('settings.sensitivity')}</span>
                           <span className="text-text-primary font-mono tnum">{Math.round(draftWakeWordSensitivity * 100)}%</span>
                         </div>
                         <label className="slider w-full mt-1">
@@ -1654,7 +1706,7 @@ export const MainWindow: React.FC = () => {
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-surface border border-border/50 hover:border-border rounded-xl transition-all duration-250 cursor-pointer"
                   >
                     <IconTrash className="w-3.5 h-3.5" />
-                    Limpar Histórico
+                    {t('settings.clearHistory')}
                   </button>
                   <div className="flex items-center gap-2">
                     {apiKey.trim() && (
@@ -1663,7 +1715,7 @@ export const MainWindow: React.FC = () => {
                         onClick={() => setIsSettingsOpen(false)}
                         className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer"
                       >
-                        Cancelar
+                        {t('settings.cancel')}
                       </button>
                     )}
                     <SpecularButton
@@ -1673,7 +1725,7 @@ export const MainWindow: React.FC = () => {
                       className="!px-6"
                       disabled={!draftApiKey.trim()}
                     >
-                      Salvar Configurações
+                      {t('settings.save')}
                     </SpecularButton>
                   </div>
                 </div>
@@ -1695,10 +1747,10 @@ export const MainWindow: React.FC = () => {
                 <div className="w-9 h-9 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
                   <IconShield className="w-4 h-4 text-text-primary" />
                 </div>
-                <h3 className="text-sm font-semibold font-heading tracking-tight text-text-primary">Permissão de Acessibilidade Necessária</h3>
+                <h3 className="text-sm font-semibold font-heading tracking-tight text-text-primary">{t('accessibility.title')}</h3>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed">
-                No macOS, o Vox precisa de permissão em <strong className="text-text-primary">Acessibilidade</strong> para injetar texto automaticamente no cursor da aplicação ativa.
+                {t('accessibility.body')}
               </p>
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
@@ -1706,7 +1758,7 @@ export const MainWindow: React.FC = () => {
                   onClick={() => setShowAccessibilityModal(false)}
                   className="px-3.5 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer"
                 >
-                  Entendi
+                  {t('accessibility.understood')}
                 </button>
                 <SpecularButton
                   size="sm"
@@ -1715,7 +1767,7 @@ export const MainWindow: React.FC = () => {
                     setShowAccessibilityModal(false)
                   }}
                 >
-                  Abrir Preferências do Sistema
+                  {t('accessibility.openPrefs')}
                 </SpecularButton>
               </div>
             </LiquidGlassCard>
@@ -1736,26 +1788,26 @@ export const MainWindow: React.FC = () => {
                   <IconTerminal className="w-4 h-4 text-text-primary" />
                 </div>
                 <h3 className="text-sm font-semibold font-heading tracking-tight text-text-primary">
-                  {xdotoolData?.isWayland ? 'Utilitário wtype Necessário' : 'Utilitário xdotool Necessário'}
+                  {xdotoolData?.isWayland ? t('linux.wtypeTitle') : t('linux.xdotoolTitle')}
                 </h3>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed">
-                Para colagem automática no Linux ({xdotoolData?.isWayland ? 'Wayland' : 'X11'}), instale o utilitário {xdotoolData?.isWayland ? 'wtype' : 'xdotool'} no seu sistema:
+                {t('linux.body', { display: xdotoolData?.isWayland ? 'Wayland' : 'X11', tool: xdotoolData?.isWayland ? 'wtype' : 'xdotool' })}
               </p>
               <div className="p-3 bg-background/80 border border-border/60 rounded-lg font-mono text-[11px] text-accent select-all">
                 {xdotoolData?.isWayland ? 'sudo apt install wtype' : 'sudo apt install xdotool'}
                 <br />
-                <span className="text-text-muted">{xdotoolData?.isWayland ? 'ou sudo pacman -S wtype' : 'ou sudo pacman -S xdotool'}</span>
+                <span className="text-text-muted">{xdotoolData?.isWayland ? (language === 'en' ? 'or sudo pacman -S wtype' : 'ou sudo pacman -S wtype') : (language === 'en' ? 'or sudo pacman -S xdotool' : 'ou sudo pacman -S xdotool')}</span>
               </div>
               <p className="text-[11px] text-text-muted">
-                O texto foi copiado para a Área de Transferência. Cole manualmente com Ctrl+V.
+                {t('linux.clipboardNote')}
               </p>
               <div className="flex items-center justify-end pt-2">
                 <SpecularButton
                   size="sm"
                   onClick={() => setShowXdotoolModal(false)}
                 >
-                  Entendi
+                  {t('linux.understood')}
                 </SpecularButton>
               </div>
             </LiquidGlassCard>
