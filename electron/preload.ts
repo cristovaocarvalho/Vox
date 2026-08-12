@@ -76,6 +76,16 @@ export const voxApi = {
     const handler = (_event: unknown, data: { isWayland?: boolean }) => callback(data)
     ipcRenderer.on('vox:xdotool-missing', handler)
     return () => ipcRenderer.removeListener('vox:xdotool-missing', handler)
+  },
+  onDockShow: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('vox:dock-show', handler)
+    return () => ipcRenderer.removeListener('vox:dock-show', handler)
+  },
+  onDockHide: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('vox:dock-hide', handler)
+    return () => ipcRenderer.removeListener('vox:dock-hide', handler)
   }
 }
 

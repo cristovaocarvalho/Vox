@@ -889,7 +889,7 @@ function captureActiveWindow() {
 }
 const getDevUrl = () => process.env["ELECTRON_RENDERER_URL"] || process.env["VITE_DEV_SERVER_URL"];
 function getAppIconPath() {
-  return app.isPackaged ? path.join(process.resourcesPath, "favicon.png") : path.join(app.getAppPath(), "src/favicon.png");
+  return app.isPackaged ? path.join(process.resourcesPath, "Logo-Vox1.ico") : path.join(app.getAppPath(), "src/assets/Logo-Vox1.ico");
 }
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -969,11 +969,25 @@ function showDock() {
   if (dockWindow.isMinimized()) dockWindow.restore();
   dockWindow.showInactive();
   dockWindow.setAlwaysOnTop(true, "screen-saver");
+  if (dockWindow && !dockWindow.isDestroyed()) {
+    dockWindow.webContents.send("vox:dock-show");
+  }
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("vox:dock-show");
+  }
 }
 function hideDock() {
   if (!dockWindow) return;
   if (!dockWindow.isVisible()) return;
-  dockWindow.hide();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("vox:dock-hide");
+  }
+  if (dockWindow && !dockWindow.isDestroyed()) {
+    dockWindow.webContents.send("vox:dock-hide");
+  }
+  setTimeout(() => {
+    dockWindow?.hide();
+  }, 280);
 }
 function setupIpcHandlers() {
   recorder.on("energy", (data) => {
@@ -1290,7 +1304,7 @@ app.whenReady().then(async () => {
   }
   globalShortcut.register("F10", toggleDockWindow);
   globalShortcut.register("F9", handleGlobalPushToTalk);
-  const iconPath = app.isPackaged ? path.join(process.resourcesPath, "favicon.png") : path.join(app.getAppPath(), "src/favicon.png");
+  const iconPath = getAppIconPath();
   const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
   tray = new Tray(trayIcon);
   tray.setToolTip("Vox");

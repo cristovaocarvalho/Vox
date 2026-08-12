@@ -1,22 +1,35 @@
 import React, { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import logoImg from '../../assets/logo.png'
 
 export const DockWindow: React.FC = () => {
   const bars = 7
   const [energyLevel, setEnergyLevel] = useState(0)
+  const [isVisible, setIsVisible] = useState(true)
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined
+    let unsubVolume: (() => void) | undefined
+    let unsubShow: (() => void) | undefined
+    let unsubHide: (() => void) | undefined
 
     if (window.vox?.onVolumeUpdate) {
-      unsubscribe = window.vox.onVolumeUpdate(({ energy }) => {
+      unsubVolume = window.vox.onVolumeUpdate(({ energy }) => {
         setEnergyLevel(Math.min(1, energy * 4))
       })
     }
 
+    if (window.vox?.onDockShow) {
+      unsubShow = window.vox.onDockShow(() => setIsVisible(true))
+    }
+
+    if (window.vox?.onDockHide) {
+      unsubHide = window.vox.onDockHide(() => setIsVisible(false))
+    }
+
     return () => {
-      unsubscribe?.()
+      unsubVolume?.()
+      unsubShow?.()
+      unsubHide?.()
     }
   }, [])
 
@@ -28,39 +41,38 @@ export const DockWindow: React.FC = () => {
 
   return (
     <div className="w-full h-full flex items-center justify-center select-none drag-region p-1 bg-transparent">
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.3, type: 'spring' }}
-        className="px-4 py-2.5 bg-black/40 backdrop-blur-xl border border-white/15 rounded-full flex items-center justify-center gap-3 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] text-white"
-      >
-        {/* Logo + Waveform visualization */}
-        <div className="flex items-center gap-3 shrink-0">
-          <img src={logoImg} alt="Vox" className="w-6 h-6 object-contain drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" />
+      <AnimatePresence>
+        {isVisible && (
+          <motion.div
+            key="dock"
+            initial={{ scale: 0.85, opacity: 0, y: 10 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.85, opacity: 0, y: 10 }}
+            transition={{ duration: 0.25, type: 'spring', stiffness: 320, damping: 22 }}
+            className="px-4 py-2.5 bg-black/40 backdrop-blur-xl border border-white/15 rounded-full flex items-center justify-center gap-3 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] text-white"
+          >
+            {/* Logo + Waveform visualization */}
+            <div className="flex items-center gap-3 shrink-0">
+              <img src={logoImg} alt="Vox" className="w-6 h-6 object-contain drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" />
 
-          {/* Animated Speech Waveform */}
-          <div className="flex h-5 items-center gap-1">
-            {heights.map((height, index) => (
-              <motion.div
-                key={index}
-                className="w-[2.5px] bg-white rounded-full"
-                initial={{ height: 4 }}
-                animate={{
-                  height: Math.max(4, height * 18)
-                }}
-                transition={{
-                  type: 'spring',
-                  stiffness: 300,
-                  damping: 12
-                }}
-              />
-            ))}
-          </div>
-        </div>
-      </motion.div>
+              {/* Animated Speech Waveform */}
+              <div className="flex h-5 items-center gap-1">
+                {heights.map((height, index) => (
+                  <motion.div
+                    key={index}
+                    className="w-[2.5px] bg-white rounded-full"
+                    initial={{ height: 4 }}
+                    animate={{ height: Math.max(4, height * 18) }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 12 }}
+                  />
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
 
 export default DockWindow
-

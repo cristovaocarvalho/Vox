@@ -11,10 +11,10 @@ extraResources:
   - from: resources/models/
     to: models/
     filter: ["**/*"]
-  - from: src/favicon.png
-    to: favicon.png
+  - from: src/assets/Logo-Vox1.ico
+    to: Logo-Vox1.ico
 win:
-  icon: src/favicon.png
+  icon: src/assets/Logo-Vox1.ico
   target:
     - nsis
     - portable

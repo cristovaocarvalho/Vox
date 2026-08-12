@@ -31,6 +31,8 @@ import {
 } from '../../components'
 import logoImg from '../../assets/logo.png'
 import configImg from '../../assets/config.png'
+import onSound from '../../assets/On.mp3'
+import offSound from '../../assets/Off.mp3'
 
 export const MainWindow: React.FC = () => {
   const { t, localeTag } = useI18n()
@@ -307,17 +309,17 @@ export const MainWindow: React.FC = () => {
     try {
       setPartialTranscript('')
       setIsCopied(false)
-      if (window.vox?.startRecording) {
-        await window.vox.startRecording()
-      }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      })
+      const [, stream] = await Promise.all([
+        window.vox?.startRecording?.() ?? Promise.resolve(),
+        navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        })
+      ])
       mediaStreamRef.current = stream
 
       // AnalyserNode para medir volume real para o VAD / Dock animation
@@ -441,12 +443,42 @@ export const MainWindow: React.FC = () => {
       })
     }
 
+    let unsubscribeDockShow: (() => void) | undefined
+    if (window.vox?.onDockShow) {
+      unsubscribeDockShow = window.vox.onDockShow(() => {
+        const audio = new Audio(onSound)
+        const ctx = new AudioContext()
+        const src = ctx.createMediaElementSource(audio)
+        const gain = ctx.createGain()
+        gain.gain.value = 2.0
+        src.connect(gain)
+        gain.connect(ctx.destination)
+        audio.play().catch(console.error)
+      })
+    }
+
+    let unsubscribeDockHide: (() => void) | undefined
+    if (window.vox?.onDockHide) {
+      unsubscribeDockHide = window.vox.onDockHide(() => {
+        const audio = new Audio(offSound)
+        const ctx = new AudioContext()
+        const src = ctx.createMediaElementSource(audio)
+        const gain = ctx.createGain()
+        gain.gain.value = 2.0
+        src.connect(gain)
+        gain.connect(ctx.destination)
+        audio.play().catch(console.error)
+      })
+    }
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       unsubscribeToggle?.()
       unsubscribeTranscript?.()
       unsubscribePartial?.()
+      unsubscribeDockShow?.()
+      unsubscribeDockHide?.()
     }
   }, [setIsRecording, setLastTranscript, isRecording])
 
@@ -473,167 +505,167 @@ export const MainWindow: React.FC = () => {
 
 
           <div className="flex items-start justify-center px-4 sm:px-6 pt-10 pb-24">
-              <div className="w-full max-w-3xl space-y-5">
+            <div className="w-full max-w-3xl space-y-5">
 
-                {/* Main action card */}
-                <AnimatedContent key={`type-card-1-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.05} ease="power3.out">
-                  <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-8 flex flex-col items-center text-center">
-                    {/* Mic button */}
-                    <button
-                      onClick={handleToggleRecording}
-                      className={`mx-auto flex items-center justify-center transition-transform duration-450 ease-spring cursor-pointer focus:outline-none ${isRecording ? 'scale-110' : 'hover:scale-105 active:scale-95'
+              {/* Main action card */}
+              <AnimatedContent key={`type-card-1-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.05} ease="power3.out">
+                <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-8 flex flex-col items-center text-center">
+                  {/* Mic button */}
+                  <button
+                    onClick={handleToggleRecording}
+                    className={`mx-auto flex items-center justify-center transition-transform duration-450 ease-spring cursor-pointer focus:outline-none ${isRecording ? 'scale-110' : 'hover:scale-105 active:scale-95'
+                      }`}
+                  >
+                    <img
+                      src={logoImg}
+                      alt="Vox"
+                      className={`w-28 h-28 object-contain transition-all duration-500 ease-smooth filter ${isRecording
+                        ? 'drop-shadow-[0_0_28px_rgba(255,255,255,0.75)]'
+                        : 'drop-shadow-[0_0_14px_rgba(255,255,255,0.25)] hover:drop-shadow-[0_0_24px_rgba(255,255,255,0.55)]'
                         }`}
-                    >
-                      <img
-                        src={logoImg}
-                        alt="Vox"
-                        className={`w-28 h-28 object-contain transition-all duration-500 ease-smooth filter ${isRecording
-                          ? 'drop-shadow-[0_0_28px_rgba(255,255,255,0.75)]'
-                          : 'drop-shadow-[0_0_14px_rgba(255,255,255,0.25)] hover:drop-shadow-[0_0_24px_rgba(255,255,255,0.55)]'
-                          }`}
-                      />
-                    </button>
+                    />
+                  </button>
 
-                    <p className="mt-4 text-lg font-semibold font-heading tracking-tight text-text-primary">
-                      {isRecording ? t('type.speakNow') : t('type.start')}
-                    </p>
+                  <p className="mt-4 text-lg font-semibold font-heading tracking-tight text-text-primary">
+                    {isRecording ? t('type.speakNow') : t('type.start')}
+                  </p>
 
-                    <div className="mt-5 mb-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-                      <div className="flex items-center gap-2">
-                        <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">"Vox"</kbd>
-                        <span className="text-xs text-text-secondary font-medium">{t('type.voiceCommand')}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">F10</kbd>
-                        <span className="text-xs text-text-secondary font-medium">{t('type.toggle')}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">F9</kbd>
-                        <span className="text-xs text-text-secondary font-medium">{t('type.pushToTalk')}</span>
-                      </div>
+                  <div className="mt-5 mb-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+                    <div className="flex items-center gap-2">
+                      <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">"Vox"</kbd>
+                      <span className="text-xs text-text-secondary font-medium">{t('type.voiceCommand')}</span>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">F10</kbd>
+                      <span className="text-xs text-text-secondary font-medium">{t('type.toggle')}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">F9</kbd>
+                      <span className="text-xs text-text-secondary font-medium">{t('type.pushToTalk')}</span>
+                    </div>
+                  </div>
 
-                    <Badge variant={isRecording ? 'accent' : 'neutral'}>
-                      {isRecording && <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-dot" />}
-                      {isRecording ? t('type.recording') : t('type.waiting')}
-                    </Badge>
-                  </LiquidGlassCard>
-                </AnimatedContent>
+                  <Badge variant={isRecording ? 'accent' : 'neutral'}>
+                    {isRecording && <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-dot" />}
+                    {isRecording ? t('type.recording') : t('type.waiting')}
+                  </Badge>
+                </LiquidGlassCard>
+              </AnimatedContent>
 
-                {/* Transcript output */}
-                <AnimatedContent key={`type-card-2-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.15} ease="power3.out">
-                  <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-6">
-                    <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-3 mb-4">
-                      <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide">{t('type.lastTranscript')}</span>
-                      <SpecularButton
-                        size="sm"
-                        onClick={handleCopyTranscript}
-                        disabled={!lastTranscript}
-                        tint="#ffffff"
-                        tintOpacity={isCopied ? 0.12 : 0}
-                        className="transition-all duration-300 active:scale-95"
+              {/* Transcript output */}
+              <AnimatedContent key={`type-card-2-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.15} ease="power3.out">
+                <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-6">
+                  <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-3 mb-4">
+                    <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide">{t('type.lastTranscript')}</span>
+                    <SpecularButton
+                      size="sm"
+                      onClick={handleCopyTranscript}
+                      disabled={!lastTranscript}
+                      tint="#ffffff"
+                      tintOpacity={isCopied ? 0.12 : 0}
+                      className="transition-all duration-300 active:scale-95"
+                    >
+                      <span className={`inline-flex items-center gap-1.5 transition-colors duration-250 ease-smooth ${isCopied ? 'text-accent font-medium' : ''}`}>
+                        {isCopied ? (
+                          <>
+                            <IconCheck className="w-3.5 h-3.5" strokeWidth={2.4} />
+                            {t('type.copied')}
+                          </>
+                        ) : (
+                          t('type.copy')
+                        )}
+                      </span>
+                    </SpecularButton>
+                  </div>
+                  <div className="p-4 bg-background/60 border border-border/50 rounded-xl text-sm leading-relaxed text-text-primary min-h-[96px] break-words">
+                    {isRecording ? (
+                      <span className="text-accent animate-pulse">{partialTranscript || t('type.recordingAudio')}</span>
+                    ) : isTranscribing ? (
+                      <span className="text-accent animate-pulse">{t('type.transcribing')}</span>
+                    ) : lastTranscript ? (
+                      <span>{lastTranscript}</span>
+                    ) : (
+                      <span className="text-text-disabled">{t('type.emptyHint')}</span>
+                    )}
+                  </div>
+                </LiquidGlassCard>
+              </AnimatedContent>
+
+              {/* Histórico de Ditado */}
+              <AnimatedContent key={`type-history-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.25} ease="power3.out">
+                <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-6">
+                  <button
+                    type="button"
+                    onClick={() => setIsDictationHistoryOpen(!isDictationHistoryOpen)}
+                    className="w-full flex items-center justify-between text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide cursor-pointer hover:text-text-primary transition-colors duration-250 ease-smooth"
+                  >
+                    <span>{t('type.history')} ({dictationHistory.length})</span>
+                    <IconChevronDown
+                      className={`w-4 h-4 text-text-muted transition-transform duration-300 ease-smooth ${isDictationHistoryOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {isDictationHistoryOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                        className="overflow-hidden"
                       >
-                        <span className={`inline-flex items-center gap-1.5 transition-colors duration-250 ease-smooth ${isCopied ? 'text-accent font-medium' : ''}`}>
-                          {isCopied ? (
-                            <>
-                              <IconCheck className="w-3.5 h-3.5" strokeWidth={2.4} />
-                              {t('type.copied')}
-                            </>
+                        <div className="mt-4 pt-4 border-t border-border/40">
+                          {dictationHistory.length === 0 ? (
+                            <p className="text-xs text-text-disabled text-center py-4">{t('type.historyEmpty')}</p>
                           ) : (
-                            t('type.copy')
-                          )}
-                        </span>
-                      </SpecularButton>
-                    </div>
-                    <div className="p-4 bg-background/60 border border-border/50 rounded-xl text-sm leading-relaxed text-text-primary min-h-[96px] break-words">
-                      {isRecording ? (
-                        <span className="text-accent animate-pulse">{partialTranscript || t('type.recordingAudio')}</span>
-                      ) : isTranscribing ? (
-                        <span className="text-accent animate-pulse">{t('type.transcribing')}</span>
-                      ) : lastTranscript ? (
-                        <span>{lastTranscript}</span>
-                      ) : (
-                        <span className="text-text-disabled">{t('type.emptyHint')}</span>
-                      )}
-                    </div>
-                  </LiquidGlassCard>
-                </AnimatedContent>
-
-                {/* Histórico de Ditado */}
-                <AnimatedContent key={`type-history-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.25} ease="power3.out">
-                  <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-6">
-                    <button
-                      type="button"
-                      onClick={() => setIsDictationHistoryOpen(!isDictationHistoryOpen)}
-                      className="w-full flex items-center justify-between text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide cursor-pointer hover:text-text-primary transition-colors duration-250 ease-smooth"
-                    >
-                      <span>{t('type.history')} ({dictationHistory.length})</span>
-                      <IconChevronDown
-                        className={`w-4 h-4 text-text-muted transition-transform duration-300 ease-smooth ${isDictationHistoryOpen ? 'rotate-180' : ''}`}
-                      />
-                    </button>
-
-                    <AnimatePresence initial={false}>
-                      {isDictationHistoryOpen && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                          className="overflow-hidden"
-                        >
-                          <div className="mt-4 pt-4 border-t border-border/40">
-                            {dictationHistory.length === 0 ? (
-                              <p className="text-xs text-text-disabled text-center py-4">{t('type.historyEmpty')}</p>
-                            ) : (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
-                                {dictationHistory.map((item) => (
-                                  <div
-                                    key={item.id}
-                                    onClick={() => setLastTranscript(item.text)}
-                                    className="p-3.5 bg-background/50 border border-border/50 rounded-xl hover:border-accent/40 hover:bg-background/70 transition-[border-color,background-color] duration-250 ease-smooth cursor-pointer flex items-center justify-between gap-3 group"
-                                  >
-                                    <div className="flex-1 min-w-0 text-left">
-                                      <p className="text-xs text-text-primary line-clamp-2 text-left leading-relaxed">{item.text}</p>
-                                      <span className="text-[10px] text-text-muted block mt-1.5 text-left tnum">
-                                        {new Date(item.createdAt).toLocaleString(localeTag)}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          navigator.clipboard.writeText(item.text)
-                                        }}
-                                        className="p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer"
-                                        title={t('type.copy')}
-                                      >
-                                        <IconCopy className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleDeleteSession(item.id)
-                                        }}
-                                        className="p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer"
-                                        title={t('type.delete')}
-                                      >
-                                        <IconTrash className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
+                              {dictationHistory.map((item) => (
+                                <div
+                                  key={item.id}
+                                  onClick={() => setLastTranscript(item.text)}
+                                  className="p-3.5 bg-background/50 border border-border/50 rounded-xl hover:border-accent/40 hover:bg-background/70 transition-[border-color,background-color] duration-250 ease-smooth cursor-pointer flex items-center justify-between gap-3 group"
+                                >
+                                  <div className="flex-1 min-w-0 text-left">
+                                    <p className="text-xs text-text-primary line-clamp-2 text-left leading-relaxed">{item.text}</p>
+                                    <span className="text-[10px] text-text-muted block mt-1.5 text-left tnum">
+                                      {new Date(item.createdAt).toLocaleString(localeTag)}
+                                    </span>
                                   </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </LiquidGlassCard>
-                </AnimatedContent>
-              </div>
+                                  <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        navigator.clipboard.writeText(item.text)
+                                      }}
+                                      className="p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer"
+                                      title={t('type.copy')}
+                                    >
+                                      <IconCopy className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleDeleteSession(item.id)
+                                      }}
+                                      className="p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer"
+                                      title={t('type.delete')}
+                                    >
+                                      <IconTrash className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </LiquidGlassCard>
+              </AnimatedContent>
+            </div>
 
           </div>
         </Beams>

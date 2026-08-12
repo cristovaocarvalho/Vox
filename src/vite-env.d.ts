@@ -15,5 +15,10 @@ declare module '*.svg' {
   export default value
 }
 
+declare module '*.mp3' {
+  const value: string
+  export default value
+}
+
 declare module '@react-three/drei'
 declare module '@react-three/fiber'

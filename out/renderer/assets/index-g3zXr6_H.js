@@ -41901,7 +41901,7 @@ class ImageBitmapLoader extends Loader {
   }
 }
 let _context$3;
-class AudioContext {
+let AudioContext$1 = class AudioContext2 {
   /**
    * Returns the global native audio context.
    *
@@ -41921,7 +41921,7 @@ class AudioContext {
   static setContext(value) {
     _context$3 = value;
   }
-}
+};
 class AudioLoader extends Loader {
   /**
    * Constructs a new audio loader.
@@ -41950,7 +41950,7 @@ class AudioLoader extends Loader {
     loader.load(url, function(buffer) {
       try {
         const bufferCopy = buffer.slice(0);
-        const context4 = AudioContext.getContext();
+        const context4 = AudioContext$1.getContext();
         const decodeUrl = url + "#decode";
         scope.manager.itemStart(decodeUrl);
         context4.decodeAudioData(bufferCopy, function(audioBuffer) {
@@ -42309,7 +42309,7 @@ class AudioListener extends Object3D {
   constructor() {
     super();
     this.type = "AudioListener";
-    this.context = AudioContext.getContext();
+    this.context = AudioContext$1.getContext();
     this.gain = this.context.createGain();
     this.gain.connect(this.context.destination);
     this.filter = null;
@@ -42410,7 +42410,7 @@ class AudioListener extends Object3D {
     }
   }
 }
-class Audio extends Object3D {
+let Audio$1 = class Audio2 extends Object3D {
   /**
    * Constructs a new audio.
    *
@@ -42817,12 +42817,12 @@ class Audio extends Object3D {
   clone(recursive) {
     return new this.constructor(this.listener).copy(this, recursive);
   }
-}
+};
 const _position = /* @__PURE__ */ new Vector3();
 const _quaternion = /* @__PURE__ */ new Quaternion();
 const _scale = /* @__PURE__ */ new Vector3();
 const _orientation = /* @__PURE__ */ new Vector3();
-class PositionalAudio extends Audio {
+class PositionalAudio extends Audio$1 {
   /**
    * Constructs a positional audio.
    *
@@ -58724,9 +58724,9 @@ const THREE = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.definePropert
   ArrayCamera,
   ArrowHelper,
   AttachedBindMode,
-  Audio,
+  Audio: Audio$1,
   AudioAnalyser,
-  AudioContext,
+  AudioContext: AudioContext$1,
   AudioListener,
   AudioLoader,
   AxesHelper,
@@ -76452,6 +76452,8 @@ const ShortcutInput = ({
 };
 const logoImg = "" + new URL("logo-DyemUIwj.png", import.meta.url).href;
 const configImg = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAACXBIWXMAABYlAAAWJQFJUiTwAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAAjdJREFUeAHtmd1RAjEQgPcY39UKPDvQDqACtQKgArQCoAKvA+xArSCUYAd3HaAVrLtzQW5uEi6bCyGMfDM7MCEJ+5Pc7SYAZ86kByLmJIpkgzUrboNTgBSdNRRvwm3PkCqk3BXJO3azSi4apNCQpER3uO8dpIBeMr7M4Vhoryvsj8KYSyqg4iZDHuEQYL1B5yhb576UJBP+T+hLQ/ENxqfEPk8sGjg+kuJtSpKxTc/MonxOHyWkxSjLsnW7cWDpnOIb07jBbQb030DhuTQ1DiA8a5IXkttMQ9/vSaYkFcSA9kCBcpySNe6Dfg+HwjSfLQIVyPiGepMVXR11n5EeI6EyNQ72KCRhSYp9uXbWfZcgo3LuSeG6E4TW+3GLspRkaJojRASknmzyKegrc5TAM955PdalpxMgBR0TN+gJumH1/iHeA1HZZ0AODpB3bsATwfLLbT8MLBNbBxh4An+c94/NUbYI5ODOA/gjqYmvTY0hkjkuMcXZK42ZgcxRxmiFiAAzF6zn7dpfgAyjU0MZwJMrdEvm2PMK5Cl7bmoMWQ/wmFfcFeV/EcH6hcVZKCtegN/8xnrgAsKTk6z4S4D3XCehstEY/JgabQZ8QHq4FzS6+o9XAu6HV8OUdKpAit58bxjnRK4Nl50LDHhCN8F4R4thFLcYw4YoDI9CS9V1KEO292CnpbjBkAX6k8YJINaHAKVA8fKoXjeBuydWF3wRmOLRZQ3aT97SvmZt0ooGK67wVC66z/w3fgGgyFg3S1HsdQAAAABJRU5ErkJggg==";
+const onSound = "" + new URL("On-BRUTFeP5.mp3", import.meta.url).href;
+const offSound = "" + new URL("Off-BSh92XtI.mp3", import.meta.url).href;
 const MainWindow = () => {
   const { t: t2, localeTag } = useI18n();
   const {
@@ -76696,16 +76698,16 @@ const MainWindow = () => {
     try {
       setPartialTranscript("");
       setIsCopied(false);
-      if (window.vox?.startRecording) {
-        await window.vox.startRecording();
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      });
+      const [, stream] = await Promise.all([
+        window.vox?.startRecording?.() ?? Promise.resolve(),
+        navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        })
+      ]);
       mediaStreamRef.current = stream;
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       audioContextRef.current = audioCtx;
@@ -76805,12 +76807,40 @@ const MainWindow = () => {
         setPartialTranscript(text);
       });
     }
+    let unsubscribeDockShow;
+    if (window.vox?.onDockShow) {
+      unsubscribeDockShow = window.vox.onDockShow(() => {
+        const audio = new Audio(onSound);
+        const ctx = new AudioContext();
+        const src = ctx.createMediaElementSource(audio);
+        const gain = ctx.createGain();
+        gain.gain.value = 2;
+        src.connect(gain);
+        gain.connect(ctx.destination);
+        audio.play().catch(console.error);
+      });
+    }
+    let unsubscribeDockHide;
+    if (window.vox?.onDockHide) {
+      unsubscribeDockHide = window.vox.onDockHide(() => {
+        const audio = new Audio(offSound);
+        const ctx = new AudioContext();
+        const src = ctx.createMediaElementSource(audio);
+        const gain = ctx.createGain();
+        gain.gain.value = 2;
+        src.connect(gain);
+        gain.connect(ctx.destination);
+        audio.play().catch(console.error);
+      });
+    }
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       unsubscribeToggle?.();
       unsubscribeTranscript?.();
       unsubscribePartial?.();
+      unsubscribeDockShow?.();
+      unsubscribeDockHide?.();
     };
   }, [setIsRecording, setLastTranscript, isRecording]);
   const handleCopyTranscript = () => {
@@ -77240,15 +77270,26 @@ const MainWindow = () => {
 const DockWindow = () => {
   const bars = 7;
   const [energyLevel, setEnergyLevel] = reactExports.useState(0);
+  const [isVisible, setIsVisible] = reactExports.useState(true);
   reactExports.useEffect(() => {
-    let unsubscribe;
+    let unsubVolume;
+    let unsubShow;
+    let unsubHide;
     if (window.vox?.onVolumeUpdate) {
-      unsubscribe = window.vox.onVolumeUpdate(({ energy }) => {
+      unsubVolume = window.vox.onVolumeUpdate(({ energy }) => {
         setEnergyLevel(Math.min(1, energy * 4));
       });
     }
+    if (window.vox?.onDockShow) {
+      unsubShow = window.vox.onDockShow(() => setIsVisible(true));
+    }
+    if (window.vox?.onDockHide) {
+      unsubHide = window.vox.onDockHide(() => setIsVisible(false));
+    }
     return () => {
-      unsubscribe?.();
+      unsubVolume?.();
+      unsubShow?.();
+      unsubHide?.();
     };
   }, []);
   const heights = Array.from({ length: bars }, (_, i2) => {
@@ -77256,12 +77297,13 @@ const DockWindow = () => {
     const dynamicOffset = (Math.sin(Date.now() / 150 + i2) + 1) * 0.15;
     return Math.max(0.1, energyLevel * factor * 0.85 + dynamicOffset);
   });
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-full flex items-center justify-center select-none drag-region p-1 bg-transparent", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full h-full flex items-center justify-center select-none drag-region p-1 bg-transparent", children: /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { children: isVisible && /* @__PURE__ */ jsxRuntimeExports.jsx(
     motion.div,
     {
-      initial: { scale: 0.95, opacity: 0 },
-      animate: { scale: 1, opacity: 1 },
-      transition: { duration: 0.3, type: "spring" },
+      initial: { scale: 0.85, opacity: 0, y: 10 },
+      animate: { scale: 1, opacity: 1, y: 0 },
+      exit: { scale: 0.85, opacity: 0, y: 10 },
+      transition: { duration: 0.25, type: "spring", stiffness: 320, damping: 22 },
       className: "px-4 py-2.5 bg-black/40 backdrop-blur-xl border border-white/15 rounded-full flex items-center justify-center gap-3 shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] text-white",
       children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3 shrink-0", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: logoImg, alt: "Vox", className: "w-6 h-6 object-contain drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]" }),
@@ -77270,20 +77312,15 @@ const DockWindow = () => {
           {
             className: "w-[2.5px] bg-white rounded-full",
             initial: { height: 4 },
-            animate: {
-              height: Math.max(4, height * 18)
-            },
-            transition: {
-              type: "spring",
-              stiffness: 300,
-              damping: 12
-            }
+            animate: { height: Math.max(4, height * 18) },
+            transition: { type: "spring", stiffness: 300, damping: 12 }
           },
           index
         )) })
       ] })
-    }
-  ) });
+    },
+    "dock"
+  ) }) });
 };
 const hash = window.location.hash;
 client.createRoot(document.getElementById("root")).render(
