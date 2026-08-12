@@ -65,7 +65,6 @@ h6,
 
 /* Refined focus ring for interactive elements */
 button:focus-visible,
-input:focus-visible,
 [role="button"]:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.35);
   outline-offset: 2px;

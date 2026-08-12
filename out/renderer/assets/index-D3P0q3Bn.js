@@ -7031,8 +7031,299 @@ const useVoxStore = create$1((set2) => ({
   wakeWordEnabled: false,
   setWakeWordEnabled: (wakeWordEnabled) => set2({ wakeWordEnabled }),
   wakeWordSensitivity: 0.5,
-  setWakeWordSensitivity: (wakeWordSensitivity) => set2({ wakeWordSensitivity })
+  setWakeWordSensitivity: (wakeWordSensitivity) => set2({ wakeWordSensitivity }),
+  language: "pt-BR",
+  setLanguage: (language) => set2({ language })
 }));
+const en = {
+  nav: {
+    type: "Vox Type",
+    media: "Vox Media"
+  },
+  type: {
+    start: "Start",
+    speakNow: "Speak now...",
+    voiceCommand: "Voice Command",
+    toggle: "Toggle",
+    pushToTalk: "Push-to-Talk",
+    recording: "Recording",
+    waiting: "Waiting",
+    lastTranscript: "Last Transcription",
+    copy: "Copy",
+    copied: "Copied",
+    recordingAudio: "Recording audio...",
+    transcribing: "Transcribing via Whisper Large V3 Turbo...",
+    emptyHint: 'Press F10 or say "Vox" to start dictation.',
+    history: "Dictation History",
+    historyEmpty: "No dictations recorded yet.",
+    delete: "Delete"
+  },
+  media: {
+    title: "Media Transcription",
+    subtitle: "YouTube · TikTok · Instagram · Local Files",
+    urlPlaceholder: "Paste video URL (YouTube, TikTok, Instagram)...",
+    fetchInfo: "Download and Transcribe",
+    fetchingInfo: "Fetching information...",
+    dropHint: "Click to choose or drag a local file",
+    dropActive: "Drop the local file here!",
+    preview: "Media Preview",
+    webMedia: "Web Media",
+    duration: "Duration:",
+    cancel: "Cancel",
+    confirmTranscribe: "Confirm and Transcribe",
+    processing: "Processing Media",
+    phaseDownloading: "Downloading Audio",
+    phaseTranscribing: "Transcribing",
+    phaseExporting: "Exporting",
+    phaseDownloadingAudio: "Downloading audio",
+    phaseExtractingAudio: "Extracting audio",
+    tryAgain: "Try Again",
+    cancelProcess: "Cancel Process",
+    exportOptions: "Export Options",
+    transcribed: "Transcribed",
+    snippet: "Transcription Snippet",
+    formats: "Desired Formats",
+    destination: "Destination Folder",
+    defaultFolder: "Default Folder (Downloads)",
+    changeFolder: "Change Folder",
+    includeTimestamps: "Include Timestamps",
+    timestampsHint: "TXT and MD formats will include [MM:SS] time marks",
+    exportSelected: "Export Selected",
+    exportDone: "Export Complete",
+    ready: "Ready",
+    generatedFiles: "Generated Files",
+    openFolder: "Open Folder",
+    keepAudioPrompt: "The temporary audio file was used during processing. Keep it or delete it?",
+    audioDeleted: "Audio file deleted successfully.",
+    keepAudio: "Keep Audio File",
+    deleteAudio: "Delete File",
+    newMedia: "Transcribe New Media",
+    previous: "Previous Transcriptions",
+    previousEmpty: "No media transcriptions saved yet.",
+    reExport: "Re-export",
+    untitled: "Untitled Video",
+    localFile: "Local file",
+    selectedFile: "Selected File",
+    fetchError: "Could not get video information.",
+    resultError: "Failed to get transcription result.",
+    unexpectedError: "Unexpected transcription error.",
+    exportFail: "Failed to export files.",
+    exportError: "Error exporting transcription.",
+    unsupportedFormat: "Unsupported format. Accepted: .mp4, .mp3, .wav, .mkv, .mov, .avi, .m4a, .webm, .ogg"
+  },
+  setup: {
+    title: "Configure your API Key",
+    description: "Enter your provider key (e.g. Groq). It will be saved locally and will not be asked again.",
+    apiKey: "API Key",
+    hint: "The provider must offer access to the openai/gpt-oss-20b model and Whisper Large V3 Turbo.",
+    required: "Enter your API key to continue.",
+    later: "Set up later",
+    save: "Save and Continue"
+  },
+  settings: {
+    title: "Settings",
+    apiKey: "API Key",
+    apiKeyHint: "Saved locally in the database. The provider must offer the models below.",
+    sttModel: "STT Model (Voice)",
+    llmModel: "LLM Model (Corrector)",
+    shortcutToggle: "Toggle Shortcut",
+    shortcutPtt: "Push-to-Talk Shortcut",
+    cookies: "Browser Cookies (Media Extraction)",
+    none: "None",
+    wakeWord: "Wake Word (Voice Activation)",
+    wakeWordHint: "Trigger Vox by speaking in the background (openWakeWord ONNX)",
+    wakeWordMissing: "ONNX model (vox.onnx) not found in resources/models/wakeword/. Run npm run setup:wakeword to download.",
+    micError: "Background microphone:",
+    sensitivity: "Sensitivity",
+    clearHistory: "Clear History",
+    clearConfirm: "Are you sure you want to delete all transcription and dictation history?",
+    cancel: "Cancel",
+    save: "Save Settings",
+    language: "Language",
+    langEn: "English",
+    langPt: "Português (BR)"
+  },
+  accessibility: {
+    title: "Accessibility Permission Required",
+    body: "On macOS, Vox needs Accessibility permission to inject text automatically into the active application cursor.",
+    understood: "Got it",
+    openPrefs: "Open System Preferences"
+  },
+  linux: {
+    wtypeTitle: "wtype Utility Required",
+    xdotoolTitle: "xdotool Utility Required",
+    body: "For automatic paste on Linux ({display}), install the {tool} utility on your system:",
+    clipboardNote: "The text was copied to the Clipboard. Paste manually with Ctrl+V.",
+    understood: "Got it"
+  },
+  common: {
+    settings: "Settings",
+    cookiesNone: "None"
+  }
+};
+const ptBR = {
+  nav: {
+    type: "Vox Type",
+    media: "Vox Media"
+  },
+  type: {
+    start: "Iniciar",
+    speakNow: "Fale agora...",
+    voiceCommand: "Comando por Voz",
+    toggle: "Toggle",
+    pushToTalk: "Push-to-Talk",
+    recording: "Gravando",
+    waiting: "Aguardando",
+    lastTranscript: "Última Transcrição",
+    copy: "Copiar",
+    copied: "Copiado",
+    recordingAudio: "Gravando áudio...",
+    transcribing: "Transcrevendo via Whisper Large V3 Turbo...",
+    emptyHint: 'Pressione F10 ou fale "Vox" para iniciar o ditado.',
+    history: "Histórico de Ditado",
+    historyEmpty: "Nenhum ditado gravado ainda.",
+    delete: "Excluir"
+  },
+  media: {
+    title: "Transcrição de Mídia",
+    subtitle: "YouTube · TikTok · Instagram · Arquivos Locais",
+    urlPlaceholder: "Cole a URL do vídeo (YouTube, TikTok, Instagram)...",
+    fetchInfo: "Baixar e Transcrever",
+    fetchingInfo: "Obtendo informações...",
+    dropHint: "Clique para escolher ou arraste um arquivo local",
+    dropActive: "Solte o arquivo local aqui!",
+    preview: "Preview da Mídia",
+    webMedia: "Mídia Web",
+    duration: "Duração:",
+    cancel: "Cancelar",
+    confirmTranscribe: "Confirmar e Transcrever",
+    processing: "Processando Mídia",
+    phaseDownloading: "Baixando Áudio",
+    phaseTranscribing: "Transcrevendo",
+    phaseExporting: "Exportando",
+    phaseDownloadingAudio: "Baixando áudio",
+    phaseExtractingAudio: "Extraindo áudio",
+    tryAgain: "Tentar Novamente",
+    cancelProcess: "Cancelar Processo",
+    exportOptions: "Opções de Exportação",
+    transcribed: "Transcrito",
+    snippet: "Snippet da Transcrição",
+    formats: "Formatos Desejados",
+    destination: "Pasta de Destino",
+    defaultFolder: "Pasta Padrão (Downloads)",
+    changeFolder: "Alterar Pasta",
+    includeTimestamps: "Incluir Timestamps",
+    timestampsHint: "Formatos TXT e MD receberão marcas de tempo [MM:SS]",
+    exportSelected: "Exportar Selecionados",
+    exportDone: "Exportação Concluída",
+    ready: "Pronto",
+    generatedFiles: "Arquivos Gerados",
+    openFolder: "Abrir Pasta",
+    keepAudioPrompt: "O arquivo de áudio temporário foi utilizado no processamento. Deseja mantê-lo ou excluí-lo?",
+    audioDeleted: "Arquivo de áudio excluído com sucesso.",
+    keepAudio: "Manter Arquivo de Áudio",
+    deleteAudio: "Deletar Arquivo",
+    newMedia: "Transcrever Nova Mídia",
+    previous: "Transcrições Anteriores",
+    previousEmpty: "Nenhuma transcrição de mídia salva ainda.",
+    reExport: "Re-exportar",
+    untitled: "Vídeo Sem Título",
+    localFile: "Arquivo local",
+    selectedFile: "Arquivo Selecionado",
+    fetchError: "Não foi possível obter informações do vídeo.",
+    resultError: "Falha ao obter o resultado da transcrição.",
+    unexpectedError: "Erro inesperado na transcrição.",
+    exportFail: "Falha ao exportar os arquivos.",
+    exportError: "Erro ao exportar transcrição.",
+    unsupportedFormat: "Formato não suportado. Aceitos: .mp4, .mp3, .wav, .mkv, .mov, .avi, .m4a, .webm, .ogg"
+  },
+  setup: {
+    title: "Configure sua API Key",
+    description: "Informe a chave do seu provedor (ex.: Groq). Ela será salva localmente e não será solicitada novamente.",
+    apiKey: "Chave de API",
+    hint: "O provedor deve oferecer acesso ao modelo openai/gpt-oss-20b e ao Whisper Large V3 Turbo.",
+    required: "Informe sua chave de API para continuar.",
+    later: "Configurar depois",
+    save: "Salvar e Continuar"
+  },
+  settings: {
+    title: "Configurações",
+    apiKey: "Chave de API",
+    apiKeyHint: "Salva localmente no banco de dados. O provedor deve oferecer os modelos abaixo.",
+    sttModel: "Modelo STT (Voz)",
+    llmModel: "Modelo LLM (Corretor)",
+    shortcutToggle: "Atalho Toggle",
+    shortcutPtt: "Atalho Push-to-Talk",
+    cookies: "Cookies do Navegador (Extração Mídia)",
+    none: "Nenhum",
+    wakeWord: "Wake Word (Ativação por Voz)",
+    wakeWordHint: "Acione o Vox falando em segundo plano (openWakeWord ONNX)",
+    wakeWordMissing: "Modelo ONNX (vox.onnx) não encontrado em resources/models/wakeword/. Execute npm run setup:wakeword para baixar.",
+    micError: "Microfone de segundo plano:",
+    sensitivity: "Sensibilidade",
+    clearHistory: "Limpar Histórico",
+    clearConfirm: "Tem certeza que deseja apagar todo o histórico de transcrições e ditados?",
+    cancel: "Cancelar",
+    save: "Salvar Configurações",
+    language: "Idioma",
+    langEn: "English",
+    langPt: "Português (BR)"
+  },
+  accessibility: {
+    title: "Permissão de Acessibilidade Necessária",
+    body: "No macOS, o Vox precisa de permissão em Acessibilidade para injetar texto automaticamente no cursor da aplicação ativa.",
+    understood: "Entendi",
+    openPrefs: "Abrir Preferências do Sistema"
+  },
+  linux: {
+    wtypeTitle: "Utilitário wtype Necessário",
+    xdotoolTitle: "Utilitário xdotool Necessário",
+    body: "Para colagem automática no Linux ({display}), instale o utilitário {tool} no seu sistema:",
+    clipboardNote: "O texto foi copiado para a Área de Transferência. Cole manualmente com Ctrl+V.",
+    understood: "Entendi"
+  },
+  common: {
+    settings: "Configurações",
+    cookiesNone: "Nenhum"
+  }
+};
+const catalogs = {
+  en,
+  "pt-BR": ptBR
+};
+function normalizeLocale(value) {
+  if (!value) return "pt-BR";
+  const v2 = value.toLowerCase();
+  if (v2 === "en" || v2.startsWith("en-")) return "en";
+  if (v2 === "pt-br" || v2 === "pt" || v2.startsWith("pt")) return "pt-BR";
+  return "pt-BR";
+}
+function getByPath(obj, path) {
+  const parts = path.split(".");
+  let cur = obj;
+  for (const p2 of parts) {
+    if (cur == null || typeof cur !== "object") return void 0;
+    cur = cur[p2];
+  }
+  return typeof cur === "string" ? cur : void 0;
+}
+function translate$2(locale, key, vars) {
+  const catalog = catalogs[locale] || catalogs["pt-BR"];
+  let text = getByPath(catalog, key) ?? getByPath(catalogs.en, key) ?? key;
+  if (vars) {
+    for (const [k2, v2] of Object.entries(vars)) {
+      text = text.replace(new RegExp(`\\{${k2}\\}`, "g"), String(v2));
+    }
+  }
+  return text;
+}
+function useI18n() {
+  const language = useVoxStore((s) => s.language);
+  const locale = normalizeLocale(language);
+  const t2 = (key, vars) => translate$2(locale, key, vars);
+  const localeTag = locale === "en" ? "en-US" : "pt-BR";
+  return { t: t2, locale, localeTag, language: locale };
+}
 const LayoutGroupContext = reactExports.createContext({});
 function useConstant(init4) {
   const ref2 = reactExports.useRef(null);
@@ -7112,10 +7403,6 @@ class SubscriptionManager {
 const secondsToMilliseconds = /* @__NO_SIDE_EFFECTS__ */ (seconds) => seconds * 1e3;
 const millisecondsToSeconds = /* @__NO_SIDE_EFFECTS__ */ (milliseconds) => milliseconds / 1e3;
 const velocityPerSecond = /* @__NO_SIDE_EFFECTS__ */ (velocity, frameDuration) => frameDuration ? velocity * (1e3 / frameDuration) : 0;
-const wrap$1 = (min, max, v2) => {
-  const rangeSize = max - min;
-  return ((v2 - min) % rangeSize + rangeSize) % rangeSize + min;
-};
 const calcBezier = (t2, a1, a2) => (((1 - 3 * a2 + 3 * a1) * t2 + (3 * a2 - 6 * a1)) * t2 + 3 * a1) * t2;
 const subdivisionPrecision = 1e-7;
 const subdivisionMaxIterations = 12;
@@ -7156,10 +7443,6 @@ const easeInOut = /* @__PURE__ */ cubicBezier(0.42, 0, 0.58, 1);
 const isEasingArray = /* @__NO_SIDE_EFFECTS__ */ (ease2) => {
   return Array.isArray(ease2) && typeof ease2[0] !== "number";
 };
-// @__NO_SIDE_EFFECTS__
-function getEasingForSegment(easing, i2) {
-  return /* @__PURE__ */ isEasingArray(easing) ? easing[wrap$1(0, easing.length, i2)] : easing;
-}
 const isBezierDefinition = /* @__NO_SIDE_EFFECTS__ */ (easing) => Array.isArray(easing) && typeof easing[0] === "number";
 const easingLookup = {
   linear: noop,
@@ -9227,90 +9510,6 @@ class AsyncMotionValueAnimation extends WithPromise {
     this.keyframeResolver?.cancel();
   }
 }
-class GroupAnimation {
-  constructor(animations2) {
-    this.stop = () => this.runAll("stop");
-    this.animations = animations2.filter(Boolean);
-  }
-  get finished() {
-    return Promise.all(this.animations.map((animation) => animation.finished));
-  }
-  /**
-   * TODO: Filter out cancelled or stopped animations before returning
-   */
-  getAll(propName) {
-    return this.animations[0][propName];
-  }
-  setAll(propName, newValue) {
-    for (let i2 = 0; i2 < this.animations.length; i2++) {
-      this.animations[i2][propName] = newValue;
-    }
-  }
-  attachTimeline(timeline2) {
-    const subscriptions = this.animations.map((animation) => animation.attachTimeline(timeline2));
-    return () => {
-      subscriptions.forEach((cancel, i2) => {
-        cancel && cancel();
-        this.animations[i2].stop();
-      });
-    };
-  }
-  get time() {
-    return this.getAll("time");
-  }
-  set time(time2) {
-    this.setAll("time", time2);
-  }
-  get speed() {
-    return this.getAll("speed");
-  }
-  set speed(speed) {
-    this.setAll("speed", speed);
-  }
-  get state() {
-    return this.getAll("state");
-  }
-  get startTime() {
-    return this.getAll("startTime");
-  }
-  get duration() {
-    return getMax(this.animations, "duration");
-  }
-  get iterationDuration() {
-    return getMax(this.animations, "iterationDuration");
-  }
-  runAll(methodName) {
-    this.animations.forEach((controls) => controls[methodName]());
-  }
-  play() {
-    this.runAll("play");
-  }
-  pause() {
-    this.runAll("pause");
-  }
-  cancel() {
-    this.runAll("cancel");
-  }
-  complete() {
-    this.runAll("complete");
-  }
-}
-function getMax(animations2, propName) {
-  let max = 0;
-  for (let i2 = 0; i2 < animations2.length; i2++) {
-    const value = animations2[i2][propName];
-    if (value !== null && value > max) {
-      max = value;
-    }
-  }
-  return max;
-}
-class GroupAnimationWithThen extends GroupAnimation {
-  then(onResolve, _onReject) {
-    return this.finished.finally(onResolve).then(() => {
-    });
-  }
-}
 function calcChildStagger(children, child, delayChildren, staggerChildren = 0, staggerDirection = 1) {
   const index = Array.from(children).sort((a, b) => a.sortNodePosition(b)).indexOf(child);
   const numChildren = children.size;
@@ -9605,7 +9804,7 @@ function resolveTransition(transition, parentTransition) {
   }
   return transition;
 }
-function getValueTransition$1(transition, key) {
+function getValueTransition(transition, key) {
   const valueTransition = transition?.[key] ?? transition?.["default"] ?? transition;
   if (valueTransition !== transition) {
     return resolveTransition(valueTransition, transition);
@@ -9661,7 +9860,7 @@ function isTransitionDefined(transition) {
   return false;
 }
 const animateMotionValue = (name, value, target, transition = {}, element, isHandoff) => (onComplete) => {
-  const valueTransition = getValueTransition$1(transition, name) || {};
+  const valueTransition = getValueTransition(transition, name) || {};
   const delay2 = valueTransition.delay || transition.delay || 0;
   let { elapsed = 0 } = transition;
   elapsed = elapsed - /* @__PURE__ */ secondsToMilliseconds(delay2);
@@ -9844,7 +10043,7 @@ function animateTarget(visualElement, targetAndTransition, { delay: delay2 = 0, 
     }
     const valueTransition = {
       delay: delay2,
-      ...getValueTransition$1(transition || {}, key)
+      ...getValueTransition(transition || {}, key)
     };
     if (skipAnimations)
       valueTransition.skipAnimations = true;
@@ -10229,9 +10428,6 @@ function resolveElements(elementOrSelector, scope, selectorCache) {
     return [elementOrSelector];
   } else if (typeof elementOrSelector === "string") {
     let root = document;
-    if (scope) {
-      root = scope.current;
-    }
     const elements = selectorCache?.[elementOrSelector] ?? root.querySelectorAll(elementOrSelector);
     return elements ? Array.from(elements) : [];
   }
@@ -11456,42 +11652,6 @@ class HTMLVisualElement extends DOMVisualElement {
     return scrapeMotionValuesFromProps$1(props, prevProps, visualElement);
   }
 }
-function isObjectKey(key, object) {
-  return key in object;
-}
-class ObjectVisualElement extends VisualElement {
-  constructor() {
-    super(...arguments);
-    this.type = "object";
-  }
-  readValueFromInstance(instance, key) {
-    if (isObjectKey(key, instance)) {
-      const value = instance[key];
-      if (typeof value === "string" || typeof value === "number") {
-        return value;
-      }
-    }
-    return void 0;
-  }
-  getBaseTargetFromProps() {
-    return void 0;
-  }
-  removeValueFromRenderState(key, renderState) {
-    delete renderState.output[key];
-  }
-  measureInstanceViewportBox() {
-    return createBox();
-  }
-  build(renderState, latestValues) {
-    Object.assign(renderState.output, latestValues);
-  }
-  renderInstance(instance, { output }) {
-    Object.assign(instance, output);
-  }
-  sortInstanceNodePosition() {
-    return 0;
-  }
-}
 const dashKeys = {
   offset: "stroke-dashoffset",
   array: "stroke-dasharray"
@@ -11675,7 +11835,7 @@ function createAnimateFunction(visualElement) {
   };
 }
 function createAnimationState(visualElement) {
-  let animate2 = createAnimateFunction(visualElement);
+  let animate = createAnimateFunction(visualElement);
   let state = createState();
   let isInitialRender = true;
   let wasReset = false;
@@ -11688,7 +11848,7 @@ function createAnimationState(visualElement) {
     return acc;
   };
   function setAnimateFunction(makeAnimator) {
-    animate2 = makeAnimator(visualElement);
+    animate = makeAnimator(visualElement);
   }
   function animateChanges(changedActiveType) {
     const { props } = visualElement;
@@ -11826,7 +11986,7 @@ function createAnimationState(visualElement) {
     }
     isInitialRender = false;
     wasReset = false;
-    return shouldAnimate ? animate2(animations2) : Promise.resolve();
+    return shouldAnimate ? animate(animations2) : Promise.resolve();
   }
   function setActive(type, isActive) {
     if (state[type].isActive === isActive)
@@ -12370,7 +12530,7 @@ function createProjectionNode$1({ attachResizeListener, defaultParent, measureSc
               this.resumingFrom.resumingFrom = void 0;
             }
             const animationOptions = {
-              ...getValueTransition$1(layoutTransition, "layout"),
+              ...getValueTransition(layoutTransition, "layout"),
               onPlay: onLayoutAnimationStart,
               onComplete: onLayoutAnimationComplete
             };
@@ -13698,17 +13858,17 @@ function filterProps(props, isDom, forwardMotionProps) {
 const MotionContext = /* @__PURE__ */ reactExports.createContext({});
 function getCurrentTreeVariants(props, context4) {
   if (isControllingVariants(props)) {
-    const { initial, animate: animate2 } = props;
+    const { initial, animate } = props;
     return {
       initial: initial === false || isVariantLabel(initial) ? initial : void 0,
-      animate: isVariantLabel(animate2) ? animate2 : void 0
+      animate: isVariantLabel(animate) ? animate : void 0
     };
   }
   return props.inherit !== false ? context4 : {};
 }
 function useCreateMotionContext(props) {
-  const { initial, animate: animate2 } = getCurrentTreeVariants(props, reactExports.useContext(MotionContext));
-  return reactExports.useMemo(() => ({ initial, animate: animate2 }), [variantLabelsAsDependency(initial), variantLabelsAsDependency(animate2)]);
+  const { initial, animate } = getCurrentTreeVariants(props, reactExports.useContext(MotionContext));
+  return reactExports.useMemo(() => ({ initial, animate }), [variantLabelsAsDependency(initial), variantLabelsAsDependency(animate)]);
 }
 function variantLabelsAsDependency(prop) {
   return Array.isArray(prop) ? prop.join(" ") : prop;
@@ -13851,18 +14011,18 @@ function makeLatestValues(props, context4, presenceContext, scrapeMotionValues) 
   for (const key in motionValues) {
     values[key] = resolveMotionValue(motionValues[key]);
   }
-  let { initial, animate: animate2 } = props;
+  let { initial, animate } = props;
   const isControllingVariants$1 = isControllingVariants(props);
   const isVariantNode$1 = isVariantNode(props);
   if (context4 && isVariantNode$1 && !isControllingVariants$1 && props.inherit !== false) {
     if (initial === void 0)
       initial = context4.initial;
-    if (animate2 === void 0)
-      animate2 = context4.animate;
+    if (animate === void 0)
+      animate = context4.animate;
   }
   let isInitialAnimationBlocked = presenceContext ? presenceContext.initial === false : false;
   isInitialAnimationBlocked = isInitialAnimationBlocked || initial === false;
-  const variantToSet = isInitialAnimationBlocked ? animate2 : initial;
+  const variantToSet = isInitialAnimationBlocked ? animate : initial;
   if (variantToSet && typeof variantToSet !== "boolean" && !isAnimationControls(variantToSet)) {
     const list = Array.isArray(variantToSet) ? variantToSet : [variantToSet];
     for (let i2 = 0; i2 < list.length; i2++) {
@@ -14120,9 +14280,9 @@ class AnimationFeature extends Feature {
     node.animationState || (node.animationState = createAnimationState(node));
   }
   updateAnimationControlsSubscription() {
-    const { animate: animate2 } = this.node.getProps();
-    if (isAnimationControls(animate2)) {
-      this.unmountControls = animate2.subscribe(this.node);
+    const { animate } = this.node.getProps();
+    if (isAnimationControls(animate)) {
+      this.unmountControls = animate.subscribe(this.node);
     }
   }
   /**
@@ -14132,9 +14292,9 @@ class AnimationFeature extends Feature {
     this.updateAnimationControlsSubscription();
   }
   update() {
-    const { animate: animate2 } = this.node.getProps();
+    const { animate } = this.node.getProps();
     const { animate: prevAnimate } = this.node.prevProps || {};
-    if (animate2 !== prevAnimate) {
+    if (animate !== prevAnimate) {
       this.updateAnimationControlsSubscription();
     }
   }
@@ -15378,379 +15538,6 @@ function useReducedMotion() {
   const [shouldReduceMotion] = reactExports.useState(prefersReducedMotion.current);
   return shouldReduceMotion;
 }
-function isDOMKeyframes(keyframes2) {
-  return typeof keyframes2 === "object" && !Array.isArray(keyframes2);
-}
-function resolveSubjects(subject, keyframes2, scope, selectorCache) {
-  if (subject == null) {
-    return [];
-  }
-  if (typeof subject === "string" && isDOMKeyframes(keyframes2)) {
-    return resolveElements(subject, scope, selectorCache);
-  } else if (subject instanceof NodeList) {
-    return Array.from(subject);
-  } else if (Array.isArray(subject)) {
-    return subject.filter((s) => s != null);
-  } else {
-    return [subject];
-  }
-}
-function calculateRepeatDuration(duration, repeat, repeatDelay) {
-  return duration * (repeat + 1) + repeatDelay * repeat;
-}
-function calcNextTime(current, next, prev, labels) {
-  if (typeof next === "number") {
-    return next;
-  } else if (next.startsWith("-") || next.startsWith("+")) {
-    return Math.max(0, current + parseFloat(next));
-  } else if (next === "<") {
-    return prev;
-  } else if (next.startsWith("<")) {
-    return Math.max(0, prev + parseFloat(next.slice(1)));
-  } else {
-    return labels.get(next) ?? current;
-  }
-}
-function eraseKeyframes(sequence, startTime, endTime) {
-  for (let i2 = 0; i2 < sequence.length; i2++) {
-    const keyframe = sequence[i2];
-    if (keyframe.at > startTime && keyframe.at < endTime) {
-      removeItem(sequence, keyframe);
-      i2--;
-    }
-  }
-}
-function addKeyframes(sequence, keyframes2, easing, offset, startTime, endTime) {
-  eraseKeyframes(sequence, startTime, endTime);
-  for (let i2 = 0; i2 < keyframes2.length; i2++) {
-    sequence.push({
-      value: keyframes2[i2],
-      at: mixNumber$1(startTime, endTime, offset[i2]),
-      easing: /* @__PURE__ */ getEasingForSegment(easing, i2)
-    });
-  }
-}
-function normalizeTimes(times, repeat, repeatDelayUnits = 0) {
-  const totalUnits = repeat + 1 + repeat * repeatDelayUnits;
-  for (let i2 = 0; i2 < times.length; i2++) {
-    times[i2] = times[i2] / totalUnits;
-  }
-}
-function compareByTime(a, b) {
-  if (a.at === b.at) {
-    if (a.value === null)
-      return 1;
-    if (b.value === null)
-      return -1;
-    return 0;
-  } else {
-    return a.at - b.at;
-  }
-}
-const defaultSegmentEasing = "easeInOut";
-const MAX_REPEAT = 20;
-function createAnimationsFromSequence(sequence, { defaultTransition = {}, ...sequenceTransition } = {}, scope, generators) {
-  const defaultDuration = defaultTransition.duration || 0.3;
-  const animationDefinitions = /* @__PURE__ */ new Map();
-  const sequences = /* @__PURE__ */ new Map();
-  const elementCache = {};
-  const timeLabels = /* @__PURE__ */ new Map();
-  let prevTime = 0;
-  let currentTime = 0;
-  let totalDuration = 0;
-  for (let i2 = 0; i2 < sequence.length; i2++) {
-    const segment = sequence[i2];
-    if (typeof segment === "string") {
-      timeLabels.set(segment, currentTime);
-      continue;
-    } else if (!Array.isArray(segment)) {
-      timeLabels.set(segment.name, calcNextTime(currentTime, segment.at, prevTime, timeLabels));
-      continue;
-    }
-    let [subject, keyframes2, transition = {}] = segment;
-    if (transition.at !== void 0) {
-      currentTime = calcNextTime(currentTime, transition.at, prevTime, timeLabels);
-    }
-    let maxDuration = 0;
-    const resolveValueSequence = (valueKeyframes, valueTransition, valueSequence, elementIndex = 0, numSubjects = 0) => {
-      const valueKeyframesAsList = keyframesAsList(valueKeyframes);
-      const { delay: delay2 = 0, times = defaultOffset(valueKeyframesAsList), type = defaultTransition.type || "keyframes", repeat, repeatType, repeatDelay = 0, ...remainingTransition } = valueTransition;
-      let { ease: ease2 = defaultTransition.ease || "easeOut", duration } = valueTransition;
-      const calculatedDelay = typeof delay2 === "function" ? delay2(elementIndex, numSubjects) : delay2;
-      const numKeyframes = valueKeyframesAsList.length;
-      const createGenerator = isGenerator(type) ? type : generators?.[type || "keyframes"];
-      if (numKeyframes <= 2 && createGenerator) {
-        let absoluteDelta = 100;
-        if (numKeyframes === 2 && isNumberKeyframesArray(valueKeyframesAsList)) {
-          const delta = valueKeyframesAsList[1] - valueKeyframesAsList[0];
-          absoluteDelta = Math.abs(delta);
-        }
-        const springTransition = {
-          ...defaultTransition,
-          ...remainingTransition
-        };
-        if (duration !== void 0) {
-          springTransition.duration = /* @__PURE__ */ secondsToMilliseconds(duration);
-        }
-        const springEasing = createGeneratorEasing(springTransition, absoluteDelta, createGenerator);
-        ease2 = springEasing.ease;
-        duration = springEasing.duration;
-      }
-      duration ?? (duration = defaultDuration);
-      const startTime = currentTime + calculatedDelay;
-      if (times.length === 1 && times[0] === 0) {
-        times[1] = 1;
-      }
-      const remainder = times.length - valueKeyframesAsList.length;
-      remainder > 0 && fillOffset(times, remainder);
-      valueKeyframesAsList.length === 1 && valueKeyframesAsList.unshift(null);
-      if (repeat && repeat < MAX_REPEAT) {
-        const repeatDelayUnits = duration > 0 ? repeatDelay / duration : 0;
-        duration = calculateRepeatDuration(duration, repeat, repeatDelay);
-        const originalKeyframes = [...valueKeyframesAsList];
-        const originalTimes = [...times];
-        ease2 = Array.isArray(ease2) ? [...ease2] : [ease2];
-        const originalEase = [...ease2];
-        const isFlipping = repeatType === "reverse" || repeatType === "mirror";
-        let flippedKeyframes = originalKeyframes;
-        let flippedEases = originalEase;
-        if (isFlipping) {
-          flippedKeyframes = [...originalKeyframes].reverse();
-          if (repeatType === "reverse") {
-            flippedEases = [...originalEase].reverse().map((e) => typeof e === "function" ? /* @__PURE__ */ reverseEasing(e) : e);
-          }
-        }
-        for (let repeatIndex = 0; repeatIndex < repeat; repeatIndex++) {
-          const isFlipped = isFlipping && repeatIndex % 2 === 0;
-          const iterKeyframes = isFlipped ? flippedKeyframes : originalKeyframes;
-          const iterEase = isFlipped ? flippedEases : originalEase;
-          const iterStartOffset = (repeatIndex + 1) * (1 + repeatDelayUnits);
-          if (repeatDelayUnits > 0) {
-            valueKeyframesAsList.push(valueKeyframesAsList[valueKeyframesAsList.length - 1]);
-            times.push(iterStartOffset);
-            ease2.push("linear");
-          }
-          valueKeyframesAsList.push(...iterKeyframes);
-          for (let keyframeIndex = 0; keyframeIndex < iterKeyframes.length; keyframeIndex++) {
-            times.push(originalTimes[keyframeIndex] + iterStartOffset);
-            ease2.push(keyframeIndex === 0 ? "linear" : /* @__PURE__ */ getEasingForSegment(iterEase, keyframeIndex - 1));
-          }
-        }
-        normalizeTimes(times, repeat, repeatDelayUnits);
-      }
-      const targetTime = startTime + duration;
-      addKeyframes(valueSequence, valueKeyframesAsList, ease2, times, startTime, targetTime);
-      maxDuration = Math.max(calculatedDelay + duration, maxDuration);
-      totalDuration = Math.max(targetTime, totalDuration);
-    };
-    if (isMotionValue(subject)) {
-      const subjectSequence = getSubjectSequence(subject, sequences);
-      resolveValueSequence(keyframes2, transition, getValueSequence("default", subjectSequence));
-    } else {
-      const subjects = resolveSubjects(subject, keyframes2, scope, elementCache);
-      const numSubjects = subjects.length;
-      for (let subjectIndex = 0; subjectIndex < numSubjects; subjectIndex++) {
-        keyframes2 = keyframes2;
-        transition = transition;
-        const thisSubject = subjects[subjectIndex];
-        const subjectSequence = getSubjectSequence(thisSubject, sequences);
-        for (const key in keyframes2) {
-          resolveValueSequence(keyframes2[key], getValueTransition(transition, key), getValueSequence(key, subjectSequence), subjectIndex, numSubjects);
-        }
-      }
-    }
-    prevTime = currentTime;
-    currentTime += maxDuration;
-  }
-  sequences.forEach((valueSequences, element) => {
-    for (const key in valueSequences) {
-      const valueSequence = valueSequences[key];
-      valueSequence.sort(compareByTime);
-      const keyframes2 = [];
-      const valueOffset = [];
-      const valueEasing = [];
-      for (let i2 = 0; i2 < valueSequence.length; i2++) {
-        const { at, value, easing } = valueSequence[i2];
-        keyframes2.push(value);
-        valueOffset.push(/* @__PURE__ */ progress(0, totalDuration, at));
-        valueEasing.push(easing || "easeOut");
-      }
-      if (valueOffset[0] !== 0) {
-        valueOffset.unshift(0);
-        keyframes2.unshift(keyframes2[0]);
-        valueEasing.unshift(defaultSegmentEasing);
-      }
-      if (valueOffset[valueOffset.length - 1] !== 1) {
-        valueOffset.push(1);
-        keyframes2.push(null);
-      }
-      if (!animationDefinitions.has(element)) {
-        animationDefinitions.set(element, {
-          keyframes: {},
-          transition: {}
-        });
-      }
-      const definition = animationDefinitions.get(element);
-      definition.keyframes[key] = keyframes2;
-      const { type: _type, ...remainingDefaultTransition } = defaultTransition;
-      definition.transition[key] = {
-        ...remainingDefaultTransition,
-        duration: totalDuration,
-        ease: valueEasing,
-        times: valueOffset,
-        ...sequenceTransition
-      };
-    }
-  });
-  return animationDefinitions;
-}
-function getSubjectSequence(subject, sequences) {
-  !sequences.has(subject) && sequences.set(subject, {});
-  return sequences.get(subject);
-}
-function getValueSequence(name, sequences) {
-  if (!sequences[name])
-    sequences[name] = [];
-  return sequences[name];
-}
-function keyframesAsList(keyframes2) {
-  return Array.isArray(keyframes2) ? keyframes2 : [keyframes2];
-}
-function getValueTransition(transition, key) {
-  return transition && transition[key] ? {
-    ...transition,
-    ...transition[key]
-  } : { ...transition };
-}
-const isNumber = (keyframe) => typeof keyframe === "number";
-const isNumberKeyframesArray = (keyframes2) => keyframes2.every(isNumber);
-function createDOMVisualElement(element) {
-  const options = {
-    presenceContext: null,
-    props: {},
-    visualState: {
-      renderState: {
-        transform: {},
-        transformOrigin: {},
-        style: {},
-        vars: {},
-        attrs: {}
-      },
-      latestValues: {}
-    }
-  };
-  const node = isSVGElement(element) && !isSVGSVGElement(element) ? new SVGVisualElement(options) : new HTMLVisualElement(options);
-  node.mount(element);
-  visualElementStore.set(element, node);
-}
-function createObjectVisualElement(subject) {
-  const options = {
-    presenceContext: null,
-    props: {},
-    visualState: {
-      renderState: {
-        output: {}
-      },
-      latestValues: {}
-    }
-  };
-  const node = new ObjectVisualElement(options);
-  node.mount(subject);
-  visualElementStore.set(subject, node);
-}
-function isSingleValue(subject, keyframes2) {
-  return isMotionValue(subject) || typeof subject === "number" || typeof subject === "string" && !isDOMKeyframes(keyframes2);
-}
-function animateSubject(subject, keyframes2, options, scope) {
-  const animations2 = [];
-  if (isSingleValue(subject, keyframes2)) {
-    animations2.push(animateSingleValue(subject, isDOMKeyframes(keyframes2) ? keyframes2.default || keyframes2 : keyframes2, options ? options.default || options : options));
-  } else {
-    if (subject == null) {
-      return animations2;
-    }
-    const subjects = resolveSubjects(subject, keyframes2, scope);
-    const numSubjects = subjects.length;
-    for (let i2 = 0; i2 < numSubjects; i2++) {
-      const thisSubject = subjects[i2];
-      const createVisualElement = thisSubject instanceof Element ? createDOMVisualElement : createObjectVisualElement;
-      if (!visualElementStore.has(thisSubject)) {
-        createVisualElement(thisSubject);
-      }
-      const visualElement = visualElementStore.get(thisSubject);
-      const transition = { ...options };
-      if ("delay" in transition && typeof transition.delay === "function") {
-        transition.delay = transition.delay(i2, numSubjects);
-      }
-      animations2.push(...animateTarget(visualElement, { ...keyframes2, transition }, {}));
-    }
-  }
-  return animations2;
-}
-function animateSequence(sequence, options, scope) {
-  const animations2 = [];
-  const processedSequence = sequence.map((segment) => {
-    if (Array.isArray(segment) && typeof segment[0] === "function") {
-      const callback = segment[0];
-      const mv = motionValue(0);
-      mv.on("change", callback);
-      if (segment.length === 1) {
-        return [mv, [0, 1]];
-      } else if (segment.length === 2) {
-        return [mv, [0, 1], segment[1]];
-      } else {
-        return [mv, segment[1], segment[2]];
-      }
-    }
-    return segment;
-  });
-  const animationDefinitions = createAnimationsFromSequence(processedSequence, options, scope, { spring });
-  animationDefinitions.forEach(({ keyframes: keyframes2, transition }, subject) => {
-    animations2.push(...animateSubject(subject, keyframes2, transition));
-  });
-  return animations2;
-}
-function isSequence(value) {
-  return Array.isArray(value) && value.some(Array.isArray);
-}
-function createScopedAnimate(options = {}) {
-  const { scope, reduceMotion, skipAnimations } = options;
-  function scopedAnimate(subjectOrSequence, optionsOrKeyframes, options2) {
-    let animations2 = [];
-    let animationOnComplete;
-    const inherited = {};
-    if (reduceMotion !== void 0)
-      inherited.reduceMotion = reduceMotion;
-    if (skipAnimations !== void 0)
-      inherited.skipAnimations = skipAnimations;
-    if (isSequence(subjectOrSequence)) {
-      const { onComplete, ...sequenceOptions } = optionsOrKeyframes || {};
-      if (typeof onComplete === "function") {
-        animationOnComplete = onComplete;
-      }
-      animations2 = animateSequence(subjectOrSequence, { ...inherited, ...sequenceOptions }, scope);
-    } else {
-      const { onComplete, ...rest } = options2 || {};
-      if (typeof onComplete === "function") {
-        animationOnComplete = onComplete;
-      }
-      animations2 = animateSubject(subjectOrSequence, optionsOrKeyframes, { ...inherited, ...rest }, scope);
-    }
-    const animation = new GroupAnimationWithThen(animations2);
-    if (animationOnComplete) {
-      animation.finished.then(animationOnComplete);
-    }
-    if (scope) {
-      scope.animations.push(animation);
-      animation.finished.then(() => {
-        removeItem(scope.animations, animation);
-      });
-    }
-    return animation;
-  }
-  return scopedAnimate;
-}
-const animate = createScopedAnimate();
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }
@@ -15767,32 +15554,6 @@ const Badge = ({
     accent: "bg-accent/15 text-accent border-accent/30"
   };
   return /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold tracking-label rounded-md border transition-colors duration-250 ease-smooth ${variantStyles[variant]} ${className}`, children });
-};
-const ProgressBar = ({
-  progress: progress2,
-  label,
-  sublabel,
-  status = "normal"
-}) => {
-  const barColors = {
-    normal: "bg-accent",
-    success: "bg-success",
-    error: "bg-error"
-  };
-  const clampedProgress = Math.min(100, Math.max(0, progress2));
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full space-y-2", children: [
-    (label || sublabel) && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex justify-between items-baseline text-xs", children: [
-      label && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-medium text-text-primary", children: label }),
-      sublabel && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-secondary font-mono text-[11px] tnum", children: sublabel })
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "h-1.5 w-full bg-surface-elevated rounded-full overflow-hidden", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "div",
-      {
-        className: `h-full rounded-full transition-[width] duration-500 ease-smooth ${barColors[status]} shadow-[0_0_8px_rgba(255,255,255,0.35)]`,
-        style: { width: `${clampedProgress}%` }
-      }
-    ) })
-  ] });
 };
 const Svg = ({
   className = "",
@@ -15813,39 +15574,6 @@ const Svg = ({
   }
 );
 const IconCheck = (props) => /* @__PURE__ */ jsxRuntimeExports.jsx(Svg, { ...props, children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M5 13l4 4L19 7" }) });
-const IconClock = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
-  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "9" }),
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 7v5l3 2" })
-] });
-const IconDownload = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 4v11" }),
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M7 11l5 5 5-5" }),
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M4 20h16" })
-] });
-const IconMic = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
-  /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "9", y: "3", width: "6", height: "11", rx: "3" }),
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M5 11a7 7 0 0 0 14 0" }),
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 18v3" })
-] });
-const IconFile = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" }),
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M14 3v5h5" })
-] });
-const IconFolder = (props) => /* @__PURE__ */ jsxRuntimeExports.jsx(Svg, { ...props, children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" }) });
-const IconGlobe = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
-  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "9" }),
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M3 12h18" }),
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 3a14.5 14.5 0 0 1 0 18a14.5 14.5 0 0 1 0-18" })
-] });
-const IconFilm = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
-  /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "4", width: "18", height: "16", rx: "2.5" }),
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M8 4v16M16 4v16M3 9h5M3 15h5M16 9h5M16 15h5" })
-] });
-const IconUpload = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 16V5" }),
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M7 9l5-5 5 5" }),
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M4 20h16" })
-] });
 const IconTrash = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
   /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M4 7h16" }),
   /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2" }),
@@ -15871,155 +15599,6 @@ const IconTerminal = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ..
   /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M7 9l3 3-3 3" }),
   /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12.5 15H17" })
 ] });
-const IconGear = (props) => /* @__PURE__ */ jsxRuntimeExports.jsxs(Svg, { ...props, children: [
-  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "3.2" }),
-  /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M18.5 5.5l-1.8 1.8M7.3 16.7l-1.8 1.8" })
-] });
-const SpotlightNavbar = ({
-  items = [
-    { label: "Vox Type", id: "type" },
-    { label: "Vox Media", id: "media" }
-  ],
-  className,
-  onItemClick,
-  activeId,
-  defaultActiveIndex = 0
-}) => {
-  const navRef = reactExports.useRef(null);
-  const initialIndex = activeId ? items.findIndex((item) => item.id === activeId) : defaultActiveIndex;
-  const [activeIndex, setActiveIndex] = reactExports.useState(initialIndex >= 0 ? initialIndex : 0);
-  const [hoverX, setHoverX] = reactExports.useState(null);
-  reactExports.useEffect(() => {
-    if (activeId) {
-      const idx = items.findIndex((item) => item.id === activeId);
-      if (idx >= 0) setActiveIndex(idx);
-    }
-  }, [activeId, items]);
-  const spotlightX = reactExports.useRef(0);
-  const ambienceX = reactExports.useRef(0);
-  reactExports.useEffect(() => {
-    if (!navRef.current) return;
-    const nav = navRef.current;
-    const handleMouseMove = (e) => {
-      const rect = nav.getBoundingClientRect();
-      const x2 = e.clientX - rect.left;
-      setHoverX(x2);
-      spotlightX.current = x2;
-      nav.style.setProperty("--spotlight-x", `${x2}px`);
-    };
-    const handleMouseLeave = () => {
-      setHoverX(null);
-      const activeItem = nav.querySelector(`[data-index="${activeIndex}"]`);
-      if (activeItem) {
-        const navRect = nav.getBoundingClientRect();
-        const itemRect = activeItem.getBoundingClientRect();
-        const targetX = itemRect.left - navRect.left + itemRect.width / 2;
-        animate(spotlightX.current, targetX, {
-          type: "spring",
-          stiffness: 170,
-          damping: 22,
-          mass: 0.8,
-          onUpdate: (v2) => {
-            spotlightX.current = v2;
-            nav.style.setProperty("--spotlight-x", `${v2}px`);
-          }
-        });
-      }
-    };
-    nav.addEventListener("mousemove", handleMouseMove);
-    nav.addEventListener("mouseleave", handleMouseLeave);
-    return () => {
-      nav.removeEventListener("mousemove", handleMouseMove);
-      nav.removeEventListener("mouseleave", handleMouseLeave);
-    };
-  }, [activeIndex]);
-  reactExports.useEffect(() => {
-    if (!navRef.current) return;
-    const nav = navRef.current;
-    const activeItem = nav.querySelector(`[data-index="${activeIndex}"]`);
-    if (activeItem) {
-      const navRect = nav.getBoundingClientRect();
-      const itemRect = activeItem.getBoundingClientRect();
-      const targetX = itemRect.left - navRect.left + itemRect.width / 2;
-      animate(ambienceX.current, targetX, {
-        type: "spring",
-        stiffness: 170,
-        damping: 22,
-        mass: 0.8,
-        onUpdate: (v2) => {
-          ambienceX.current = v2;
-          nav.style.setProperty("--ambience-x", `${v2}px`);
-        }
-      });
-    }
-  }, [activeIndex]);
-  const handleItemClick = (item, index) => {
-    setActiveIndex(index);
-    onItemClick?.(item, index);
-  };
-  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: cn("relative flex justify-center", className), children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-    "nav",
-    {
-      ref: navRef,
-      className: cn(
-        "relative h-11 rounded-full transition-[border-color,box-shadow] duration-450 ease-glass overflow-hidden",
-        "bg-surface/80 border border-border/80 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.45)]"
-      ),
-      style: {
-        "--spotlight-color": "rgba(255, 255, 255, 0.15)",
-        "--ambience-color": "rgba(255, 255, 255, 1)"
-      },
-      children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("ul", { className: "relative flex items-center h-full px-2.5 gap-1 z-[10]", children: items.map((item, idx) => /* @__PURE__ */ jsxRuntimeExports.jsx("li", { className: "relative h-full flex items-center justify-center", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "button",
-          {
-            "data-index": idx,
-            onClick: (e) => {
-              e.preventDefault();
-              handleItemClick(item, idx);
-            },
-            className: cn(
-              "px-5 py-1.5 text-sm font-medium transition-colors duration-250 ease-smooth rounded-full cursor-pointer focus-visible:outline-none font-heading tracking-tight",
-              activeIndex === idx ? "text-white font-semibold" : "text-text-secondary hover:text-white"
-            ),
-            children: item.label
-          }
-        ) }, item.id || idx)) }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "div",
-          {
-            className: "pointer-events-none absolute bottom-0 left-0 w-full h-full z-[1] opacity-0 transition-opacity duration-350 ease-smooth",
-            style: {
-              opacity: hoverX !== null ? 1 : 0,
-              background: `
-              radial-gradient(
-                120px circle at var(--spotlight-x) 100%, 
-                var(--spotlight-color) 0%, 
-                transparent 50%
-              )
-            `
-            }
-          }
-        ),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "div",
-          {
-            className: "pointer-events-none absolute bottom-0 left-0 w-full h-[2px] z-[2]",
-            style: {
-              background: `
-              radial-gradient(
-                60px circle at var(--ambience-x) 0%, 
-                var(--ambience-color) 0%, 
-                transparent 100%
-              )
-            `
-            }
-          }
-        )
-      ]
-    }
-  ) });
-};
 const NoiseTexture = ({
   className,
   patternAlpha = 12
@@ -76866,6 +76445,7 @@ const ShortcutInput = ({
 const logoImg = "" + new URL("logo-DyemUIwj.png", import.meta.url).href;
 const configImg = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAACXBIWXMAABYlAAAWJQFJUiTwAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAOdEVYdFNvZnR3YXJlAEZpZ21hnrGWYwAAAjdJREFUeAHtmd1RAjEQgPcY39UKPDvQDqACtQKgArQCoAKvA+xArSCUYAd3HaAVrLtzQW5uEi6bCyGMfDM7MCEJ+5Pc7SYAZ86kByLmJIpkgzUrboNTgBSdNRRvwm3PkCqk3BXJO3azSi4apNCQpER3uO8dpIBeMr7M4Vhoryvsj8KYSyqg4iZDHuEQYL1B5yhb576UJBP+T+hLQ/ENxqfEPk8sGjg+kuJtSpKxTc/MonxOHyWkxSjLsnW7cWDpnOIb07jBbQb030DhuTQ1DiA8a5IXkttMQ9/vSaYkFcSA9kCBcpySNe6Dfg+HwjSfLQIVyPiGepMVXR11n5EeI6EyNQ72KCRhSYp9uXbWfZcgo3LuSeG6E4TW+3GLspRkaJojRASknmzyKegrc5TAM955PdalpxMgBR0TN+gJumH1/iHeA1HZZ0AODpB3bsATwfLLbT8MLBNbBxh4An+c94/NUbYI5ODOA/gjqYmvTY0hkjkuMcXZK42ZgcxRxmiFiAAzF6zn7dpfgAyjU0MZwJMrdEvm2PMK5Cl7bmoMWQ/wmFfcFeV/EcH6hcVZKCtegN/8xnrgAsKTk6z4S4D3XCehstEY/JgabQZ8QHq4FzS6+o9XAu6HV8OUdKpAit58bxjnRK4Nl50LDHhCN8F4R4thFLcYw4YoDI9CS9V1KEO292CnpbjBkAX6k8YJINaHAKVA8fKoXjeBuydWF3wRmOLRZQ3aT97SvmZt0ooGK67wVC66z/w3fgGgyFg3S1HsdQAAAABJRU5ErkJggg==";
 const MainWindow = () => {
+  const { t: t2, localeTag } = useI18n();
   const {
     activeTab,
     setActiveTab,
@@ -76888,7 +76468,9 @@ const MainWindow = () => {
     wakeWordEnabled,
     setWakeWordEnabled,
     wakeWordSensitivity,
-    setWakeWordSensitivity
+    setWakeWordSensitivity,
+    language,
+    setLanguage
   } = useVoxStore();
   const [urlInput, setUrlInput] = reactExports.useState("");
   const [selectedFormats, setSelectedFormats] = reactExports.useState(["srt", "txt", "md"]);
@@ -76898,39 +76480,36 @@ const MainWindow = () => {
   const [partialTranscript, setPartialTranscript] = reactExports.useState("");
   const [isCopied, setIsCopied] = reactExports.useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = reactExports.useState(false);
-  const [showApiKeySetup, setShowApiKeySetup] = reactExports.useState(false);
   const [settingsLoaded, setSettingsLoaded] = reactExports.useState(false);
-  const [setupApiKey, setSetupApiKey] = reactExports.useState("");
-  const [setupError, setSetupError] = reactExports.useState("");
   const [draftApiKey, setDraftApiKey] = reactExports.useState(apiKey);
   const [draftShortcutToggle, setDraftShortcutToggle] = reactExports.useState(shortcutToggle);
   const [draftShortcutPushToTalk, setDraftShortcutPushToTalk] = reactExports.useState(shortcutPushToTalk);
   const [draftBrowserCookies, setDraftBrowserCookies] = reactExports.useState(browserCookies);
   const [draftWakeWordEnabled, setDraftWakeWordEnabled] = reactExports.useState(wakeWordEnabled);
   const [draftWakeWordSensitivity, setDraftWakeWordSensitivity] = reactExports.useState(wakeWordSensitivity);
+  const [draftLanguage, setDraftLanguage] = reactExports.useState(language);
   const [wakeWordModelMissing, setWakeWordModelMissing] = reactExports.useState(false);
   const [wakeWordError, setWakeWordError] = reactExports.useState(null);
   const [showAccessibilityModal, setShowAccessibilityModal] = reactExports.useState(false);
   const [showXdotoolModal, setShowXdotoolModal] = reactExports.useState(false);
   const [xdotoolData, setXdotoolData] = reactExports.useState(null);
   const [dictationHistory, setDictationHistory] = reactExports.useState([]);
-  const [mediaHistory, setMediaHistory] = reactExports.useState([]);
   const [isDictationHistoryOpen, setIsDictationHistoryOpen] = reactExports.useState(true);
-  const [isMediaHistoryOpen, setIsMediaHistoryOpen] = reactExports.useState(true);
+  React.useEffect(() => {
+    document.documentElement.lang = language === "en" ? "en" : "pt-BR";
+  }, [language]);
   const fetchHistory = React.useCallback(async () => {
     if (window.vox?.listSessions) {
       try {
         const dictations = await window.vox.listSessions(10, "dictation");
         setDictationHistory(dictations || []);
-        const medias = await window.vox.listSessions(10, "media");
-        setMediaHistory(medias || []);
       } catch (err) {
         console.error("Erro ao carregar histórico de sessões:", err);
       }
     }
   }, []);
   const handleClearHistory = async () => {
-    if (window.confirm("Tem certeza que deseja apagar todo o histórico de transcrições e ditados?")) {
+    if (window.confirm(t2("settings.clearConfirm"))) {
       if (window.vox?.clearAllSessions) {
         await window.vox.clearAllSessions();
         fetchHistory();
@@ -76943,14 +76522,6 @@ const MainWindow = () => {
       fetchHistory();
     }
   };
-  const handleReExport = (session) => {
-    setTranscriptionResult({
-      text: session.text,
-      rawText: session.rawText,
-      segments: session.segments || []
-    });
-    setMediaStep("export");
-  };
   const handleOpenSettings = () => {
     setDraftApiKey(apiKey);
     setDraftShortcutToggle(shortcutToggle);
@@ -76958,6 +76529,7 @@ const MainWindow = () => {
     setDraftBrowserCookies(browserCookies);
     setDraftWakeWordEnabled(wakeWordEnabled);
     setDraftWakeWordSensitivity(wakeWordSensitivity);
+    setDraftLanguage(language);
     setIsSettingsOpen(true);
   };
   const handleSaveSettings = () => {
@@ -76971,8 +76543,8 @@ const MainWindow = () => {
     setBrowserCookies(draftBrowserCookies);
     setWakeWordEnabled(draftWakeWordEnabled);
     setWakeWordSensitivity(draftWakeWordSensitivity);
+    setLanguage(draftLanguage);
     setIsSettingsOpen(false);
-    setShowApiKeySetup(false);
     if (window.vox?.saveSettings) {
       window.vox.saveSettings({
         apiKey: trimmedKey,
@@ -76982,7 +76554,8 @@ const MainWindow = () => {
         shortcutPushToTalk: draftShortcutPushToTalk,
         browserCookies: draftBrowserCookies,
         wakeWordEnabled: String(draftWakeWordEnabled),
-        wakeWordSensitivity: String(draftWakeWordSensitivity)
+        wakeWordSensitivity: String(draftWakeWordSensitivity),
+        language: draftLanguage
       }).catch(console.error);
     }
     if (window.vox?.setWakeWordEnabled) {
@@ -76990,29 +76563,6 @@ const MainWindow = () => {
     }
     if (window.vox?.setWakeWordSensitivity) {
       window.vox.setWakeWordSensitivity(draftWakeWordSensitivity).catch(console.error);
-    }
-  };
-  const handleSaveApiKeySetup = () => {
-    const trimmedKey = setupApiKey.trim();
-    if (!trimmedKey) {
-      setSetupError("Informe sua chave de API para continuar.");
-      return;
-    }
-    setSetupError("");
-    setApiKey(trimmedKey);
-    setDraftApiKey(trimmedKey);
-    setShowApiKeySetup(false);
-    if (window.vox?.saveSettings) {
-      window.vox.saveSettings({
-        apiKey: trimmedKey,
-        sttModel,
-        llmModel,
-        shortcutToggle,
-        shortcutPushToTalk,
-        browserCookies,
-        wakeWordEnabled: String(wakeWordEnabled),
-        wakeWordSensitivity: String(wakeWordSensitivity)
-      }).catch(console.error);
     }
   };
   React.useEffect(() => {
@@ -77027,27 +76577,23 @@ const MainWindow = () => {
           if (saved.browserCookies) setBrowserCookies(saved.browserCookies);
           if (saved.wakeWordEnabled !== void 0) setWakeWordEnabled(saved.wakeWordEnabled === "true");
           if (saved.wakeWordSensitivity) setWakeWordSensitivity(parseFloat(saved.wakeWordSensitivity));
-          if (!saved.apiKey?.trim()) {
-            setShowApiKeySetup(true);
+          if (saved.language === "en" || saved.language === "pt-BR") {
+            setLanguage(saved.language);
+            setDraftLanguage(saved.language);
           }
-        } else {
-          setShowApiKeySetup(true);
         }
         setSettingsLoaded(true);
       }).catch(() => {
-        setShowApiKeySetup(true);
         setSettingsLoaded(true);
       });
     } else {
-      setShowApiKeySetup(true);
       setSettingsLoaded(true);
     }
-    fetchHistory();
     const unsubMissing = window.vox?.onWakeWordModelMissing?.(() => {
       setWakeWordModelMissing(true);
     });
     const unsubError = window.vox?.onWakeWordError?.((data) => {
-      setWakeWordError(data?.error || "Erro no microfone de segundo plano");
+      setWakeWordError(data?.error || "mic");
     });
     const unsubAccess = window.vox?.onAccessibilityRequired?.(() => {
       setShowAccessibilityModal(true);
@@ -77062,175 +76608,7 @@ const MainWindow = () => {
       unsubAccess?.();
       unsubXdo?.();
     };
-  }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies, setWakeWordEnabled, setWakeWordSensitivity]);
-  const [mediaStep, setMediaStep] = reactExports.useState("input");
-  const [videoInfo, setVideoInfo] = reactExports.useState(null);
-  const [localFileInfo, setLocalFileInfo] = reactExports.useState(null);
-  const [isFetchingInfo, setIsFetchingInfo] = reactExports.useState(false);
-  const [isDragOver, setIsDragOver] = reactExports.useState(false);
-  const [mediaProgress, setMediaProgress] = reactExports.useState({
-    phase: "Baixando áudio",
-    percent: 0
-  });
-  const [transcriptionResult, setTranscriptionResult] = reactExports.useState(null);
-  const [mediaAudioPath, setMediaAudioPath] = reactExports.useState(null);
-  const [exportFolderPath, setExportFolderPath] = reactExports.useState("");
-  const [includeTimestamps, setIncludeTimestamps] = reactExports.useState(true);
-  const [exportedFiles, setExportedFiles] = reactExports.useState([]);
-  const [audioDeleted, setAudioDeleted] = reactExports.useState(false);
-  const [mediaError, setMediaError] = reactExports.useState(null);
-  const formatMMSS = (totalSeconds) => {
-    if (!totalSeconds || isNaN(totalSeconds)) return "00:00";
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = Math.floor(totalSeconds % 60);
-    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-  };
-  const formatBytes = (bytes) => {
-    if (!bytes || bytes === 0) return "0 B";
-    const k2 = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i2 = Math.floor(Math.log(bytes) / Math.log(k2));
-    return `${parseFloat((bytes / Math.pow(k2, i2)).toFixed(1))} ${sizes[i2]}`;
-  };
-  const handleFetchVideoInfo = async () => {
-    if (!urlInput.trim()) return;
-    setIsFetchingInfo(true);
-    setMediaError(null);
-    try {
-      const info = await window.vox?.getVideoInfo(urlInput, browserCookies);
-      setVideoInfo(info || { title: "Vídeo Sem Título", duration: 0, thumbnail: "", platform: "unknown" });
-      setMediaStep("preview");
-    } catch (err) {
-      console.error("Erro ao obter vídeo:", err);
-      setMediaError(err?.message || "Não foi possível obter informações do vídeo.");
-    } finally {
-      setIsFetchingInfo(false);
-    }
-  };
-  const handleStartTranscription = async (payload) => {
-    setMediaStep("progress");
-    setMediaError(null);
-    setMediaProgress({ phase: payload.url ? "Baixando áudio" : "Extraindo áudio", percent: 5 });
-    const removeProgressListener = window.vox?.onMediaProgress?.((data) => {
-      setMediaProgress(data);
-    });
-    try {
-      const res = await window.vox?.startMediaTranscription({
-        url: payload.url,
-        filePath: payload.filePath,
-        cookiesFromBrowser: browserCookies
-      });
-      if (res?.error) {
-        setMediaError(res.error);
-        return;
-      }
-      if (res && res.result) {
-        setMediaAudioPath(res.audioPath);
-        setTranscriptionResult(res.result);
-        setMediaStep("export");
-      } else {
-        setMediaError("Falha ao obter o resultado da transcrição.");
-      }
-    } catch (err) {
-      console.error("Erro na transcrição de mídia:", err);
-      setMediaError(err?.message || "Erro inesperado na transcrição.");
-    } finally {
-      removeProgressListener?.();
-    }
-  };
-  const handleCancelTranscription = async () => {
-    await window.vox?.cancelMediaTranscription();
-    handleResetMedia();
-  };
-  const handleSelectExportFolder = async () => {
-    const folder = await window.vox?.selectExportFolder();
-    if (folder) {
-      setExportFolderPath(folder);
-    }
-  };
-  const handleExecuteExport = async () => {
-    if (!transcriptionResult || selectedFormats.length === 0) return;
-    setMediaError(null);
-    const targetFolder = exportFolderPath || "Downloads";
-    try {
-      const res = await window.vox?.exportTranscription({
-        result: transcriptionResult,
-        formats: selectedFormats,
-        outputPath: targetFolder,
-        options: {
-          includeTimestamps,
-          title: videoInfo?.title || localFileInfo?.name || "transcricao_vox"
-        }
-      });
-      if (res && res.files) {
-        setExportedFiles(res.files);
-        setMediaStep("post_export");
-      } else {
-        setMediaError(res?.error || "Falha ao exportar os arquivos.");
-      }
-    } catch (err) {
-      console.error("Erro ao exportar:", err);
-      setMediaError(err?.message || "Erro ao exportar transcrição.");
-    }
-  };
-  const handleKeepAudio = () => {
-    setAudioDeleted(false);
-  };
-  const handleDeleteAudio = async () => {
-    if (mediaAudioPath) {
-      await window.vox?.deleteAudio(mediaAudioPath);
-      setAudioDeleted(true);
-    }
-  };
-  const handleResetMedia = () => {
-    setMediaStep("input");
-    setUrlInput("");
-    setVideoInfo(null);
-    setLocalFileInfo(null);
-    setTranscriptionResult(null);
-    setMediaAudioPath(null);
-    setExportedFiles([]);
-    setAudioDeleted(false);
-    setMediaError(null);
-    setMediaProgress({ phase: "Baixando áudio", percent: 0 });
-  };
-  const allowedExtensions = [".mp4", ".mp3", ".wav", ".mkv", ".mov", ".avi", ".m4a", ".webm", ".ogg"];
-  const handleProcessLocalFilePath = (filePath, fileName, fileSize) => {
-    const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
-    if (!allowedExtensions.includes(ext)) {
-      setMediaError("Formato não suportado. Aceitos: .mp4, .mp3, .wav, .mkv, .mov, .avi, .m4a, .webm, .ogg");
-      return;
-    }
-    setMediaError(null);
-    const formattedSize = fileSize ? formatBytes(fileSize) : "Arquivo local";
-    setLocalFileInfo({ name: fileName, size: formattedSize, path: filePath });
-    handleStartTranscription({ filePath });
-  };
-  const handleSelectFile = async () => {
-    if (!window.vox?.selectFile) return;
-    const filePath = await window.vox.selectFile();
-    if (filePath) {
-      const fileName = filePath.split(/[/\\]/).pop() || "Arquivo Selecionado";
-      handleProcessLocalFilePath(filePath, fileName);
-    }
-  };
-  const handleDrop = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0];
-      const filePath = file.path || file.name;
-      if (filePath) {
-        handleProcessLocalFilePath(filePath, file.name, file.size);
-      }
-      return;
-    }
-    const droppedText = e.dataTransfer.getData("text") || e.dataTransfer.getData("text/plain");
-    if (droppedText && droppedText.startsWith("http")) {
-      setUrlInput(droppedText.trim());
-    }
-  };
+  }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies, setWakeWordEnabled, setWakeWordSensitivity, setLanguage]);
   const mediaStreamRef = React.useRef(null);
   const audioContextRef = React.useRef(null);
   const mediaRecorderRef = React.useRef(null);
@@ -77431,579 +76809,141 @@ const MainWindow = () => {
     }
   };
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex h-screen w-screen bg-background text-text-primary overflow-hidden font-sans select-none", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("main", { className: "flex-1 flex flex-col min-w-0 h-screen overflow-y-auto custom-scrollbar", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Beams, { beamWidth: 2, beamHeight: 15, beamNumber: 12, lightColor: "#ffffff", speed: 2, noiseIntensity: 1.75, scale: 0.2, rotation: 0, children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pt-6 flex items-center justify-center sticky top-0 z-20 pointer-events-none", children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "pointer-events-auto", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-        SpotlightNavbar,
-        {
-          activeId: activeTab,
-          items: [
-            { label: "Vox Type", id: "type" },
-            { label: "Vox Media", id: "media" }
-          ],
-          onItemClick: (item) => setActiveTab(item.id)
-        }
-      ) }) }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-start justify-center px-4 sm:px-6 pt-10 pb-24", children: activeTab === "type" ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-3xl space-y-5", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.05, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-8 flex flex-col items-center text-center", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              onClick: handleToggleRecording,
-              className: `mx-auto flex items-center justify-center transition-transform duration-450 ease-spring cursor-pointer focus:outline-none ${isRecording ? "scale-110" : "hover:scale-105 active:scale-95"}`,
-              children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "img",
-                {
-                  src: logoImg,
-                  alt: "Vox",
-                  className: `w-28 h-28 object-contain transition-all duration-500 ease-smooth filter ${isRecording ? "drop-shadow-[0_0_28px_rgba(255,255,255,0.75)]" : "drop-shadow-[0_0_14px_rgba(255,255,255,0.25)] hover:drop-shadow-[0_0_24px_rgba(255,255,255,0.55)]"}`
-                }
-              )
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-4 text-lg font-semibold font-heading tracking-tight text-text-primary", children: isRecording ? "Fale agora..." : "Iniciar" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-5 mb-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md", children: '"Vox"' }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary font-medium", children: "Comando por Voz" })
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md", children: "F10" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary font-medium", children: "Toggle" })
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md", children: "F9" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary font-medium", children: "Push-to-Talk" })
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs(Badge, { variant: isRecording ? "accent" : "neutral", children: [
-            isRecording && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "w-1.5 h-1.5 rounded-full bg-accent animate-pulse-dot" }),
-            isRecording ? "Gravando" : "Aguardando"
-          ] })
-        ] }) }, `type-card-1-${activeTab}`),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.15, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-6", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-3 border-b border-border/40 pb-3 mb-4", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide", children: "Última Transcrição" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              SpecularButton,
-              {
-                size: "sm",
-                onClick: handleCopyTranscript,
-                disabled: !lastTranscript,
-                tint: "#ffffff",
-                tintOpacity: isCopied ? 0.12 : 0,
-                className: "transition-all duration-300 active:scale-95",
-                children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `inline-flex items-center gap-1.5 transition-colors duration-250 ease-smooth ${isCopied ? "text-accent font-medium" : ""}`, children: isCopied ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(IconCheck, { className: "w-3.5 h-3.5", strokeWidth: 2.4 }),
-                  "Copiado"
-                ] }) : "Copiar" })
-              }
-            )
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-4 bg-background/60 border border-border/50 rounded-xl text-sm leading-relaxed text-text-primary min-h-[96px] break-words", children: isRecording ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-accent animate-pulse", children: partialTranscript || "Gravando áudio..." }) : isTranscribing ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-accent animate-pulse", children: "Transcrevendo via Whisper Large V3 Turbo..." }) : lastTranscript ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: lastTranscript }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-disabled", children: 'Pressione F10 ou fale "Vox" para iniciar o ditado.' }) })
-        ] }) }, `type-card-2-${activeTab}`),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.25, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-6", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            "button",
-            {
-              type: "button",
-              onClick: () => setIsDictationHistoryOpen(!isDictationHistoryOpen),
-              className: "w-full flex items-center justify-between text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide cursor-pointer hover:text-text-primary transition-colors duration-250 ease-smooth",
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
-                  "Histórico de Ditado (",
-                  dictationHistory.length,
-                  ")"
-                ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  IconChevronDown,
-                  {
-                    className: `w-4 h-4 text-text-muted transition-transform duration-300 ease-smooth ${isDictationHistoryOpen ? "rotate-180" : ""}`
-                  }
-                )
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { initial: false, children: isDictationHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx(
-            motion.div,
-            {
-              initial: { height: 0, opacity: 0 },
-              animate: { height: "auto", opacity: 1 },
-              exit: { height: 0, opacity: 0 },
-              transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
-              className: "overflow-hidden",
-              children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-4 pt-4 border-t border-border/40", children: dictationHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-4", children: "Nenhum ditado gravado ainda." }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar", children: dictationHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "div",
-                {
-                  onClick: () => setLastTranscript(item.text),
-                  className: "p-3.5 bg-background/50 border border-border/50 rounded-xl hover:border-accent/40 hover:bg-background/70 transition-[border-color,background-color] duration-250 ease-smooth cursor-pointer flex items-center justify-between gap-3 group",
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0 text-left", children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-primary line-clamp-2 text-left leading-relaxed", children: item.text }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] text-text-muted block mt-1.5 text-left tnum", children: new Date(item.createdAt).toLocaleString("pt-BR") })
-                    ] }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200", children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx(
-                        "button",
-                        {
-                          type: "button",
-                          onClick: (e) => {
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(item.text);
-                          },
-                          className: "p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer",
-                          title: "Copiar",
-                          children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconCopy, { className: "w-3.5 h-3.5" })
-                        }
-                      ),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx(
-                        "button",
-                        {
-                          type: "button",
-                          onClick: (e) => {
-                            e.stopPropagation();
-                            handleDeleteSession(item.id);
-                          },
-                          className: "p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer",
-                          title: "Excluir",
-                          children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconTrash, { className: "w-3.5 h-3.5" })
-                        }
-                      )
-                    ] })
-                  ]
-                },
-                item.id
-              )) }) })
-            }
-          ) })
-        ] }) }, `type-history-${activeTab}`)
-      ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-3xl space-y-5", children: [
-        mediaStep === "preview" && videoInfo && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 0.8, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "md", className: "p-6 flex flex-col gap-5 border border-border/60", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary", children: "Preview da Mídia" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-accent/10 text-accent border border-accent/20 capitalize", children: videoInfo.platform === "unknown" ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(IconGlobe, { className: "w-3 h-3" }),
-              "Mídia Web"
-            ] }) : videoInfo.platform })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col sm:flex-row gap-4 items-center sm:items-start", children: [
-            videoInfo.thumbnail ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "img",
-              {
-                src: videoInfo.thumbnail,
-                alt: "Thumbnail",
-                className: "w-32 h-24 object-cover rounded-xl border border-border/50 shrink-0 shadow-md"
-              }
-            ) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-32 h-24 bg-surface border border-border/50 rounded-xl flex items-center justify-center shrink-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconFilm, { className: "w-7 h-7 text-text-muted", strokeWidth: 1.5 }) }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col justify-between flex-1 min-w-0 text-center sm:text-left gap-2", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold font-heading tracking-tight text-text-primary line-clamp-2 leading-snug", children: videoInfo.title }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-center sm:justify-start gap-1.5 text-xs text-text-secondary", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx(IconClock, { className: "w-3.5 h-3.5 text-text-muted" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Duração:" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono text-accent font-semibold tnum", children: formatMMSS(videoInfo.duration) })
-              ] })
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-end gap-3 pt-4 border-t border-border/40", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "button",
-              {
-                type: "button",
-                onClick: handleResetMedia,
-                className: "px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 ease-smooth cursor-pointer",
-                children: "Cancelar"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              SpecularButton,
-              {
-                size: "sm",
-                onClick: () => handleStartTranscription({ url: urlInput }),
-                className: "!px-6",
-                children: "Confirmar e Transcrever"
-              }
-            )
-          ] })
-        ] }) }, `media-preview-${activeTab}`),
-        mediaStep === "progress" && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 0.8, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "md", className: "p-6 flex flex-col gap-5 border border-border/60", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary", children: "Processando Mídia" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-xs font-mono font-bold text-accent tnum", children: [
-              mediaProgress.percent,
-              "%"
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-3 gap-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `p-3 rounded-xl border text-center flex flex-col items-center gap-1.5 transition-all duration-300 ${mediaProgress.percent <= 40 ? "bg-accent/15 border-accent/50 text-accent" : "bg-surface/60 border-border/40 text-text-secondary"}`, children: [
-              mediaProgress.percent <= 40 ? /* @__PURE__ */ jsxRuntimeExports.jsx(IconDownload, { className: "w-4 h-4" }) : /* @__PURE__ */ jsxRuntimeExports.jsx(IconCheck, { className: "w-4 h-4", strokeWidth: 2.2 }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold", children: "Baixando Áudio" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] font-mono opacity-70 tnum", children: "0–40%" })
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `p-3 rounded-xl border text-center flex flex-col items-center gap-1.5 transition-all duration-300 ${mediaProgress.percent > 40 && mediaProgress.percent <= 90 ? "bg-accent/15 border-accent/50 text-accent" : mediaProgress.percent > 90 ? "bg-surface/60 border-border/40 text-text-secondary" : "bg-surface/30 border-border/30 text-text-disabled"}`, children: [
-              mediaProgress.percent > 90 ? /* @__PURE__ */ jsxRuntimeExports.jsx(IconCheck, { className: "w-4 h-4", strokeWidth: 2.2 }) : /* @__PURE__ */ jsxRuntimeExports.jsx(IconMic, { className: `w-4 h-4 ${mediaProgress.percent > 40 ? "animate-pulse" : ""}` }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold", children: "Transcrevendo" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] font-mono opacity-70 tnum", children: "40–90%" })
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `p-3 rounded-xl border text-center flex flex-col items-center gap-1.5 transition-all duration-300 ${mediaProgress.percent > 90 ? "bg-accent/15 border-accent/50 text-accent" : "bg-surface/30 border-border/30 text-text-disabled"}`, children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(IconGear, { className: `w-4 h-4 ${mediaProgress.percent > 90 ? "animate-spin [animation-duration:3s]" : ""}` }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold", children: "Exportando" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] font-mono opacity-70 tnum", children: "90–100%" })
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-full py-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-            ProgressBar,
-            {
-              progress: mediaProgress.percent,
-              label: mediaProgress.phase,
-              sublabel: mediaProgress.speed ? `${mediaProgress.speed} | ETA: ${mediaProgress.eta}` : void 0
-            }
-          ) }),
-          mediaError ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3.5 bg-error/15 border border-error/30 rounded-xl text-xs text-error font-medium text-center space-y-2.5", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "flex items-center justify-center gap-1.5", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(IconAlert, { className: "w-3.5 h-3.5 shrink-0" }),
-              mediaError
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SpecularButton, { size: "sm", onClick: handleResetMedia, className: "!px-4", children: "Tentar Novamente" })
-          ] }) : mediaProgress.percent <= 40 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-end pt-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "button",
-            {
-              type: "button",
-              onClick: handleCancelTranscription,
-              className: "px-4 py-1.5 bg-surface hover:bg-surface-elevated border border-border text-text-secondary hover:text-text-primary text-xs font-semibold rounded-lg transition-colors duration-250 cursor-pointer",
-              children: "Cancelar Processo"
-            }
-          ) })
-        ] }) }, `media-progress-${activeTab}`),
-        mediaStep === "export" && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 0.8, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "md", className: "p-6 flex flex-col gap-5 border border-border/60", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary", children: "Opções de Exportação" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/20", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(IconCheck, { className: "w-3 h-3", strokeWidth: 2.4 }),
-              "Transcrito"
-            ] })
-          ] }),
-          transcriptionResult?.text && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block", children: "Snippet da Transcrição" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3.5 bg-background/60 border border-border/50 rounded-xl font-mono text-xs leading-relaxed text-text-secondary max-h-24 overflow-y-auto custom-scrollbar break-words", children: [
-              transcriptionResult.text.slice(0, 250),
-              transcriptionResult.text.length > 250 ? "..." : ""
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block", children: "Formatos Desejados" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-3 sm:grid-cols-5 gap-2", children: ["txt", "md", "srt", "vtt", "json"].map((fmt) => {
-              const isSelected = selectedFormats.includes(fmt);
-              return /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "button",
-                {
-                  type: "button",
-                  onClick: () => {
-                    setSelectedFormats(
-                      (prev) => isSelected ? prev.filter((f2) => f2 !== fmt) : [...prev, fmt]
-                    );
-                  },
-                  className: `py-2 px-2 text-xs font-mono font-semibold rounded-xl border transition-all duration-250 ease-smooth text-center uppercase cursor-pointer ${isSelected ? "bg-accent/15 border-accent/60 text-accent" : "bg-surface/50 border-border/40 text-text-secondary hover:text-text-primary hover:border-border"}`,
-                  children: [
-                    ".",
-                    fmt
-                  ]
-                },
-                fmt
-              );
-            }) })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block", children: "Pasta de Destino" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col sm:flex-row gap-2", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "input",
-                {
-                  type: "text",
-                  readOnly: true,
-                  value: exportFolderPath || "Pasta Padrão (Downloads)",
-                  className: "flex-1 min-w-0 bg-background/60 border border-border/60 px-3 py-2 rounded-xl text-xs font-mono text-text-secondary focus:outline-none truncate"
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "button",
-                {
-                  type: "button",
-                  onClick: handleSelectExportFolder,
-                  className: "px-3.5 py-2 bg-surface hover:bg-surface-elevated border border-border text-xs font-medium text-text-primary rounded-xl transition-colors duration-250 cursor-pointer shrink-0",
-                  children: "Alterar Pasta"
-                }
-              )
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "flex items-center justify-between gap-4 p-3.5 bg-background/40 border border-border/40 rounded-xl cursor-pointer hover:border-border/70 transition-colors duration-250", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold text-text-primary block", children: "Incluir Timestamps" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] text-text-secondary", children: "Formatos TXT e MD receberão marcas de tempo [MM:SS]" })
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "input",
-              {
-                type: "checkbox",
-                checked: includeTimestamps,
-                onChange: (e) => setIncludeTimestamps(e.target.checked),
-                className: "vox-checkbox"
-              }
-            )
-          ] }),
-          mediaError && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "flex items-center justify-center gap-1.5 text-xs text-error font-medium text-center", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(IconAlert, { className: "w-3.5 h-3.5 shrink-0" }),
-            mediaError
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-end gap-3 pt-4 border-t border-border/40", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
-              "button",
-              {
-                type: "button",
-                onClick: handleResetMedia,
-                className: "px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer",
-                children: "Cancelar"
-              }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              SpecularButton,
-              {
-                size: "sm",
-                onClick: handleExecuteExport,
-                disabled: selectedFormats.length === 0,
-                className: "!px-6",
-                children: [
-                  "Exportar Selecionados (",
-                  selectedFormats.length,
-                  ")"
-                ]
-              }
-            )
-          ] })
-        ] }) }, `media-export-${activeTab}`),
-        mediaStep === "post_export" && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 0.8, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "md", className: "p-6 flex flex-col gap-5 border border-border/60", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary", children: "Exportação Concluída" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/20", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(IconCheck, { className: "w-3 h-3", strokeWidth: 2.4 }),
-              "Pronto"
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block", children: "Arquivos Gerados" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar", children: exportedFiles.map((file, idx) => {
-              const fileName = file.split(/[/\\]/).pop() || file;
-              return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-3 p-2.5 pl-3.5 bg-background/60 border border-border/40 rounded-xl text-xs font-mono", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "flex items-center gap-2 min-w-0 text-text-primary", title: file, children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(IconFile, { className: "w-3.5 h-3.5 shrink-0 text-text-muted" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "truncate", children: fileName })
-                ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                  "button",
-                  {
-                    type: "button",
-                    onClick: () => window.vox?.openFolder(file),
-                    className: "inline-flex items-center gap-1.5 px-2.5 py-1 bg-surface hover:bg-surface-elevated text-accent text-[11px] font-sans font-semibold rounded-lg border border-accent/30 transition-colors duration-250 cursor-pointer shrink-0",
-                    children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx(IconFolder, { className: "w-3 h-3" }),
-                      "Abrir Pasta"
-                    ]
-                  }
-                )
-              ] }, idx);
-            }) })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-4 bg-accent/10 border border-accent/30 rounded-xl space-y-3", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-primary font-medium text-center leading-relaxed", children: "O arquivo de áudio temporário foi utilizado no processamento. Deseja mantê-lo ou excluí-lo?" }),
-            audioDeleted ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-2 bg-accent/10 border border-accent/20 rounded-lg flex items-center justify-center gap-1.5 text-xs text-text-primary font-medium", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(IconCheck, { className: "w-3.5 h-3.5", strokeWidth: 2.4 }),
-              "Arquivo de áudio excluído com sucesso."
-            ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col sm:flex-row items-center justify-center gap-2.5", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "button",
-                {
-                  type: "button",
-                  onClick: handleKeepAudio,
-                  className: "w-full sm:w-auto px-4 py-2 bg-accent/15 hover:bg-accent/25 border border-accent/20 text-accent text-xs font-semibold rounded-xl transition-colors duration-250 cursor-pointer",
-                  children: "Manter Arquivo de Áudio"
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "button",
-                {
-                  type: "button",
-                  onClick: handleDeleteAudio,
-                  className: "w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-surface hover:bg-surface-elevated border border-border text-text-secondary hover:text-text-primary text-xs font-semibold rounded-xl transition-colors duration-250 cursor-pointer",
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx(IconTrash, { className: "w-3.5 h-3.5" }),
-                    "Deletar Arquivo"
-                  ]
-                }
-              )
-            ] })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-end pt-4 border-t border-border/40", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-            SpecularButton,
-            {
-              size: "sm",
-              onClick: handleResetMedia,
-              className: "!px-6",
-              children: "Transcrever Nova Mídia"
-            }
-          ) })
-        ] }) }, `media-post-${activeTab}`),
-        mediaStep === "input" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.05, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-8 flex flex-col items-center text-center", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(
+    /* @__PURE__ */ jsxRuntimeExports.jsx("main", { className: "flex-1 flex flex-col min-w-0 h-screen overflow-y-auto custom-scrollbar", children: /* @__PURE__ */ jsxRuntimeExports.jsx(Beams, { beamWidth: 2, beamHeight: 15, beamNumber: 12, lightColor: "#ffffff", speed: 2, noiseIntensity: 1.75, scale: 0.2, rotation: 0, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-start justify-center px-4 sm:px-6 pt-10 pb-24", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full max-w-3xl space-y-5", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.05, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-8 flex flex-col items-center text-center", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            onClick: handleToggleRecording,
+            className: `mx-auto flex items-center justify-center transition-transform duration-450 ease-spring cursor-pointer focus:outline-none ${isRecording ? "scale-110" : "hover:scale-105 active:scale-95"}`,
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx(
               "img",
               {
                 src: logoImg,
                 alt: "Vox",
-                className: "mx-auto w-24 h-24 object-contain drop-shadow-[0_0_12px_rgba(255,255,255,0.25)]"
+                className: `w-28 h-28 object-contain transition-all duration-500 ease-smooth filter ${isRecording ? "drop-shadow-[0_0_28px_rgba(255,255,255,0.75)]" : "drop-shadow-[0_0_14px_rgba(255,255,255,0.25)] hover:drop-shadow-[0_0_24px_rgba(255,255,255,0.55)]"}`
               }
-            ),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-4 text-base font-semibold font-heading tracking-tight text-text-primary", children: "Transcrição de Mídia" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-1 mb-6 text-xs text-text-secondary", children: "YouTube · TikTok · Instagram · Arquivos Locais" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "w-full flex flex-col gap-2.5", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                "input",
-                {
-                  type: "text",
-                  placeholder: "Cole a URL do vídeo (YouTube, TikTok, Instagram)...",
-                  value: urlInput,
-                  onChange: (e) => setUrlInput(e.target.value),
-                  onKeyDown: (e) => {
-                    if (e.key === "Enter" && urlInput.trim()) {
-                      handleFetchVideoInfo();
-                    }
-                  },
-                  className: "w-full bg-background/60 border border-border/60 px-4 py-2.5 rounded-xl text-xs font-mono text-text-primary placeholder:text-text-disabled focus:outline-none focus:border-accent/70 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)] transition-[border-color,box-shadow] duration-250 ease-smooth text-center"
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                SpecularButton,
-                {
-                  size: "sm",
-                  className: "w-full",
-                  onClick: handleFetchVideoInfo,
-                  disabled: !urlInput.trim() || isFetchingInfo,
-                  children: isFetchingInfo ? "Obtendo informações..." : "Baixar e Transcrever"
-                }
-              )
-            ] })
-          ] }) }, `media-card-1-${activeTab}`),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.15, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "div",
-            {
-              onClick: handleSelectFile,
-              onDragOver: (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsDragOver(true);
-              },
-              onDragEnter: (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsDragOver(true);
-              },
-              onDragLeave: (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsDragOver(false);
-              },
-              onDrop: handleDrop,
-              children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                LiquidGlassCard,
-                {
-                  glowIntensity: isDragOver ? "md" : "sm",
-                  blurIntensity: "sm",
-                  className: `p-8 text-center cursor-pointer transition-all duration-300 ease-smooth border border-dashed ${isDragOver ? "border-accent bg-accent/10 scale-102" : "border-border/40 hover:border-accent/40"}`,
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `mx-auto mb-3 w-10 h-10 rounded-full border flex items-center justify-center transition-colors duration-300 ${isDragOver ? "border-accent/50 text-accent" : "border-border/60 text-text-muted"}`, children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconUpload, { className: "w-[18px] h-[18px]" }) }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-medium text-text-primary", children: isDragOver ? "Solte o arquivo local aqui!" : "Clique para escolher ou arraste um arquivo local" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] font-mono text-text-muted mt-1.5", children: ".mp4 .mp3 .wav .mkv .mov .avi .m4a .webm .ogg" })
-                  ]
-                }
-              )
-            }
-          ) }, `media-card-2-${activeTab}`),
-          mediaError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3.5 bg-error/15 border border-error/30 rounded-xl text-xs text-error font-medium text-center animate-fade-in flex items-center justify-center gap-1.5", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx(IconAlert, { className: "w-3.5 h-3.5 shrink-0" }),
-            mediaError
+            )
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-4 text-lg font-semibold font-heading tracking-tight text-text-primary", children: isRecording ? t2("type.speakNow") : t2("type.start") }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-5 mb-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md", children: '"Vox"' }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary font-medium", children: t2("type.voiceCommand") })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md", children: "F10" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary font-medium", children: t2("type.toggle") })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("kbd", { className: "px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md", children: "F9" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs text-text-secondary font-medium", children: t2("type.pushToTalk") })
           ] })
         ] }),
-        mediaStep === "input" && /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.25, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-6", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs(
-            "button",
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(Badge, { variant: isRecording ? "accent" : "neutral", children: [
+          isRecording && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "w-1.5 h-1.5 rounded-full bg-accent animate-pulse-dot" }),
+          isRecording ? t2("type.recording") : t2("type.waiting")
+        ] })
+      ] }) }, `type-card-1-${activeTab}`),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.15, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-6", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-3 border-b border-border/40 pb-3 mb-4", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide", children: t2("type.lastTranscript") }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            SpecularButton,
             {
-              type: "button",
-              onClick: () => setIsMediaHistoryOpen(!isMediaHistoryOpen),
-              className: "w-full flex items-center justify-between text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide cursor-pointer hover:text-text-primary transition-colors duration-250 ease-smooth",
-              children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
-                  "Transcrições Anteriores (",
-                  mediaHistory.length,
-                  ")"
-                ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  IconChevronDown,
-                  {
-                    className: `w-4 h-4 text-text-muted transition-transform duration-300 ease-smooth ${isMediaHistoryOpen ? "rotate-180" : ""}`
-                  }
-                )
-              ]
+              size: "sm",
+              onClick: handleCopyTranscript,
+              disabled: !lastTranscript,
+              tint: "#ffffff",
+              tintOpacity: isCopied ? 0.12 : 0,
+              className: "transition-all duration-300 active:scale-95",
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: `inline-flex items-center gap-1.5 transition-colors duration-250 ease-smooth ${isCopied ? "text-accent font-medium" : ""}`, children: isCopied ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(IconCheck, { className: "w-3.5 h-3.5", strokeWidth: 2.4 }),
+                t2("type.copied")
+              ] }) : t2("type.copy") })
             }
-          ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { initial: false, children: isMediaHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx(
-            motion.div,
-            {
-              initial: { height: 0, opacity: 0 },
-              animate: { height: "auto", opacity: 1 },
-              exit: { height: 0, opacity: 0 },
-              transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
-              className: "overflow-hidden",
-              children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-4 pt-4 border-t border-border/40", children: mediaHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-4", children: "Nenhuma transcrição de mídia salva ainda." }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar", children: mediaHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-                "div",
+          )
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-4 bg-background/60 border border-border/50 rounded-xl text-sm leading-relaxed text-text-primary min-h-[96px] break-words", children: isRecording ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-accent animate-pulse", children: partialTranscript || t2("type.recordingAudio") }) : isTranscribing ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-accent animate-pulse", children: t2("type.transcribing") }) : lastTranscript ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: lastTranscript }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-disabled", children: t2("type.emptyHint") }) })
+      ] }) }, `type-card-2-${activeTab}`),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatedContent, { distance: 30, direction: "vertical", duration: 1.1, delay: 0.25, ease: "power3.out", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "sm", blurIntensity: "md", className: "p-6", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            type: "button",
+            onClick: () => setIsDictationHistoryOpen(!isDictationHistoryOpen),
+            className: "w-full flex items-center justify-between text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide cursor-pointer hover:text-text-primary transition-colors duration-250 ease-smooth",
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+                t2("type.history"),
+                " (",
+                dictationHistory.length,
+                ")"
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                IconChevronDown,
                 {
-                  className: "p-3.5 bg-background/50 border border-border/50 rounded-xl flex items-center justify-between gap-3 group hover:border-accent/40 hover:bg-background/70 transition-[border-color,background-color] duration-250 ease-smooth text-left",
-                  children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0 text-left", children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs font-semibold text-text-primary line-clamp-1 text-left", children: item.title || item.source }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5 text-[10px] text-text-muted mt-1.5 text-left tnum", children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx(IconClock, { className: "w-3 h-3 shrink-0" }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: formatMMSS(item.duration || 0) }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "·" }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: new Date(item.createdAt).toLocaleDateString("pt-BR") })
-                      ] })
-                    ] }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5 shrink-0", children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx(
-                        "button",
-                        {
-                          type: "button",
-                          onClick: () => handleDeleteSession(item.id),
-                          className: "p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer opacity-0 group-hover:opacity-100",
-                          title: "Excluir",
-                          children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconTrash, { className: "w-3.5 h-3.5" })
-                        }
-                      ),
-                      /* @__PURE__ */ jsxRuntimeExports.jsx(
-                        SpecularButton,
-                        {
-                          size: "sm",
-                          onClick: () => handleReExport(item),
-                          className: "text-xs",
-                          children: "Re-exportar"
-                        }
-                      )
-                    ] })
-                  ]
-                },
-                item.id
-              )) }) })
-            }
-          ) })
-        ] }) }, `media-history-${activeTab}`)
-      ] }) })
-    ] }) }),
+                  className: `w-4 h-4 text-text-muted transition-transform duration-300 ease-smooth ${isDictationHistoryOpen ? "rotate-180" : ""}`
+                }
+              )
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { initial: false, children: isDictationHistoryOpen && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          motion.div,
+          {
+            initial: { height: 0, opacity: 0 },
+            animate: { height: "auto", opacity: 1 },
+            exit: { height: 0, opacity: 0 },
+            transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
+            className: "overflow-hidden",
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-4 pt-4 border-t border-border/40", children: dictationHistory.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-disabled text-center py-4", children: t2("type.historyEmpty") }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar", children: dictationHistory.map((item) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "div",
+              {
+                onClick: () => setLastTranscript(item.text),
+                className: "p-3.5 bg-background/50 border border-border/50 rounded-xl hover:border-accent/40 hover:bg-background/70 transition-[border-color,background-color] duration-250 ease-smooth cursor-pointer flex items-center justify-between gap-3 group",
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex-1 min-w-0 text-left", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-primary line-clamp-2 text-left leading-relaxed", children: item.text }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] text-text-muted block mt-1.5 text-left tnum", children: new Date(item.createdAt).toLocaleString(localeTag) })
+                  ] }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        type: "button",
+                        onClick: (e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(item.text);
+                        },
+                        className: "p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer",
+                        title: t2("type.copy"),
+                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconCopy, { className: "w-3.5 h-3.5" })
+                      }
+                    ),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
+                      "button",
+                      {
+                        type: "button",
+                        onClick: (e) => {
+                          e.stopPropagation();
+                          handleDeleteSession(item.id);
+                        },
+                        className: "p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer",
+                        title: t2("type.delete"),
+                        children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconTrash, { className: "w-3.5 h-3.5" })
+                      }
+                    )
+                  ] })
+                ]
+              },
+              item.id
+            )) }) })
+          }
+        ) })
+      ] }) }, `type-history-${activeTab}`)
+    ] }) }) }) }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "fixed bottom-6 left-6 z-30", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
       SpecularButton,
       {
@@ -78015,71 +76955,8 @@ const MainWindow = () => {
           "img",
           {
             src: configImg,
-            alt: "Configurações",
+            alt: t2("common.settings"),
             className: "w-4 h-4 object-contain opacity-80 group-hover:opacity-100 transition-opacity filter drop-shadow-[0_0_6px_rgba(255,255,255,0.3)]"
-          }
-        )
-      }
-    ) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(AnimatePresence, { children: settingsLoaded && showApiKeySetup && /* @__PURE__ */ jsxRuntimeExports.jsx(
-      motion.div,
-      {
-        initial: { opacity: 0 },
-        animate: { opacity: 1 },
-        exit: { opacity: 0 },
-        transition: { duration: 0.25, ease: "easeOut" },
-        className: "fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-md",
-        children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-          motion.div,
-          {
-            initial: { opacity: 0, y: 30, scale: 0.95 },
-            animate: { opacity: 1, y: 0, scale: 1 },
-            exit: { opacity: 0, y: 20, scale: 0.95 },
-            transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
-            className: "w-full max-w-md",
-            children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "lg", className: "p-6 sm:p-7 flex flex-col gap-5 border border-border/80 shadow-2xl", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-10 h-10 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconGear, { className: "w-4 h-4 text-text-primary" }) }),
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-base font-semibold font-heading tracking-tight text-text-primary", children: "Configure sua API Key" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] text-text-secondary mt-0.5", children: "Necessária para transcrição e correção de texto" })
-                ] })
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-secondary leading-relaxed", children: "Informe a chave do seu provedor (ex.: Groq). Ela será salva localmente no banco de dados e não será solicitada novamente." }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: "Chave de API" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx(
-                  SmoothInput,
-                  {
-                    type: "password",
-                    value: setupApiKey,
-                    onChange: (e) => {
-                      setSetupApiKey(e.target.value);
-                      if (setupError) setSetupError("");
-                    },
-                    onKeyDown: (e) => {
-                      if (e.key === "Enter") handleSaveApiKeySetup();
-                    },
-                    placeholder: "gsk_...",
-                    autoFocus: true
-                  }
-                ),
-                setupError ? /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-[11px] text-error mt-2 flex items-center gap-1.5", children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx(IconAlert, { className: "w-3.5 h-3.5 shrink-0" }),
-                  setupError
-                ] }) : /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] text-text-muted mt-2 leading-relaxed", children: "O provedor deve oferecer Whisper Large V3 Turbo e um modelo de chat compatível." })
-              ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex justify-end pt-1", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
-                SpecularButton,
-                {
-                  size: "sm",
-                  radius: 12,
-                  onClick: handleSaveApiKeySetup,
-                  className: "!px-6",
-                  children: "Salvar e Continuar"
-                }
-              ) })
-            ] })
           }
         )
       }
@@ -78104,13 +76981,13 @@ const MainWindow = () => {
               exit: { opacity: 0, y: 20, scale: 0.95 },
               transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
               className: "w-full max-w-xl",
-              children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "lg", className: "p-6 sm:p-7 flex flex-col gap-6 border border-border/80 shadow-2xl relative max-h-[92vh] overflow-y-auto custom-scrollbar", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between border-b border-border/40 pb-4", children: [
+              children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { glowIntensity: "md", blurIntensity: "lg", className: "p-6 sm:p-7 flex flex-col gap-10 border border-border/80 shadow-2xl relative", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between mb-4", children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2.5", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: configImg, alt: "", className: "w-4 h-4 object-contain opacity-90" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-base font-semibold font-heading tracking-tight text-text-primary", children: "Configurações" })
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "text-base font-semibold font-heading tracking-tight text-text-primary", children: t2("settings.title") })
                   ] }),
-                  apiKey.trim() && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  /* @__PURE__ */ jsxRuntimeExports.jsx(
                     "button",
                     {
                       type: "button",
@@ -78122,7 +76999,7 @@ const MainWindow = () => {
                 ] }),
                 /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-5", children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: "Chave de API" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: t2("settings.apiKey") }),
                     /* @__PURE__ */ jsxRuntimeExports.jsx(
                       SmoothInput,
                       {
@@ -78132,21 +77009,21 @@ const MainWindow = () => {
                         placeholder: "gsk_..."
                       }
                     ),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] text-text-muted mt-2 leading-relaxed", children: "Salva localmente no banco de dados. O provedor deve oferecer os modelos abaixo." })
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] text-text-muted mt-2 leading-relaxed", children: t2("settings.apiKeyHint") })
                   ] }),
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-3", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: "Modelo STT (Voz)" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: t2("settings.sttModel") }),
                       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary", children: "Whisper Large V3 Turbo" })
                     ] }),
                     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: "Modelo LLM (Corretor)" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: t2("settings.llmModel") }),
                       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary", children: "GPT-OSS-20B" })
                     ] })
                   ] }),
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-3", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: "Atalho Toggle" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: t2("settings.shortcutToggle") }),
                       /* @__PURE__ */ jsxRuntimeExports.jsx(
                         ShortcutInput,
                         {
@@ -78156,7 +77033,7 @@ const MainWindow = () => {
                       )
                     ] }),
                     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: "Atalho Push-to-Talk" }),
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: t2("settings.shortcutPtt") }),
                       /* @__PURE__ */ jsxRuntimeExports.jsx(
                         ShortcutInput,
                         {
@@ -78167,23 +77044,26 @@ const MainWindow = () => {
                     ] })
                   ] }),
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: "Cookies do Navegador (Extração Mídia)" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-3 sm:grid-cols-5 gap-1.5", children: ["none", "chrome", "edge", "firefox", "brave"].map((b) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("label", { className: "text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2", children: t2("settings.language") }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "grid grid-cols-2 gap-1.5", children: [
+                      { id: "en", label: t2("settings.langEn") },
+                      { id: "pt-BR", label: t2("settings.langPt") }
+                    ].map((opt) => /* @__PURE__ */ jsxRuntimeExports.jsx(
                       "button",
                       {
                         type: "button",
-                        onClick: () => setDraftBrowserCookies(b),
-                        className: `py-1.5 px-2 text-xs font-medium rounded-lg border transition-all duration-250 ease-smooth text-center capitalize cursor-pointer ${draftBrowserCookies === b ? "bg-accent/15 text-accent border-accent/40 font-semibold" : "bg-transparent text-text-secondary border-border/50 hover:text-text-primary hover:border-border"}`,
-                        children: b === "none" ? "Nenhum" : b
+                        onClick: () => setDraftLanguage(opt.id),
+                        className: `py-1.5 px-2 text-xs font-medium rounded-lg border transition-all duration-250 ease-smooth text-center cursor-pointer ${draftLanguage === opt.id ? "bg-accent/15 text-accent border-accent/40 font-semibold" : "bg-transparent text-text-secondary border-border/50 hover:text-text-primary hover:border-border"}`,
+                        children: opt.label
                       },
-                      b
+                      opt.id
                     )) })
                   ] }),
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-4 bg-background/50 border border-border/60 rounded-xl space-y-3.5", children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-4", children: [
                       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold text-text-primary block leading-relaxed", children: "Wake Word (Ativação por Voz)" }),
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] text-text-secondary leading-relaxed", children: "Acione o Vox falando em segundo plano (openWakeWord ONNX)" })
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-xs font-semibold text-text-primary block leading-relaxed", children: t2("settings.wakeWord") }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[11px] text-text-secondary leading-relaxed", children: t2("settings.wakeWordHint") })
                       ] }),
                       /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "switch-button", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "switch-outer", children: [
                         /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -78202,24 +77082,19 @@ const MainWindow = () => {
                     ] }),
                     wakeWordModelMissing && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-2.5 bg-accent/10 border border-accent/20 rounded-lg text-[11px] text-text-primary font-medium flex items-start gap-1.5 leading-relaxed", children: [
                       /* @__PURE__ */ jsxRuntimeExports.jsx(IconAlert, { className: "w-3.5 h-3.5 shrink-0 mt-px" }),
-                      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
-                        "Modelo ONNX (vox.onnx) não encontrado em ",
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono", children: "resources/models/wakeword/" }),
-                        ". Execute ",
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-mono", children: "npm run setup:wakeword" }),
-                        " para baixar."
-                      ] })
+                      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: t2("settings.wakeWordMissing") })
                     ] }),
                     wakeWordError && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-2.5 bg-error/15 border border-error/30 rounded-lg text-[11px] text-error font-medium flex items-start gap-1.5 leading-relaxed", children: [
                       /* @__PURE__ */ jsxRuntimeExports.jsx(IconAlert, { className: "w-3.5 h-3.5 shrink-0 mt-px" }),
                       /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
-                        "Microfone de segundo plano: ",
+                        t2("settings.micError"),
+                        " ",
                         wakeWordError
                       ] })
                     ] }),
                     draftWakeWordEnabled && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "pt-3 border-t border-border/30", children: [
                       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between text-xs mb-1.5", children: [
-                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-secondary font-medium", children: "Sensibilidade" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-secondary font-medium", children: t2("settings.sensitivity") }),
                         /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "text-text-primary font-mono tnum", children: [
                           Math.round(draftWakeWordSensitivity * 100),
                           "%"
@@ -78249,7 +77124,7 @@ const MainWindow = () => {
                       className: "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-surface border border-border/50 hover:border-border rounded-xl transition-all duration-250 cursor-pointer",
                       children: [
                         /* @__PURE__ */ jsxRuntimeExports.jsx(IconTrash, { className: "w-3.5 h-3.5" }),
-                        "Limpar Histórico"
+                        t2("settings.clearHistory")
                       ]
                     }
                   ),
@@ -78260,7 +77135,7 @@ const MainWindow = () => {
                         type: "button",
                         onClick: () => setIsSettingsOpen(false),
                         className: "px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer",
-                        children: "Cancelar"
+                        children: t2("settings.cancel")
                       }
                     ),
                     /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -78271,7 +77146,7 @@ const MainWindow = () => {
                         onClick: handleSaveSettings,
                         className: "!px-6",
                         disabled: !draftApiKey.trim(),
-                        children: "Salvar Configurações"
+                        children: t2("settings.save")
                       }
                     )
                   ] })
@@ -78291,13 +77166,9 @@ const MainWindow = () => {
           children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { className: "w-full max-w-md p-6 space-y-4 border border-border/60 shadow-2xl", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-9 h-9 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconShield, { className: "w-4 h-4 text-text-primary" }) }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold font-heading tracking-tight text-text-primary", children: "Permissão de Acessibilidade Necessária" })
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold font-heading tracking-tight text-text-primary", children: t2("accessibility.title") })
             ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs text-text-secondary leading-relaxed", children: [
-              "No macOS, o Vox precisa de permissão em ",
-              /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { className: "text-text-primary", children: "Acessibilidade" }),
-              " para injetar texto automaticamente no cursor da aplicação ativa."
-            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-secondary leading-relaxed", children: t2("accessibility.body") }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-end gap-3 pt-2", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "button",
@@ -78305,7 +77176,7 @@ const MainWindow = () => {
                   type: "button",
                   onClick: () => setShowAccessibilityModal(false),
                   className: "px-3.5 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer",
-                  children: "Entendi"
+                  children: t2("accessibility.understood")
                 }
               ),
               /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -78316,7 +77187,7 @@ const MainWindow = () => {
                     window.vox?.openAccessibilityPreferences?.();
                     setShowAccessibilityModal(false);
                   },
-                  children: "Abrir Preferências do Sistema"
+                  children: t2("accessibility.openPrefs")
                 }
               )
             ] })
@@ -78333,27 +77204,21 @@ const MainWindow = () => {
           children: /* @__PURE__ */ jsxRuntimeExports.jsxs(LiquidGlassCard, { className: "w-full max-w-md p-6 space-y-4 border border-border/60 shadow-2xl", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-3", children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "w-9 h-9 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0", children: /* @__PURE__ */ jsxRuntimeExports.jsx(IconTerminal, { className: "w-4 h-4 text-text-primary" }) }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold font-heading tracking-tight text-text-primary", children: xdotoolData?.isWayland ? "Utilitário wtype Necessário" : "Utilitário xdotool Necessário" })
+              /* @__PURE__ */ jsxRuntimeExports.jsx("h3", { className: "text-sm font-semibold font-heading tracking-tight text-text-primary", children: xdotoolData?.isWayland ? t2("linux.wtypeTitle") : t2("linux.xdotoolTitle") })
             ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs text-text-secondary leading-relaxed", children: [
-              "Para colagem automática no Linux (",
-              xdotoolData?.isWayland ? "Wayland" : "X11",
-              "), instale o utilitário ",
-              xdotoolData?.isWayland ? "wtype" : "xdotool",
-              " no seu sistema:"
-            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-text-secondary leading-relaxed", children: t2("linux.body", { display: xdotoolData?.isWayland ? "Wayland" : "X11", tool: xdotoolData?.isWayland ? "wtype" : "xdotool" }) }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "p-3 bg-background/80 border border-border/60 rounded-lg font-mono text-[11px] text-accent select-all", children: [
               xdotoolData?.isWayland ? "sudo apt install wtype" : "sudo apt install xdotool",
               /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-muted", children: xdotoolData?.isWayland ? "ou sudo pacman -S wtype" : "ou sudo pacman -S xdotool" })
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-text-muted", children: xdotoolData?.isWayland ? language === "en" ? "or sudo pacman -S wtype" : "ou sudo pacman -S wtype" : language === "en" ? "or sudo pacman -S xdotool" : "ou sudo pacman -S xdotool" })
             ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] text-text-muted", children: "O texto foi copiado para a Área de Transferência. Cole manualmente com Ctrl+V." }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-[11px] text-text-muted", children: t2("linux.clipboardNote") }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex items-center justify-end pt-2", children: /* @__PURE__ */ jsxRuntimeExports.jsx(
               SpecularButton,
               {
                 size: "sm",
                 onClick: () => setShowXdotoolModal(false),
-                children: "Entendi"
+                children: t2("linux.understood")
               }
             ) })
           ] })

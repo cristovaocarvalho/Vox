@@ -6,7 +6,6 @@ import {
   Badge,
   ProgressBar,
   Beams,
-  SpotlightNavbar,
   LiquidGlassCard,
   SpecularButton,
   AnimatedContent,
@@ -70,10 +69,7 @@ export const MainWindow: React.FC = () => {
   const [partialTranscript, setPartialTranscript] = useState('')
   const [isCopied, setIsCopied] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [showApiKeySetup, setShowApiKeySetup] = useState(false)
   const [settingsLoaded, setSettingsLoaded] = useState(false)
-  const [setupApiKey, setSetupApiKey] = useState('')
-  const [setupError, setSetupError] = useState('')
 
   // Local drafts for Settings modal (so Cancel reverts changes)
   const [draftApiKey, setDraftApiKey] = useState(apiKey)
@@ -91,19 +87,8 @@ export const MainWindow: React.FC = () => {
   const [xdotoolData, setXdotoolData] = useState<{ isWayland?: boolean } | null>(null)
 
   const [dictationHistory, setDictationHistory] = useState<any[]>([])
-  const [mediaHistory, setMediaHistory] = useState<any[]>([])
   const [isDictationHistoryOpen, setIsDictationHistoryOpen] = useState(true)
-  const [isMediaHistoryOpen, setIsMediaHistoryOpen] = useState(true)
 
-  const translatePhase = (phase: string) => {
-    const map: Record<string, string> = {
-      downloading: t('media.phaseDownloadingAudio'),
-      extracting: t('media.phaseExtractingAudio'),
-      transcribing: t('media.phaseTranscribing'),
-      exporting: t('media.phaseExporting'),
-    }
-    return map[phase] || phase
-  }
 
 
   React.useEffect(() => {
@@ -115,8 +100,6 @@ export const MainWindow: React.FC = () => {
       try {
         const dictations = await window.vox.listSessions(10, 'dictation')
         setDictationHistory(dictations || [])
-        const medias = await window.vox.listSessions(10, 'media')
-        setMediaHistory(medias || [])
       } catch (err) {
         console.error('Erro ao carregar histórico de sessões:', err)
       }
@@ -139,14 +122,6 @@ export const MainWindow: React.FC = () => {
     }
   }
 
-  const handleReExport = (session: any) => {
-    setTranscriptionResult({
-      text: session.text,
-      rawText: session.rawText,
-      segments: session.segments || []
-    })
-    setMediaStep('export')
-  }
 
   const handleOpenSettings = () => {
     setDraftApiKey(apiKey)
@@ -173,7 +148,6 @@ export const MainWindow: React.FC = () => {
     setWakeWordSensitivity(draftWakeWordSensitivity)
     setLanguage(draftLanguage)
     setIsSettingsOpen(false)
-    setShowApiKeySetup(false)
 
     if (window.vox?.saveSettings) {
       window.vox.saveSettings({
@@ -198,33 +172,6 @@ export const MainWindow: React.FC = () => {
     }
   }
 
-  const handleSaveApiKeySetup = () => {
-    const trimmedKey = setupApiKey.trim()
-    if (!trimmedKey) {
-      setSetupError(t('setup.required'))
-      return
-    }
-
-    setSetupError('')
-    setApiKey(trimmedKey)
-    setDraftApiKey(trimmedKey)
-    setShowApiKeySetup(false)
-
-    if (window.vox?.saveSettings) {
-      window.vox.saveSettings({
-        apiKey: trimmedKey,
-        sttModel,
-        llmModel,
-        shortcutToggle,
-        shortcutPushToTalk,
-        browserCookies,
-        wakeWordEnabled: String(wakeWordEnabled),
-        wakeWordSensitivity: String(wakeWordSensitivity),
-        language
-      }).catch(console.error)
-    }
-  }
-
   React.useEffect(() => {
     if (window.vox?.getSettings) {
       window.vox.getSettings().then((saved: Record<string, string>) => {
@@ -241,24 +188,14 @@ export const MainWindow: React.FC = () => {
             setLanguage(saved.language)
             setDraftLanguage(saved.language)
           }
-
-          if (!saved.apiKey?.trim()) {
-            setShowApiKeySetup(true)
-          }
-        } else {
-          setShowApiKeySetup(true)
         }
         setSettingsLoaded(true)
       }).catch(() => {
-        setShowApiKeySetup(true)
         setSettingsLoaded(true)
       })
     } else {
-      setShowApiKeySetup(true)
       setSettingsLoaded(true)
     }
-
-    fetchHistory()
 
     const unsubMissing = window.vox?.onWakeWordModelMissing?.(() => {
       setWakeWordModelMissing(true)
@@ -284,198 +221,6 @@ export const MainWindow: React.FC = () => {
       unsubXdo?.()
     }
   }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies, setWakeWordEnabled, setWakeWordSensitivity, setLanguage])
-
-  // Vox Media State Machine
-  type MediaStep = 'input' | 'preview' | 'progress' | 'export' | 'post_export'
-  const [mediaStep, setMediaStep] = useState<MediaStep>('input')
-  const [videoInfo, setVideoInfo] = useState<{ title: string; duration: number; thumbnail: string; platform: string } | null>(null)
-  const [localFileInfo, setLocalFileInfo] = useState<{ name: string; size: string; path: string } | null>(null)
-  const [isFetchingInfo, setIsFetchingInfo] = useState(false)
-  const [isDragOver, setIsDragOver] = useState(false)
-  const [mediaProgress, setMediaProgress] = useState<{ phase: string; percent: number; speed?: string; eta?: string }>({
-    phase: 'downloading',
-    percent: 0
-  })
-  const [transcriptionResult, setTranscriptionResult] = useState<any>(null)
-  const [mediaAudioPath, setMediaAudioPath] = useState<string | null>(null)
-  const [exportFolderPath, setExportFolderPath] = useState<string>('')
-  const [includeTimestamps, setIncludeTimestamps] = useState<boolean>(true)
-  const [exportedFiles, setExportedFiles] = useState<string[]>([])
-  const [audioDeleted, setAudioDeleted] = useState<boolean>(false)
-  const [mediaError, setMediaError] = useState<string | null>(null)
-
-  const formatMMSS = (totalSeconds: number) => {
-    if (!totalSeconds || isNaN(totalSeconds)) return '00:00'
-    const mins = Math.floor(totalSeconds / 60)
-    const secs = Math.floor(totalSeconds % 60)
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
-  }
-
-  const formatBytes = (bytes: number) => {
-    if (!bytes || bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
-  }
-
-  const handleFetchVideoInfo = async () => {
-    if (!urlInput.trim()) return
-    setIsFetchingInfo(true)
-    setMediaError(null)
-    try {
-      const info = await window.vox?.getVideoInfo(urlInput, browserCookies)
-      setVideoInfo(info || { title: t('media.untitled'), duration: 0, thumbnail: '', platform: 'unknown' })
-      setMediaStep('preview')
-    } catch (err: any) {
-      console.error('Erro ao obter vídeo:', err)
-      setMediaError(err?.message || t('media.fetchError'))
-    } finally {
-      setIsFetchingInfo(false)
-    }
-  }
-
-  const handleStartTranscription = async (payload: { url?: string; filePath?: string }) => {
-    setMediaStep('progress')
-    setMediaError(null)
-    setMediaProgress({ phase: payload.url ? 'downloading' : 'extracting', percent: 5 })
-
-    const removeProgressListener = window.vox?.onMediaProgress?.((data) => {
-      setMediaProgress(data)
-    })
-
-    try {
-      const res = await window.vox?.startMediaTranscription({
-        url: payload.url,
-        filePath: payload.filePath,
-        cookiesFromBrowser: browserCookies
-      })
-
-      if (res?.error) {
-        setMediaError(res.error)
-        return
-      }
-
-      if (res && res.result) {
-        setMediaAudioPath(res.audioPath)
-        setTranscriptionResult(res.result)
-        setMediaStep('export')
-      } else {
-        setMediaError(t('media.resultError'))
-      }
-    } catch (err: any) {
-      console.error('Erro na transcrição de mídia:', err)
-      setMediaError(err?.message || t('media.unexpectedError'))
-    } finally {
-      removeProgressListener?.()
-    }
-  }
-
-  const handleCancelTranscription = async () => {
-    await window.vox?.cancelMediaTranscription()
-    handleResetMedia()
-  }
-
-  const handleSelectExportFolder = async () => {
-    const folder = await window.vox?.selectExportFolder()
-    if (folder) {
-      setExportFolderPath(folder)
-    }
-  }
-
-  const handleExecuteExport = async () => {
-    if (!transcriptionResult || selectedFormats.length === 0) return
-    setMediaError(null)
-    const targetFolder = exportFolderPath || 'Downloads'
-    try {
-      const res = await window.vox?.exportTranscription({
-        result: transcriptionResult,
-        formats: selectedFormats,
-        outputPath: targetFolder,
-        options: {
-          includeTimestamps,
-          title: videoInfo?.title || localFileInfo?.name || 'transcricao_vox'
-        }
-      })
-
-      if (res && res.files) {
-        setExportedFiles(res.files)
-        setMediaStep('post_export')
-      } else {
-        setMediaError(res?.error || t('media.exportFail'))
-      }
-    } catch (err: any) {
-      console.error('Erro ao exportar:', err)
-      setMediaError(err?.message || t('media.exportError'))
-    }
-  }
-
-  const handleKeepAudio = () => {
-    setAudioDeleted(false)
-  }
-
-  const handleDeleteAudio = async () => {
-    if (mediaAudioPath) {
-      await window.vox?.deleteAudio(mediaAudioPath)
-      setAudioDeleted(true)
-    }
-  }
-
-  const handleResetMedia = () => {
-    setMediaStep('input')
-    setUrlInput('')
-    setVideoInfo(null)
-    setLocalFileInfo(null)
-    setTranscriptionResult(null)
-    setMediaAudioPath(null)
-    setExportedFiles([])
-    setAudioDeleted(false)
-    setMediaError(null)
-    setMediaProgress({ phase: 'downloading', percent: 0 })
-  }
-
-  const allowedExtensions = ['.mp4', '.mp3', '.wav', '.mkv', '.mov', '.avi', '.m4a', '.webm', '.ogg']
-
-  const handleProcessLocalFilePath = (filePath: string, fileName: string, fileSize?: number) => {
-    const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase()
-    if (!allowedExtensions.includes(ext)) {
-      setMediaError(t('media.unsupportedFormat'))
-      return
-    }
-    setMediaError(null)
-    const formattedSize = fileSize ? formatBytes(fileSize) : t('media.localFile')
-    setLocalFileInfo({ name: fileName, size: formattedSize, path: filePath })
-    handleStartTranscription({ filePath })
-  }
-
-  const handleSelectFile = async () => {
-    if (!window.vox?.selectFile) return
-    const filePath = await window.vox.selectFile()
-    if (filePath) {
-      const fileName = filePath.split(/[/\\]/).pop() || t('media.selectedFile')
-      handleProcessLocalFilePath(filePath, fileName)
-    }
-  }
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragOver(false)
-
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const file = e.dataTransfer.files[0]
-      const filePath = (file as any).path || file.name
-      if (filePath) {
-        handleProcessLocalFilePath(filePath, file.name, file.size)
-      }
-      return
-    }
-
-    const droppedText = e.dataTransfer.getData('text') || e.dataTransfer.getData('text/plain')
-    if (droppedText && droppedText.startsWith('http')) {
-      setUrlInput(droppedText.trim())
-    }
-  }
 
   const mediaStreamRef = React.useRef<MediaStream | null>(null)
   const audioContextRef = React.useRef<AudioContext | null>(null)
@@ -722,23 +467,8 @@ export const MainWindow: React.FC = () => {
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto custom-scrollbar">
         <Beams beamWidth={2} beamHeight={15} beamNumber={12} lightColor="#ffffff" speed={2} noiseIntensity={1.75} scale={0.2} rotation={0}>
 
-          {/* Navbar */}
-          <div className="pt-6 flex items-center justify-center sticky top-0 z-20 pointer-events-none">
-            <div className="pointer-events-auto">
-              <SpotlightNavbar
-                activeId={activeTab}
-                items={[
-                  { label: t('nav.type'), id: 'type' },
-                  { label: t('nav.media'), id: 'media' }
-                ]}
-                onItemClick={(item) => setActiveTab(item.id as 'type' | 'media')}
-              />
-            </div>
-          </div>
 
           <div className="flex items-start justify-center px-4 sm:px-6 pt-10 pb-24">
-            {activeTab === 'type' ? (
-
               <div className="w-full max-w-3xl space-y-5">
 
                 {/* Main action card */}
@@ -901,498 +631,6 @@ export const MainWindow: React.FC = () => {
                 </AnimatedContent>
               </div>
 
-            ) : (
-
-              <div className="w-full max-w-3xl space-y-5">
-                {/* FASE 1: PREVIEW ANTES DE TRANSCREVER */}
-                {mediaStep === 'preview' && videoInfo && (
-                  <AnimatedContent key={`media-preview-${activeTab}`} distance={30} direction="vertical" duration={0.8} ease="power3.out">
-                    <LiquidGlassCard glowIntensity="md" blurIntensity="md" className="p-6 flex flex-col gap-5 border border-border/60">
-                      <div className="flex items-center justify-between border-b border-border/40 pb-3">
-                        <span className="text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary">{t('media.preview')}</span>
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-accent/10 text-accent border border-accent/20 capitalize">
-                          {videoInfo.platform === 'unknown' ? (
-                            <>
-                              <IconGlobe className="w-3 h-3" />
-                              {t('media.webMedia')}
-                            </>
-                          ) : (
-                            videoInfo.platform
-                          )}
-                        </span>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
-                        {videoInfo.thumbnail ? (
-                          <img
-                            src={videoInfo.thumbnail}
-                            alt="Thumbnail"
-                            className="w-32 h-24 object-cover rounded-xl border border-border/50 shrink-0 shadow-md"
-                          />
-                        ) : (
-                          <div className="w-32 h-24 bg-surface border border-border/50 rounded-xl flex items-center justify-center shrink-0">
-                            <IconFilm className="w-7 h-7 text-text-muted" strokeWidth={1.5} />
-                          </div>
-                        )}
-
-                        <div className="flex flex-col justify-between flex-1 min-w-0 text-center sm:text-left gap-2">
-                          <h3 className="text-sm font-semibold font-heading tracking-tight text-text-primary line-clamp-2 leading-snug">
-                            {videoInfo.title}
-                          </h3>
-                          <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs text-text-secondary">
-                            <IconClock className="w-3.5 h-3.5 text-text-muted" />
-                            <span>{t('media.duration')}</span>
-                            <span className="font-mono text-accent font-semibold tnum">{formatMMSS(videoInfo.duration)}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/40">
-                        <button
-                          type="button"
-                          onClick={handleResetMedia}
-                          className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 ease-smooth cursor-pointer"
-                        >
-                          {t('media.cancel')}
-                        </button>
-                        <SpecularButton
-                          size="sm"
-                          onClick={() => handleStartTranscription({ url: urlInput })}
-                          className="!px-6"
-                        >
-                          {t('media.confirmTranscribe')}
-                        </SpecularButton>
-                      </div>
-                    </LiquidGlassCard>
-                  </AnimatedContent>
-                )}
-
-                {/* FASE 2: PROGRESSO EM TEMPO REAL */}
-                {mediaStep === 'progress' && (
-                  <AnimatedContent key={`media-progress-${activeTab}`} distance={30} direction="vertical" duration={0.8} ease="power3.out">
-                    <LiquidGlassCard glowIntensity="md" blurIntensity="md" className="p-6 flex flex-col gap-5 border border-border/60">
-                      <div className="flex items-center justify-between border-b border-border/40 pb-3">
-                        <span className="text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary">{t('media.processing')}</span>
-                        <span className="text-xs font-mono font-bold text-accent tnum">{mediaProgress.percent}%</span>
-                      </div>
-
-                      {/* 3 Fases Visuais */}
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className={`p-3 rounded-xl border text-center flex flex-col items-center gap-1.5 transition-all duration-300 ${mediaProgress.percent <= 40
-                          ? 'bg-accent/15 border-accent/50 text-accent'
-                          : 'bg-surface/60 border-border/40 text-text-secondary'
-                          }`}>
-                          {mediaProgress.percent <= 40
-                            ? <IconDownload className="w-4 h-4" />
-                            : <IconCheck className="w-4 h-4" strokeWidth={2.2} />}
-                          <span className="text-[11px] font-semibold">{t('media.phaseDownloading')}</span>
-                          <span className="text-[10px] font-mono opacity-70 tnum">0–40%</span>
-                        </div>
-
-                        <div className={`p-3 rounded-xl border text-center flex flex-col items-center gap-1.5 transition-all duration-300 ${mediaProgress.percent > 40 && mediaProgress.percent <= 90
-                          ? 'bg-accent/15 border-accent/50 text-accent'
-                          : mediaProgress.percent > 90
-                            ? 'bg-surface/60 border-border/40 text-text-secondary'
-                            : 'bg-surface/30 border-border/30 text-text-disabled'
-                          }`}>
-                          {mediaProgress.percent > 90
-                            ? <IconCheck className="w-4 h-4" strokeWidth={2.2} />
-                            : <IconMic className={`w-4 h-4 ${mediaProgress.percent > 40 ? 'animate-pulse' : ''}`} />}
-                          <span className="text-[11px] font-semibold">{t('media.phaseTranscribing')}</span>
-                          <span className="text-[10px] font-mono opacity-70 tnum">40–90%</span>
-                        </div>
-
-                        <div className={`p-3 rounded-xl border text-center flex flex-col items-center gap-1.5 transition-all duration-300 ${mediaProgress.percent > 90
-                          ? 'bg-accent/15 border-accent/50 text-accent'
-                          : 'bg-surface/30 border-border/30 text-text-disabled'
-                          }`}>
-                          <IconGear className={`w-4 h-4 ${mediaProgress.percent > 90 ? 'animate-spin [animation-duration:3s]' : ''}`} />
-                          <span className="text-[11px] font-semibold">{t('media.phaseExporting')}</span>
-                          <span className="text-[10px] font-mono opacity-70 tnum">90–100%</span>
-                        </div>
-                      </div>
-
-                      <div className="w-full py-1">
-                        <ProgressBar
-                          progress={mediaProgress.percent}
-                          label={translatePhase(mediaProgress.phase)}
-                          sublabel={mediaProgress.speed ? `${mediaProgress.speed} | ETA: ${mediaProgress.eta}` : undefined}
-                        />
-                      </div>
-
-                      {mediaError ? (
-                        <div className="p-3.5 bg-error/15 border border-error/30 rounded-xl text-xs text-error font-medium text-center space-y-2.5">
-                          <p className="flex items-center justify-center gap-1.5">
-                            <IconAlert className="w-3.5 h-3.5 shrink-0" />
-                            {mediaError}
-                          </p>
-                          <SpecularButton size="sm" onClick={handleResetMedia} className="!px-4">
-                            {t('media.tryAgain')}
-                          </SpecularButton>
-                        </div>
-                      ) : (
-                        mediaProgress.percent <= 40 && (
-                          <div className="flex justify-end pt-1">
-                            <button
-                              type="button"
-                              onClick={handleCancelTranscription}
-                              className="px-4 py-1.5 bg-surface hover:bg-surface-elevated border border-border text-text-secondary hover:text-text-primary text-xs font-semibold rounded-lg transition-colors duration-250 cursor-pointer"
-                            >
-                              {t('media.cancelProcess')}
-                            </button>
-                          </div>
-                        )
-                      )}
-                    </LiquidGlassCard>
-                  </AnimatedContent>
-                )}
-
-                {/* FASE 3: SELEÇÃO DE FORMATOS ANTES DE EXPORTAR */}
-                {mediaStep === 'export' && (
-                  <AnimatedContent key={`media-export-${activeTab}`} distance={30} direction="vertical" duration={0.8} ease="power3.out">
-                    <LiquidGlassCard glowIntensity="md" blurIntensity="md" className="p-6 flex flex-col gap-5 border border-border/60">
-                      <div className="flex items-center justify-between border-b border-border/40 pb-3">
-                        <span className="text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary">{t('media.exportOptions')}</span>
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/20">
-                          <IconCheck className="w-3 h-3" strokeWidth={2.4} />
-                          {t('media.transcribed')}
-                        </span>
-                      </div>
-
-                      {/* Snippet do resultado */}
-                      {transcriptionResult?.text && (
-                        <div className="space-y-2">
-                          <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">{t('media.snippet')}</span>
-                          <div className="p-3.5 bg-background/60 border border-border/50 rounded-xl font-mono text-xs leading-relaxed text-text-secondary max-h-24 overflow-y-auto custom-scrollbar break-words">
-                            {transcriptionResult.text.slice(0, 250)}{transcriptionResult.text.length > 250 ? '...' : ''}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Checkboxes de formatos */}
-                      <div className="space-y-2">
-                        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">{t('media.formats')}</span>
-                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                          {['txt', 'md', 'srt', 'vtt', 'json'].map((fmt) => {
-                            const isSelected = selectedFormats.includes(fmt)
-                            return (
-                              <button
-                                key={fmt}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedFormats((prev) =>
-                                    isSelected ? prev.filter((f) => f !== fmt) : [...prev, fmt]
-                                  )
-                                }}
-                                className={`py-2 px-2 text-xs font-mono font-semibold rounded-xl border transition-all duration-250 ease-smooth text-center uppercase cursor-pointer ${isSelected
-                                  ? 'bg-accent/15 border-accent/60 text-accent'
-                                  : 'bg-surface/50 border-border/40 text-text-secondary hover:text-text-primary hover:border-border'
-                                  }`}
-                              >
-                                .{fmt}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-
-                      {/* {t('media.destination')} */}
-                      <div className="space-y-2">
-                        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">{t('media.destination')}</span>
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          <input
-                            type="text"
-                            readOnly
-                            value={exportFolderPath || t('media.defaultFolder')}
-                            className="flex-1 min-w-0 bg-background/60 border border-border/60 px-3 py-2 rounded-xl text-xs font-mono text-text-secondary focus:outline-none truncate"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleSelectExportFolder}
-                            className="px-3.5 py-2 bg-surface hover:bg-surface-elevated border border-border text-xs font-medium text-text-primary rounded-xl transition-colors duration-250 cursor-pointer shrink-0"
-                          >
-                            {t('media.changeFolder')}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Toggle Timestamps */}
-                      <label className="flex items-center justify-between gap-4 p-3.5 bg-background/40 border border-border/40 rounded-xl cursor-pointer hover:border-border/70 transition-colors duration-250">
-                        <div>
-                          <span className="text-xs font-semibold text-text-primary block">{t('media.includeTimestamps')}</span>
-                          <span className="text-[11px] text-text-secondary">{t('media.timestampsHint')}</span>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={includeTimestamps}
-                          onChange={(e) => setIncludeTimestamps(e.target.checked)}
-                          className="vox-checkbox"
-                        />
-                      </label>
-
-                      {mediaError && (
-                        <p className="flex items-center justify-center gap-1.5 text-xs text-error font-medium text-center">
-                          <IconAlert className="w-3.5 h-3.5 shrink-0" />
-                          {mediaError}
-                        </p>
-                      )}
-
-                      {/* Ação de Exportar */}
-                      <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/40">
-                        <button
-                          type="button"
-                          onClick={handleResetMedia}
-                          className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer"
-                        >
-                          {t('media.cancel')}
-                        </button>
-                        <SpecularButton
-                          size="sm"
-                          onClick={handleExecuteExport}
-                          disabled={selectedFormats.length === 0}
-                          className="!px-6"
-                        >
-                          {t('media.exportSelected')} ({selectedFormats.length})
-                        </SpecularButton>
-                      </div>
-                    </LiquidGlassCard>
-                  </AnimatedContent>
-                )}
-
-                {/* FASE 4: MODAL PÓS-EXPORTAÇÃO */}
-                {mediaStep === 'post_export' && (
-                  <AnimatedContent key={`media-post-${activeTab}`} distance={30} direction="vertical" duration={0.8} ease="power3.out">
-                    <LiquidGlassCard glowIntensity="md" blurIntensity="md" className="p-6 flex flex-col gap-5 border border-border/60">
-                      <div className="flex items-center justify-between border-b border-border/40 pb-3">
-                        <span className="text-[11px] font-semibold uppercase tracking-label-wide text-text-secondary">{t('media.exportDone')}</span>
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/20">
-                          <IconCheck className="w-3 h-3" strokeWidth={2.4} />
-                          {t('media.ready')}
-                        </span>
-                      </div>
-
-                      {/* Lista de arquivos exportados */}
-                      <div className="space-y-2">
-                        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">{t('media.generatedFiles')}</span>
-                        <div className="space-y-2 max-h-40 overflow-y-auto pr-1 custom-scrollbar">
-                          {exportedFiles.map((file, idx) => {
-                            const fileName = file.split(/[/\\]/).pop() || file
-                            return (
-                              <div key={idx} className="flex items-center justify-between gap-3 p-2.5 pl-3.5 bg-background/60 border border-border/40 rounded-xl text-xs font-mono">
-                                <span className="flex items-center gap-2 min-w-0 text-text-primary" title={file}>
-                                  <IconFile className="w-3.5 h-3.5 shrink-0 text-text-muted" />
-                                  <span className="truncate">{fileName}</span>
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => window.vox?.openFolder(file)}
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-surface hover:bg-surface-elevated text-accent text-[11px] font-sans font-semibold rounded-lg border border-accent/30 transition-colors duration-250 cursor-pointer shrink-0"
-                                >
-                                  <IconFolder className="w-3 h-3" />
-                                  {t('media.openFolder')}
-                                </button>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Opção de Áudio Temporário */}
-                      <div className="p-4 bg-accent/10 border border-accent/30 rounded-xl space-y-3">
-                        <p className="text-xs text-text-primary font-medium text-center leading-relaxed">
-                          {t('media.keepAudioPrompt')}
-                        </p>
-
-                        {audioDeleted ? (
-                          <div className="p-2 bg-accent/10 border border-accent/20 rounded-lg flex items-center justify-center gap-1.5 text-xs text-text-primary font-medium">
-                            <IconCheck className="w-3.5 h-3.5" strokeWidth={2.4} />
-                            {t('media.audioDeleted')}
-                          </div>
-                        ) : (
-                          <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5">
-                            <button
-                              type="button"
-                              onClick={handleKeepAudio}
-                              className="w-full sm:w-auto px-4 py-2 bg-accent/15 hover:bg-accent/25 border border-accent/20 text-accent text-xs font-semibold rounded-xl transition-colors duration-250 cursor-pointer"
-                            >
-                              {t('media.keepAudio')}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleDeleteAudio}
-                              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-surface hover:bg-surface-elevated border border-border text-text-secondary hover:text-text-primary text-xs font-semibold rounded-xl transition-colors duration-250 cursor-pointer"
-                            >
-                              <IconTrash className="w-3.5 h-3.5" />
-                              {t('media.deleteAudio')}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Reiniciar */}
-                      <div className="flex justify-end pt-4 border-t border-border/40">
-                        <SpecularButton
-                          size="sm"
-                          onClick={handleResetMedia}
-                          className="!px-6"
-                        >
-                          {t('media.newMedia')}
-                        </SpecularButton>
-                      </div>
-                    </LiquidGlassCard>
-                  </AnimatedContent>
-                )}
-
-                {/* ESTADO INICIAL / FASE 5: INPUT & DRAG-AND-DROP */}
-                {mediaStep === 'input' && (
-                  <>
-                    <AnimatedContent key={`media-card-1-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.05} ease="power3.out">
-                      <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-8 flex flex-col items-center text-center">
-                        <img
-                          src={logoImg}
-                          alt="Vox"
-                          className="mx-auto w-24 h-24 object-contain drop-shadow-[0_0_12px_rgba(255,255,255,0.25)]"
-                        />
-
-                        <p className="mt-4 text-base font-semibold font-heading tracking-tight text-text-primary">{t('media.title')}</p>
-                        <p className="mt-1 mb-6 text-xs text-text-secondary">{t('media.subtitle')}</p>
-
-                        <div className="w-full flex flex-col gap-2.5">
-                          <input
-                            type="text"
-                            placeholder={t('media.urlPlaceholder')}
-                            value={urlInput}
-                            onChange={(e) => setUrlInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && urlInput.trim()) {
-                                handleFetchVideoInfo()
-                              }
-                            }}
-                            className="w-full bg-background/60 border border-border/60 px-4 py-2.5 rounded-xl text-xs font-mono text-text-primary placeholder:text-text-disabled focus:outline-none focus:border-accent/70 focus:shadow-[0_0_0_3px_rgba(255,255,255,0.05)] transition-[border-color,box-shadow] duration-250 ease-smooth text-center"
-                          />
-
-                          <SpecularButton
-                            size="sm"
-                            className="w-full"
-                            onClick={handleFetchVideoInfo}
-                            disabled={!urlInput.trim() || isFetchingInfo}
-                          >
-                            {isFetchingInfo ? t('media.fetchingInfo') : t('media.fetchInfo')}
-                          </SpecularButton>
-                        </div>
-                      </LiquidGlassCard>
-                    </AnimatedContent>
-
-                    <AnimatedContent key={`media-card-2-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.15} ease="power3.out">
-                      <div
-                        onClick={handleSelectFile}
-                        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true) }}
-                        onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true) }}
-                        onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(false) }}
-                        onDrop={handleDrop}
-                      >
-                        <LiquidGlassCard
-                          glowIntensity={isDragOver ? 'md' : 'sm'}
-                          blurIntensity="sm"
-                          className={`p-8 text-center cursor-pointer transition-all duration-300 ease-smooth border border-dashed ${isDragOver
-                            ? 'border-accent bg-accent/10 scale-102'
-                            : 'border-border/40 hover:border-accent/40'
-                            }`}
-                        >
-                          <div className={`mx-auto mb-3 w-10 h-10 rounded-full border flex items-center justify-center transition-colors duration-300 ${isDragOver ? 'border-accent/50 text-accent' : 'border-border/60 text-text-muted'}`}>
-                            <IconUpload className="w-[18px] h-[18px]" />
-                          </div>
-                          <p className="text-sm font-medium text-text-primary">
-                            {isDragOver ? t('media.dropActive') : t('media.dropHint')}
-                          </p>
-                          <p className="text-[11px] font-mono text-text-muted mt-1.5">.mp4 .mp3 .wav .mkv .mov .avi .m4a .webm .ogg</p>
-                        </LiquidGlassCard>
-                      </div>
-                    </AnimatedContent>
-
-                    {mediaError && (
-                      <div className="p-3.5 bg-error/15 border border-error/30 rounded-xl text-xs text-error font-medium text-center animate-fade-in flex items-center justify-center gap-1.5">
-                        <IconAlert className="w-3.5 h-3.5 shrink-0" />
-                        {mediaError}
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* Histórico de Mídias (Transcrições Anteriores) */}
-                {mediaStep === 'input' && (
-                  <AnimatedContent key={`media-history-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.25} ease="power3.out">
-                    <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-6">
-                      <button
-                        type="button"
-                        onClick={() => setIsMediaHistoryOpen(!isMediaHistoryOpen)}
-                        className="w-full flex items-center justify-between text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide cursor-pointer hover:text-text-primary transition-colors duration-250 ease-smooth"
-                      >
-                        <span>{t('media.previous')} ({mediaHistory.length})</span>
-                        <IconChevronDown
-                          className={`w-4 h-4 text-text-muted transition-transform duration-300 ease-smooth ${isMediaHistoryOpen ? 'rotate-180' : ''}`}
-                        />
-                      </button>
-
-                      <AnimatePresence initial={false}>
-                        {isMediaHistoryOpen && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                            className="overflow-hidden"
-                          >
-                            <div className="mt-4 pt-4 border-t border-border/40">
-                              {mediaHistory.length === 0 ? (
-                                <p className="text-xs text-text-disabled text-center py-4">{t('media.previousEmpty')}</p>
-                              ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
-                                  {mediaHistory.map((item) => (
-                                    <div
-                                      key={item.id}
-                                      className="p-3.5 bg-background/50 border border-border/50 rounded-xl flex items-center justify-between gap-3 group hover:border-accent/40 hover:bg-background/70 transition-[border-color,background-color] duration-250 ease-smooth text-left"
-                                    >
-                                      <div className="flex-1 min-w-0 text-left">
-                                        <p className="text-xs font-semibold text-text-primary line-clamp-1 text-left">{item.title || item.source}</p>
-                                        <div className="flex items-center gap-1.5 text-[10px] text-text-muted mt-1.5 text-left tnum">
-                                          <IconClock className="w-3 h-3 shrink-0" />
-                                          <span>{formatMMSS(item.duration || 0)}</span>
-                                          <span>·</span>
-                                          <span>{new Date(item.createdAt).toLocaleDateString(localeTag)}</span>
-                                        </div>
-                                      </div>
-
-                                      <div className="flex items-center gap-1.5 shrink-0">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeleteSession(item.id)}
-                                          className="p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer opacity-0 group-hover:opacity-100"
-                                          title={t('type.delete')}
-                                        >
-                                          <IconTrash className="w-3.5 h-3.5" />
-                                        </button>
-                                        <SpecularButton
-                                          size="sm"
-                                          onClick={() => handleReExport(item)}
-                                          className="text-xs"
-                                        >
-                                          {t('media.reExport')}
-                                        </SpecularButton>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </LiquidGlassCard>
-                  </AnimatedContent>
-                )}
-              </div>
-            )}
           </div>
         </Beams>
       </main>
@@ -1413,86 +651,7 @@ export const MainWindow: React.FC = () => {
         </SpecularButton>
       </div>
 
-      {/* First-run API Key setup (blocking) */}
-      <AnimatePresence>
-        {settingsLoaded && showApiKeySetup && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-black/75 backdrop-blur-md"
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 30, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full max-w-md"
-            >
-              <LiquidGlassCard glowIntensity="md" blurIntensity="lg" className="p-8 sm:p-10 flex flex-col gap-8 border border-border/80 shadow-2xl">
-                <div className="space-y-5">
-                  <h2 className="text-base font-semibold font-heading tracking-tight text-text-primary">
-                    {t('setup.title')}
-                  </h2>
-                  <p className="text-xs text-text-secondary leading-relaxed">
-                    {t('setup.description')}
-                  </p>
-                </div>
 
-                <div className="space-y-3">
-                  <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">
-                    {t('setup.apiKey')}
-                  </label>
-                  <SmoothInput
-                    type="password"
-                    value={setupApiKey}
-                    onChange={(e) => {
-                      setSetupApiKey(e.target.value)
-                      if (setupError) setSetupError('')
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveApiKeySetup()
-                    }}
-                    placeholder="gsk_..."
-                    autoFocus
-                  />
-                  {setupError ? (
-                    <p className="text-[11px] text-error leading-relaxed">
-                      {setupError}
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-text-muted leading-relaxed">
-                      {t('setup.hint')}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSetupError('')
-                      setShowApiKeySetup(false)
-                    }}
-                    className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer"
-                  >
-                    {t('setup.later')}
-                  </button>
-                  <SpecularButton
-                    size="sm"
-                    radius={12}
-                    onClick={handleSaveApiKeySetup}
-                    className="!px-6"
-                  >
-                    {t('setup.save')}
-                  </SpecularButton>
-                </div>
-              </LiquidGlassCard>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Settings Modal (LiquidGlassCard aesthetic) */}
       <AnimatePresence>
@@ -1516,7 +675,7 @@ export const MainWindow: React.FC = () => {
             >
               <LiquidGlassCard glowIntensity="md" blurIntensity="lg" className="p-6 sm:p-7 flex flex-col gap-10 border border-border/80 shadow-2xl relative">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2.5">
                     <img src={configImg} alt="" className="w-4 h-4 object-contain opacity-90" />
                     <h2 className="text-base font-semibold font-heading tracking-tight text-text-primary">{t('settings.title')}</h2>
@@ -1592,27 +751,6 @@ export const MainWindow: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Browser Cookies for yt-dlp */}
-                  <div>
-                    <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                      {t('settings.cookies')}
-                    </label>
-                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
-                      {(['none', 'chrome', 'edge', 'firefox', 'brave'] as const).map((b) => (
-                        <button
-                          key={b}
-                          type="button"
-                          onClick={() => setDraftBrowserCookies(b)}
-                          className={`py-1.5 px-2 text-xs font-medium rounded-lg border transition-all duration-250 ease-smooth text-center capitalize cursor-pointer ${draftBrowserCookies === b
-                            ? 'bg-accent/15 text-accent border-accent/40 font-semibold'
-                            : 'bg-transparent text-text-secondary border-border/50 hover:text-text-primary hover:border-border'
-                            }`}
-                        >
-                          {b === 'none' ? t('settings.none') : b}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
 
                   {/* Language */}
                   <div>
