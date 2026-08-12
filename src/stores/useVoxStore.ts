@@ -33,6 +33,15 @@ export interface VoxState {
   setLanguage: (language: AppLocale) => void
 }
 
+const getInitialLanguage = (): AppLocale => {
+  if (typeof navigator !== 'undefined' && navigator.language) {
+    if (navigator.language.toLowerCase().startsWith('en')) {
+      return 'en'
+    }
+  }
+  return 'pt-BR'
+}
+
 export const useVoxStore = create<VoxState>((set) => ({
   activeTab: 'type',
   setActiveTab: (tab) => set({ activeTab: tab }),
@@ -60,6 +69,6 @@ export const useVoxStore = create<VoxState>((set) => ({
   setWakeWordEnabled: (wakeWordEnabled) => set({ wakeWordEnabled }),
   wakeWordSensitivity: 0.5,
   setWakeWordSensitivity: (wakeWordSensitivity) => set({ wakeWordSensitivity }),
-  language: 'pt-BR',
+  language: getInitialLanguage(),
   setLanguage: (language) => set({ language }),
 }))

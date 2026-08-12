@@ -7005,6 +7005,14 @@ const createImpl = (createState2) => {
   return useBoundStore;
 };
 const create$1 = (createState2) => createState2 ? createImpl(createState2) : createImpl;
+const getInitialLanguage = () => {
+  if (typeof navigator !== "undefined" && navigator.language) {
+    if (navigator.language.toLowerCase().startsWith("en")) {
+      return "en";
+    }
+  }
+  return "pt-BR";
+};
 const useVoxStore = create$1((set2) => ({
   activeTab: "type",
   setActiveTab: (tab) => set2({ activeTab: tab }),
@@ -7032,7 +7040,7 @@ const useVoxStore = create$1((set2) => ({
   setWakeWordEnabled: (wakeWordEnabled) => set2({ wakeWordEnabled }),
   wakeWordSensitivity: 0.5,
   setWakeWordSensitivity: (wakeWordSensitivity) => set2({ wakeWordSensitivity }),
-  language: "pt-BR",
+  language: getInitialLanguage(),
   setLanguage: (language) => set2({ language })
 }));
 const en = {
@@ -76534,9 +76542,6 @@ const MainWindow = () => {
   };
   const handleSaveSettings = () => {
     const trimmedKey = draftApiKey.trim();
-    if (!trimmedKey) {
-      return;
-    }
     setApiKey(trimmedKey);
     setShortcutToggle(draftShortcutToggle);
     setShortcutPushToTalk(draftShortcutPushToTalk);
@@ -76577,10 +76582,16 @@ const MainWindow = () => {
           if (saved.browserCookies) setBrowserCookies(saved.browserCookies);
           if (saved.wakeWordEnabled !== void 0) setWakeWordEnabled(saved.wakeWordEnabled === "true");
           if (saved.wakeWordSensitivity) setWakeWordSensitivity(parseFloat(saved.wakeWordSensitivity));
-          if (saved.language === "en" || saved.language === "pt-BR") {
-            setLanguage(saved.language);
-            setDraftLanguage(saved.language);
+          let initialLang = "pt-BR";
+          const systemLang = (navigator.language || "").toLowerCase();
+          const isSystemEn = systemLang.startsWith("en");
+          if (isSystemEn) {
+            initialLang = "en";
+          } else if (saved.language === "en" || saved.language === "pt-BR") {
+            initialLang = saved.language;
           }
+          setLanguage(initialLang);
+          setDraftLanguage(initialLang);
         }
         setSettingsLoaded(true);
       }).catch(() => {
@@ -76971,7 +76982,7 @@ const MainWindow = () => {
           transition: { duration: 0.25, ease: "easeOut" },
           className: "fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-md",
           onClick: (e) => {
-            if (e.target === e.currentTarget && apiKey.trim()) setIsSettingsOpen(false);
+            if (e.target === e.currentTarget) setIsSettingsOpen(false);
           },
           children: /* @__PURE__ */ jsxRuntimeExports.jsx(
             motion.div,
@@ -77129,7 +77140,7 @@ const MainWindow = () => {
                     }
                   ),
                   /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-2", children: [
-                    apiKey.trim() && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                    /* @__PURE__ */ jsxRuntimeExports.jsx(
                       "button",
                       {
                         type: "button",
@@ -77145,7 +77156,6 @@ const MainWindow = () => {
                         radius: 12,
                         onClick: handleSaveSettings,
                         className: "!px-6",
-                        disabled: !draftApiKey.trim(),
                         children: t2("settings.save")
                       }
                     )

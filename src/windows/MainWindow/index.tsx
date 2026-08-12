@@ -136,10 +136,6 @@ export const MainWindow: React.FC = () => {
 
   const handleSaveSettings = () => {
     const trimmedKey = draftApiKey.trim()
-    if (!trimmedKey) {
-      return
-    }
-
     setApiKey(trimmedKey)
     setShortcutToggle(draftShortcutToggle)
     setShortcutPushToTalk(draftShortcutPushToTalk)
@@ -184,10 +180,18 @@ export const MainWindow: React.FC = () => {
           if (saved.browserCookies) setBrowserCookies(saved.browserCookies as any)
           if (saved.wakeWordEnabled !== undefined) setWakeWordEnabled(saved.wakeWordEnabled === 'true')
           if (saved.wakeWordSensitivity) setWakeWordSensitivity(parseFloat(saved.wakeWordSensitivity))
-          if (saved.language === 'en' || saved.language === 'pt-BR') {
-            setLanguage(saved.language)
-            setDraftLanguage(saved.language)
+          let initialLang: AppLocale = 'pt-BR'
+          const systemLang = (navigator.language || '').toLowerCase()
+          const isSystemEn = systemLang.startsWith('en')
+
+          if (isSystemEn) {
+            initialLang = 'en'
+          } else if (saved.language === 'en' || saved.language === 'pt-BR') {
+            initialLang = saved.language
           }
+
+          setLanguage(initialLang)
+          setDraftLanguage(initialLang)
         }
         setSettingsLoaded(true)
       }).catch(() => {
@@ -663,7 +667,7 @@ export const MainWindow: React.FC = () => {
             transition={{ duration: 0.25, ease: 'easeOut' }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-md"
             onClick={(e) => {
-              if (e.target === e.currentTarget && apiKey.trim()) setIsSettingsOpen(false)
+              if (e.target === e.currentTarget) setIsSettingsOpen(false)
             }}
           >
             <motion.div
@@ -847,21 +851,18 @@ export const MainWindow: React.FC = () => {
                     {t('settings.clearHistory')}
                   </button>
                   <div className="flex items-center gap-2">
-                    {apiKey.trim() && (
-                      <button
-                        type="button"
-                        onClick={() => setIsSettingsOpen(false)}
-                        className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer"
-                      >
-                        {t('settings.cancel')}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsSettingsOpen(false)}
+                      className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer"
+                    >
+                      {t('settings.cancel')}
+                    </button>
                     <SpecularButton
                       size="sm"
                       radius={12}
                       onClick={handleSaveSettings}
                       className="!px-6"
-                      disabled={!draftApiKey.trim()}
                     >
                       {t('settings.save')}
                     </SpecularButton>

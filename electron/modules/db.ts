@@ -124,6 +124,16 @@ export function setSetting(key: string, value: string) {
 }
 
 export function getAllSettings() {
+  let systemLanguage = 'pt-BR'
+  try {
+    const locale = app.getLocale() || 'pt-BR'
+    if (locale.toLowerCase().startsWith('en')) {
+      systemLanguage = 'en'
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao obter locale do sistema:', err)
+  }
+
   const defaults = {
     apiKey: '',
     sttModel: 'whisper-large-v3-turbo',
@@ -133,7 +143,7 @@ export function getAllSettings() {
     browserCookies: 'chrome',
     wakeWordEnabled: 'true',
     wakeWordSensitivity: '0.5',
-    language: 'pt-BR'
+    language: systemLanguage
   }
 
   const result: Record<string, string> = { ...defaults }

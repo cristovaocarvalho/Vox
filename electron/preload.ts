@@ -11,19 +11,6 @@ export const voxApi = {
   showDock: () => ipcRenderer.invoke('vox:show-dock'),
   hideDock: () => ipcRenderer.invoke('vox:hide-dock'),
   minimize: () => ipcRenderer.invoke('vox:minimize'),
-  
-  // Vox Media (Transcrição de mídia)
-  getVideoInfo: (url: string, cookiesFromBrowser?: string) => ipcRenderer.invoke('vox:get-video-info', url, cookiesFromBrowser),
-  startMediaTranscription: (payload: { url?: string; filePath?: string; cookiesFromBrowser?: string }) => ipcRenderer.invoke('vox:start-media-transcription', payload),
-  cancelMediaTranscription: () => ipcRenderer.invoke('vox:cancel-media-transcription'),
-  selectExportFolder: () => ipcRenderer.invoke('vox:select-export-folder'),
-  exportTranscription: (payload: { result: any; formats: string[]; outputPath: string; options?: any }) => ipcRenderer.invoke('vox:export-transcription', payload),
-  deleteAudio: (audioPath: string) => ipcRenderer.invoke('vox:delete-audio', audioPath),
-  openFolder: (folderOrFilePath: string) => ipcRenderer.invoke('vox:open-folder', folderOrFilePath),
-  downloadAudio: (url: string, cookiesFromBrowser?: string) => ipcRenderer.invoke('vox:download-audio', url, cookiesFromBrowser),
-  transcribeMedia: (options: { audioPath: string }) => ipcRenderer.invoke('vox:transcribe-media', options),
-  deleteFile: (filePath: string) => ipcRenderer.invoke('vox:delete-file', filePath),
-  selectFile: () => ipcRenderer.invoke('vox:select-file'),
 
   // Configurações & Banco de Dados
   getSettings: () => ipcRenderer.invoke('vox:get-settings'),
@@ -64,16 +51,6 @@ export const voxApi = {
     const handler = (_event: unknown, text: string) => callback(text)
     ipcRenderer.on('vox:partial-transcript', handler)
     return () => ipcRenderer.removeListener('vox:partial-transcript', handler)
-  },
-  onDownloadProgress: (callback: (data: { pct: number; speed: string; eta: string }) => void) => {
-    const handler = (_event: unknown, data: { pct: number; speed: string; eta: string }) => callback(data)
-    ipcRenderer.on('vox:download-progress', handler)
-    return () => ipcRenderer.removeListener('vox:download-progress', handler)
-  },
-  onMediaProgress: (callback: (data: { phase: string; percent: number; speed?: string; eta?: string }) => void) => {
-    const handler = (_event: unknown, data: { phase: string; percent: number; speed?: string; eta?: string }) => callback(data)
-    ipcRenderer.on('vox:media-progress', handler)
-    return () => ipcRenderer.removeListener('vox:media-progress', handler)
   },
   onWakeWordFired: (callback: () => void) => {
     const handler = () => callback()
