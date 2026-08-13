@@ -75,6 +75,7 @@ export const MainWindow: React.FC = () => {
   const [wakeWordError, setWakeWordError] = useState<string | null>(null)
   const [showAccessibilityModal, setShowAccessibilityModal] = useState(false)
   const [showXdotoolModal, setShowXdotoolModal] = useState(false)
+  const [showClearConfirmModal, setShowClearConfirmModal] = useState(false)
   const [xdotoolData, setXdotoolData] = useState<{ isWayland?: boolean } | null>(null)
 
   const [dictationHistory, setDictationHistory] = useState<any[]>([])
@@ -113,13 +114,8 @@ export const MainWindow: React.FC = () => {
     }
   }, [fetchHistory])
 
-  const handleClearHistory = async () => {
-    if (window.confirm(t('settings.clearConfirm'))) {
-      if (window.vox?.clearAllSessions) {
-        await window.vox.clearAllSessions()
-        fetchHistory()
-      }
-    }
+  const handleClearHistory = () => {
+    setShowClearConfirmModal(true)
   }
 
   const handleDeleteSession = async (id: string) => {
@@ -620,7 +616,7 @@ export const MainWindow: React.FC = () => {
                           {dictationHistory.length === 0 ? (
                             <p className="text-xs text-text-disabled text-center py-4">{t('type.historyEmpty')}</p>
                           ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[96px] overflow-y-auto pr-1 custom-scrollbar">
                               {dictationHistory.map((item) => (
                                 <div
                                   key={item.id}
@@ -927,6 +923,48 @@ export const MainWindow: React.FC = () => {
                 </div>
               </LiquidGlassCard>
             </motion.div>
+          </motion.div>
+        )}
+
+        {/* Modal de Confirmação de Limpeza de Histórico */}
+        {showClearConfirmModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md"
+          >
+            <LiquidGlassCard className="w-full max-w-md p-6 space-y-5 border border-border/60 shadow-2xl text-left">
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold font-heading tracking-tight text-text-primary">
+                  {t('settings.clearHistory')}
+                </h3>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  {t('settings.clearConfirm')}
+                </p>
+              </div>
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowClearConfirmModal(false)}
+                  className="px-3.5 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer"
+                >
+                  {t('settings.cancel')}
+                </button>
+                <SpecularButton
+                  size="sm"
+                  onClick={async () => {
+                    setShowClearConfirmModal(false)
+                    if (window.vox?.clearAllSessions) {
+                      await window.vox.clearAllSessions()
+                      fetchHistory()
+                    }
+                  }}
+                >
+                  {t('settings.clearHistory')}
+                </SpecularButton>
+              </div>
+            </LiquidGlassCard>
           </motion.div>
         )}
 
