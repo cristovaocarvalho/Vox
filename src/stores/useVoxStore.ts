@@ -50,7 +50,7 @@ export const useVoxStore = create<VoxState>((set) => ({
   setApiKey: (apiKey) => set({ apiKey }),
   sttModel: 'whisper-large-v3-turbo',
   setSttModel: (sttModel) => set({ sttModel }),
-  llmModel: 'openai/gpt-oss-20b',
+  llmModel: 'llama-3.1-8b-instant',
   setLlmModel: (llmModel) => set({ llmModel }),
   shortcutToggle: 'F10',
   setShortcutToggle: (shortcutToggle) => set({ shortcutToggle }),

@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useVoxStore, type AppLocale, type VoxState } from '../../stores/useVoxStore'
 import { useI18n } from '../../i18n'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -25,6 +26,13 @@ import logoImg from '../../assets/logo.png'
 import configImg from '../../assets/config.png'
 import onSound from '../../assets/On.mp3'
 import offSound from '../../assets/Off.mp3'
+
+const prettyModelName = (id: string): string => {
+  const base = id.split('/').pop() || id
+  return base
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
 
 export const MainWindow: React.FC = () => {
   const { t, localeTag } = useI18n()
@@ -70,6 +78,14 @@ export const MainWindow: React.FC = () => {
   const [draftWakeWordSensitivity, setDraftWakeWordSensitivity] = useState(wakeWordSensitivity)
   const [draftLanguage, setDraftLanguage] = useState<AppLocale>(language)
   const [draftAutoStartEnabled, setDraftAutoStartEnabled] = useState(autoStartEnabled)
+  const [draftSttModel, setDraftSttModel] = useState(sttModel)
+  const [draftLlmModel, setDraftLlmModel] = useState(llmModel)
+
+  const [openModelDropdown, setOpenModelDropdown] = useState<'stt' | 'llm' | null>(null)
+  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number; up: boolean } | null>(null)
+  const [availableModels, setAvailableModels] = useState<{ stt: string[]; llm: string[] }>({ stt: [], llm: [] })
+  const [modelsLoading, setModelsLoading] = useState(false)
+  const [modelsError, setModelsError] = useState<string | null>(null)
 
   const [wakeWordModelMissing, setWakeWordModelMissing] = useState(false)
   const [wakeWordError, setWakeWordError] = useState<string | null>(null)
@@ -134,13 +150,66 @@ export const MainWindow: React.FC = () => {
     setDraftWakeWordSensitivity(wakeWordSensitivity)
     setDraftLanguage(language)
     setDraftAutoStartEnabled(autoStartEnabled)
+    setDraftSttModel(sttModel)
+    setDraftLlmModel(llmModel)
     setIsSettingsOpen(true)
+  }
+
+  const loadModels = React.useCallback(async () => {
+    if (!window.vox?.listModels) return
+    setModelsLoading(true)
+    setModelsError(null)
+    try {
+      const res = await window.vox.listModels()
+      if (res?.error) {
+        setModelsError(res.error === 'no-api-key' ? t('settings.modelsNeedApiKey') : t('settings.modelsError'))
+        setAvailableModels({ stt: [], llm: [] })
+      } else {
+        setAvailableModels({ stt: res?.stt || [], llm: res?.llm || [] })
+      }
+    } catch {
+      setModelsError(t('settings.modelsError'))
+      setAvailableModels({ stt: [], llm: [] })
+    } finally {
+      setModelsLoading(false)
+    }
+  }, [t])
+
+  const closeModelDropdown = () => {
+    setOpenModelDropdown(null)
+    setDropdownRect(null)
+  }
+
+  const toggleModelDropdown = (tab: 'stt' | 'llm', e: React.MouseEvent<HTMLButtonElement>) => {
+    if (openModelDropdown === tab) {
+      closeModelDropdown()
+      return
+    }
+    const r = e.currentTarget.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - r.bottom
+    const up = spaceBelow < 300
+    setDropdownRect({ top: up ? r.top - 8 : r.bottom + 6, left: r.left, width: r.width, up })
+    setOpenModelDropdown(tab)
+    if (availableModels.stt.length === 0 && availableModels.llm.length === 0) {
+      loadModels()
+    }
+  }
+
+  const selectModel = (tab: 'stt' | 'llm', id: string) => {
+    if (tab === 'stt') {
+      setDraftSttModel(id)
+    } else {
+      setDraftLlmModel(id)
+    }
+    closeModelDropdown()
   }
 
   const handleSaveSettings = () => {
     const trimmedKey = draftApiKey.trim()
     updateSettings({
       apiKey: trimmedKey,
+      sttModel: draftSttModel,
+      llmModel: draftLlmModel,
       shortcutToggle: draftShortcutToggle,
       shortcutPushToTalk: draftShortcutPushToTalk,
       wakeWordEnabled: draftWakeWordEnabled,
@@ -153,8 +222,8 @@ export const MainWindow: React.FC = () => {
     if (window.vox?.saveSettings) {
       window.vox.saveSettings({
         apiKey: trimmedKey,
-        sttModel,
-        llmModel,
+        sttModel: draftSttModel,
+        llmModel: draftLlmModel,
         shortcutToggle: draftShortcutToggle,
         shortcutPushToTalk: draftShortcutPushToTalk,
         wakeWordEnabled: String(draftWakeWordEnabled),
@@ -816,24 +885,34 @@ export const MainWindow: React.FC = () => {
                     </p>
                   </div>
 
-                  {/* Models (Exibição dos modelos ativos) */}
+                  {/* Models (Seleção de modelos ativos) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
                         {t('settings.sttModel')}
                       </label>
-                      <div className="p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary">
-                        Whisper Large V3 Turbo
-                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => toggleModelDropdown('stt', e)}
+                        className="w-full flex items-center justify-between gap-2 p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary hover:border-border hover:bg-background/80 transition-all duration-250 cursor-pointer"
+                      >
+                        <span className="truncate">{prettyModelName(draftSttModel)}</span>
+                        <IconChevronDown className={`w-3.5 h-3.5 text-text-muted shrink-0 transition-transform duration-250 ${openModelDropdown === 'stt' ? 'rotate-180' : ''}`} />
+                      </button>
                     </div>
 
                     <div>
                       <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
                         {t('settings.llmModel')}
                       </label>
-                      <div className="p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary">
-                        GPT-OSS-20B
-                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => toggleModelDropdown('llm', e)}
+                        className="w-full flex items-center justify-between gap-2 p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary hover:border-border hover:bg-background/80 transition-all duration-250 cursor-pointer"
+                      >
+                        <span className="truncate">{prettyModelName(draftLlmModel)}</span>
+                        <IconChevronDown className={`w-3.5 h-3.5 text-text-muted shrink-0 transition-transform duration-250 ${openModelDropdown === 'llm' ? 'rotate-180' : ''}`} />
+                      </button>
                     </div>
                   </div>
 
@@ -1123,6 +1202,52 @@ export const MainWindow: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {openModelDropdown && dropdownRect && createPortal(
+        <>
+          <div className="fixed inset-0 z-[80]" onClick={closeModelDropdown} />
+          <div
+            className="fixed z-[81]"
+            style={{
+              top: dropdownRect.top,
+              left: dropdownRect.left,
+              width: dropdownRect.width,
+              transform: dropdownRect.up ? 'translateY(-100%)' : undefined
+            }}
+          >
+            <div className="bg-[#16161A]/95 backdrop-blur-xl border border-border/80 rounded-xl shadow-[0_16px_48px_0_rgba(0,0,0,0.65)] p-1.5">
+              {modelsLoading ? (
+                <p className="text-xs text-text-secondary py-6 px-3 text-center">{t('settings.loadingModels')}</p>
+              ) : modelsError ? (
+                <p className="text-xs text-error py-6 px-3 text-center leading-relaxed">{modelsError}</p>
+              ) : (openModelDropdown === 'stt' ? availableModels.stt : availableModels.llm).length === 0 ? (
+                <p className="text-xs text-text-muted py-6 px-3 text-center">{t('settings.noModels')}</p>
+              ) : (
+                <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-1.5">
+                  {(openModelDropdown === 'stt' ? availableModels.stt : availableModels.llm).map((id) => {
+                    const isSelected = (openModelDropdown === 'stt' ? draftSttModel : draftLlmModel) === id
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => selectModel(openModelDropdown, id)}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-xs font-medium text-left transition-colors duration-150 cursor-pointer ${isSelected
+                          ? 'bg-accent/10 text-accent'
+                          : 'text-text-primary hover:bg-surface hover:text-text-primary'
+                          }`}
+                      >
+                        <span className="truncate">{prettyModelName(id)}</span>
+                        {isSelected && <IconCheck className="w-3.5 h-3.5 shrink-0" strokeWidth={2.6} />}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   )
 }

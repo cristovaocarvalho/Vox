@@ -3,6 +3,7 @@ const path = require("path");
 const events = require("events");
 const fs = require("fs");
 const child_process = require("child_process");
+const util = require("util");
 const crypto = require("crypto");
 class AudioRecorder extends events.EventEmitter {
   isRecording = false;
@@ -12,14 +13,16 @@ class AudioRecorder extends events.EventEmitter {
   autoStopOnSilence = false;
   hasSpoken = false;
   silenceTimer = null;
-  silenceDurationMs = 1300;
-  // 1.3s de silêncio para encerramento automático
+  silenceDurationMs = 1500;
+  // 1.5s de silêncio para encerramento automático
   totalLength = 0;
   startRecording(options) {
     this.isRecording = true;
     this.chunks = [];
     this.totalLength = 0;
-    this.autoStopOnSilence = options?.autoStopOnSilence ?? false;
+    if (options?.autoStopOnSilence !== void 0) {
+      this.autoStopOnSilence = options.autoStopOnSilence;
+    }
     this.hasSpoken = false;
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer);
@@ -34,27 +37,34 @@ class AudioRecorder extends events.EventEmitter {
     this.totalLength += chunk.length;
     const energy = this.calculateRmsEnergy(chunk);
     const isSpeech = energy > this.vadThreshold;
-    if (this.autoStopOnSilence) {
-      if (isSpeech) {
-        this.hasSpoken = true;
-        if (this.silenceTimer) {
-          clearTimeout(this.silenceTimer);
-          this.silenceTimer = null;
-        }
-      } else if (this.hasSpoken && !this.silenceTimer) {
-        this.silenceTimer = setTimeout(() => {
-          console.log("[Recorder] 🛑 Silêncio pós-fala detectado, encerrando gravação automaticamente...");
-          this.emit("auto-stop");
-        }, this.silenceDurationMs);
-      }
-    }
+    this.reportSpeech(isSpeech);
     this.emit("energy", { energy, isSpeech });
     return { energy, isSpeech };
+  }
+  reportSpeech(isSpeech) {
+    if (!this.isRecording) return;
+    if (isSpeech) {
+      this.hasSpoken = true;
+    }
+    if (!this.autoStopOnSilence) return;
+    if (isSpeech) {
+      if (this.silenceTimer) {
+        clearTimeout(this.silenceTimer);
+        this.silenceTimer = null;
+      }
+    } else if (!this.silenceTimer) {
+      this.silenceTimer = setTimeout(() => {
+        console.log("[Recorder] 🛑 Silêncio detectado, encerrando gravação automaticamente...");
+        this.emit("auto-stop");
+      }, this.silenceDurationMs);
+    }
+  }
+  getHasSpoken() {
+    return this.hasSpoken;
   }
   stopRecording() {
     this.isRecording = false;
     this.autoStopOnSilence = false;
-    this.hasSpoken = false;
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer);
       this.silenceTimer = null;
@@ -265,7 +275,7 @@ function getAllSettings() {
   const defaults = {
     apiKey: "",
     sttModel: "whisper-large-v3-turbo",
-    llmModel: "openai/gpt-oss-20b",
+    llmModel: "llama-3.1-8b-instant",
     shortcutToggle: "F10",
     shortcutPushToTalk: "F9",
     wakeWordEnabled: "true",
@@ -277,6 +287,9 @@ function getAllSettings() {
   for (const k of Object.keys(defaults)) {
     const val = getSetting(k, defaults[k]);
     if (val) result[k] = val;
+  }
+  if (result.llmModel === "openai/gpt-oss-20b") {
+    result.llmModel = "llama-3.1-8b-instant";
   }
   return result;
 }
@@ -559,7 +572,7 @@ async function transcribeAudio(audioBuffer, language) {
   }
 }
 const GROQ_CHAT_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
-const DEFAULT_LLM_MODEL = "openai/gpt-oss-20b";
+const DEFAULT_LLM_MODEL = "llama-3.1-8b-instant";
 async function correctTranscription(text) {
   if (!text || text.trim().length === 0) return text;
   const apiKey = getSetting("apiKey", "").trim();
@@ -567,8 +580,9 @@ async function correctTranscription(text) {
     console.warn("[Corrector] API Key não configurada, retornando texto original.");
     return text;
   }
-  const model = getSetting("llmModel") || process.env.LLM_MODEL || DEFAULT_LLM_MODEL;
-  console.log(`[Corrector] Revisando texto via Groq (${model})...`);
+  const model = (getSetting("llmModel") || process.env.LLM_MODEL || DEFAULT_LLM_MODEL).trim();
+  const resolvedModel = model === "openai/gpt-oss-20b" || model === "openai/gpt-oss-120b" ? DEFAULT_LLM_MODEL : model;
+  console.log(`[Corrector] Revisando texto via Groq (${resolvedModel})...`);
   try {
     const response = await fetch(GROQ_CHAT_ENDPOINT, {
       method: "POST",
@@ -577,7 +591,7 @@ async function correctTranscription(text) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model,
+        model: resolvedModel,
         messages: [
           {
             role: "system",
@@ -589,7 +603,7 @@ async function correctTranscription(text) {
           }
         ],
         temperature: 0.1,
-        max_tokens: 2048
+        max_tokens: 512
       })
     });
     if (!response.ok) {
@@ -724,74 +738,66 @@ tell application "System Events" to keystroke "v" using command down` : `tell ap
   }
   return { success: true, method: "clipboard-only" };
 }
-let ort = null;
-try {
-  ort = require("onnxruntime-node");
-} catch (err) {
-  console.warn("[WakeWord] onnxruntime-node não pôde ser carregado:", err);
-}
-let recordLpcm = null;
-try {
-  recordLpcm = require("node-record-lpcm16");
-} catch {
+const SAMPLE_RATE = 16e3;
+const MAX_BUFFER_SECONDS = 3;
+const MIN_UTTERANCE_SECONDS = 0.3;
+const SILENCE_END_SECONDS = 0.4;
+const LEAD_IN_SECONDS = 0.15;
+const KEYWORD_VARIANTS = ["vox", "vocs", "voks", "voxs"];
+function float32ToWav(samples, sampleRate = SAMPLE_RATE) {
+  const dataLength = samples.length * 2;
+  const buffer = Buffer.alloc(44 + dataLength);
+  buffer.write("RIFF", 0);
+  buffer.writeUInt32LE(36 + dataLength, 4);
+  buffer.write("WAVE", 8);
+  buffer.write("fmt ", 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(1, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+  buffer.write("data", 36);
+  buffer.writeUInt32LE(dataLength, 40);
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    buffer.writeInt16LE(s < 0 ? s * 32768 : s * 32767, 44 + i * 2);
+  }
+  return buffer;
 }
 class WakeWordDetector extends events.EventEmitter {
   active = false;
   paused = false;
-  session = null;
   sensitivity = 0.5;
-  // 0.0 a 1.0 (50% por padrão)
-  threshold = 0.7;
-  // Derivado da sensibilidade (0.9 - sens * 0.4)
+  vadThreshold = 0.025;
+  modelLoaded = false;
+  audioBuffer = [];
+  maxBufferSamples = SAMPLE_RATE * MAX_BUFFER_SECONDS;
+  minUtteranceSamples = Math.floor(SAMPLE_RATE * MIN_UTTERANCE_SECONDS);
+  silenceSamples = Math.floor(SAMPLE_RATE * SILENCE_END_SECONDS);
+  leadInSamples = Math.floor(SAMPLE_RATE * LEAD_IN_SECONDS);
+  currentIndex = 0;
+  lastSpeechIndex = -1;
+  utteranceStartIndex = -1;
+  hasSpeech = false;
+  transcribing = false;
   lastTriggerTime = 0;
   cooldownMs = 2500;
-  // Cooldown de 2.5s para evitar múltiplos disparos
-  audioBuffer = [];
-  frameSize = 1280;
-  // 1280 amostras = 80ms a 16kHz (exigido pelo openWakeWord)
-  recordingStream = null;
-  modelLoaded = false;
-  isEvaluating = false;
-  nextFrameToEvaluate = null;
+  warnedNoApiKey = false;
   constructor() {
     super();
   }
-  async init(modelPath, sensitivity = 0.5) {
+  async init(_modelPath, sensitivity = 0.5) {
     this.setSensitivity(sensitivity);
-    const defaultModelPath = path.join(process.cwd(), "resources", "models", "wakeword", "vox.onnx");
-    const altModelPath = path.join(__dirname, "..", "..", "resources", "models", "wakeword", "vox.onnx");
-    let finalPath = modelPath || defaultModelPath;
-    if (!fs.existsSync(finalPath) && fs.existsSync(altModelPath)) {
-      finalPath = altModelPath;
-    }
-    if (!fs.existsSync(finalPath)) {
-      console.warn("[WakeWord] Aviso: Modelo vox.onnx não encontrado em:", finalPath);
-      this.modelLoaded = false;
-      this.emit("wakeword-model-missing", { path: finalPath });
-      return false;
-    }
-    if (!ort) {
-      console.error("[WakeWord] Erro: onnxruntime-node não disponível.");
-      this.modelLoaded = false;
-      return false;
-    }
-    try {
-      this.session = await ort.InferenceSession.create(finalPath);
-      this.modelLoaded = true;
-      console.log('[WakeWord] Modelo ONNX "Vox" carregado com sucesso:', finalPath);
-      return true;
-    } catch (err) {
-      console.error('[WakeWord] Erro ao carregar modelo ONNX "Vox":', err);
-      this.modelLoaded = false;
-      this.emit("wakeword-error", { error: err?.message || "Falha ao carregar modelo ONNX" });
-      return false;
-    }
+    this.modelLoaded = true;
+    return true;
   }
   setSensitivity(value) {
     const normalized = Math.max(0, Math.min(1, value));
     this.sensitivity = normalized;
-    this.threshold = 0.9 - normalized * 0.4;
-    console.log(`[WakeWord] Sensibilidade ajustada: ${Math.round(normalized * 100)}% (Threshold: ${this.threshold.toFixed(2)})`);
+    this.vadThreshold = 0.04 - normalized * 0.03;
+    console.log(`[WakeWord] Sensibilidade ajustada: ${Math.round(normalized * 100)}% (VAD Threshold: ${this.vadThreshold.toFixed(3)})`);
   }
   isListening() {
     return this.active && !this.paused;
@@ -801,145 +807,149 @@ class WakeWordDetector extends events.EventEmitter {
   }
   start() {
     if (this.active) return;
-    if (!this.modelLoaded && !this.session) {
-      console.warn("[WakeWord] Tentativa de iniciar listener sem modelo ONNX carregado.");
-      this.emit("wakeword-model-missing", {});
-      return;
-    }
     this.active = true;
     this.paused = false;
-    this.audioBuffer = [];
-    this.startMicStream();
+    this.resetBuffer();
     console.log('[WakeWord] Escuta em segundo plano ativa para a palavra "Vox".');
   }
   stop() {
     this.active = false;
     this.paused = false;
-    this.audioBuffer = [];
-    this.stopMicStream();
+    this.resetBuffer();
     console.log("[WakeWord] Escuta de Wake Word encerrada.");
   }
   pause() {
     if (!this.active) return;
     this.paused = true;
-    this.audioBuffer = [];
+    this.resetBuffer();
     console.log("[WakeWord] Listener pausado temporariamente durante gravação de áudio.");
   }
   resume() {
     if (!this.active) return;
     this.paused = false;
-    this.audioBuffer = [];
+    this.resetBuffer();
     console.log("[WakeWord] Listener retomado.");
-  }
-  startMicStream() {
-  }
-  stopMicStream() {
-  }
-  queueFrameEvaluation(frame) {
-    if (this.isEvaluating) {
-      this.nextFrameToEvaluate = frame;
-      return;
-    }
-    this.isEvaluating = true;
-    this.evaluateFrame(frame).then(() => {
-      this.isEvaluating = false;
-      if (this.nextFrameToEvaluate) {
-        const next = this.nextFrameToEvaluate;
-        this.nextFrameToEvaluate = null;
-        this.queueFrameEvaluation(next);
-      }
-    });
   }
   processAudioChunk(chunk) {
     if (!this.active || this.paused) return;
     const samplesCount = Math.floor(chunk.length / 2);
+    if (samplesCount === 0) return;
+    let sumSq = 0;
     for (let i = 0; i < samplesCount; i++) {
       const sample = chunk.readInt16LE(i * 2) / 32768;
       this.audioBuffer.push(sample);
+      sumSq += sample * sample;
     }
-    let offset = 0;
-    while (offset + this.frameSize <= this.audioBuffer.length) {
-      const frame = this.audioBuffer.slice(offset, offset + this.frameSize);
-      offset += this.frameSize;
-      this.queueFrameEvaluation(frame);
+    this.currentIndex += samplesCount;
+    if (this.audioBuffer.length > this.maxBufferSamples) {
+      this.audioBuffer.splice(0, this.audioBuffer.length - this.maxBufferSamples);
     }
-    if (offset > 0) {
-      this.audioBuffer = this.audioBuffer.slice(offset);
+    const rms = Math.sqrt(sumSq / samplesCount);
+    if (rms > this.vadThreshold) {
+      if (!this.hasSpeech) {
+        this.utteranceStartIndex = Math.max(0, this.currentIndex - samplesCount);
+      }
+      this.hasSpeech = true;
+      this.lastSpeechIndex = this.currentIndex;
+    }
+    if (this.hasSpeech && !this.transcribing && this.currentIndex - this.lastSpeechIndex >= this.silenceSamples) {
+      this.onUtteranceEnd();
     }
   }
-  async evaluateFrame(samples) {
+  resetBuffer() {
+    this.audioBuffer = [];
+    this.currentIndex = 0;
+    this.lastSpeechIndex = -1;
+    this.utteranceStartIndex = -1;
+    this.hasSpeech = false;
+  }
+  async onUtteranceEnd() {
     const now = Date.now();
-    if (now - this.lastTriggerTime < this.cooldownMs) return;
-    let ranOnnx = false;
-    if (this.session && ort) {
-      try {
-        const tensor = new ort.Tensor("float32", Float32Array.from(samples), [1, samples.length]);
-        const feeds = {};
-        const inputName = this.session.inputNames[0] || "input";
-        feeds[inputName] = tensor;
-        const results = await this.session.run(feeds);
-        const outputName = this.session.outputNames[0] || "output";
-        const outputTensor = results[outputName];
-        if (outputTensor && outputTensor.data) {
-          const score = outputTensor.data[0];
-          if (score >= this.threshold) {
-            this.triggerDetection(score);
-          }
-        }
-        ranOnnx = true;
-      } catch {
-        ranOnnx = false;
-      }
+    if (now - this.lastTriggerTime < this.cooldownMs) {
+      this.hasSpeech = false;
+      return;
     }
-    if (!ranOnnx) {
-      let sumSq = 0;
-      for (let i = 0; i < samples.length; i++) {
-        sumSq += samples[i] * samples[i];
+    const bufferStart = this.currentIndex - this.audioBuffer.length;
+    let startOffset = 0;
+    if (this.utteranceStartIndex >= 0) {
+      startOffset = Math.max(0, this.utteranceStartIndex - bufferStart - this.leadInSamples);
+    }
+    const utterance = this.audioBuffer.slice(startOffset);
+    if (utterance.length < this.minUtteranceSamples) {
+      this.hasSpeech = false;
+      return;
+    }
+    const apiKey = getSetting("apiKey", "").trim();
+    if (!apiKey) {
+      if (!this.warnedNoApiKey) {
+        this.warnedNoApiKey = true;
+        console.warn('[WakeWord] API Key não configurada — a detecção da palavra "Vox" depende da transcrição (Groq).');
       }
-      const rms = Math.sqrt(sumSq / samples.length);
-      const dynamicThreshold = 0.25 * (1.1 - this.sensitivity);
-      if (rms > dynamicThreshold) {
-        this.triggerDetection(rms);
+      this.hasSpeech = false;
+      this.resetBuffer();
+      return;
+    }
+    this.transcribing = true;
+    this.resetBuffer();
+    try {
+      const wav = float32ToWav(utterance);
+      const result = await transcribeAudio(wav);
+      const text = (result.text || "").trim();
+      console.log("[WakeWord] Transcrição para detecção:", text);
+      if (this.matchesKeyword(text)) {
+        this.triggerDetection();
       }
+    } catch (err) {
+      console.warn("[WakeWord] Falha ao transcrever para detecção:", err);
+    } finally {
+      this.transcribing = false;
     }
   }
-  triggerDetection(score) {
+  matchesKeyword(text) {
+    if (!text || text.startsWith("[")) return false;
+    const normalized = text.toLowerCase().replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
+    if (!normalized) return false;
+    const words = normalized.split(" ");
+    return words.some((w) => KEYWORD_VARIANTS.includes(w));
+  }
+  triggerDetection() {
     const now = Date.now();
     this.lastTriggerTime = now;
-    console.log(`[WakeWord] 🎙️ Wake Word "Vox" detectada! Score: ${score.toFixed(3)} (Threshold: ${this.threshold.toFixed(2)})`);
-    this.emit("detected", { keyword: "Vox", score, timestamp: now });
+    console.log('[WakeWord] Palavra "Vox" detectada!');
+    this.emit("detected", { keyword: "Vox", timestamp: now });
   }
 }
 const wakewordDetector = new WakeWordDetector();
 const { app, BrowserWindow, ipcMain, globalShortcut, screen, dialog, Tray, Menu, nativeImage, shell, systemPreferences } = require("electron");
+const execFileAsync = util.promisify(child_process.execFile);
 let mainWindow = null;
 let dockWindow = null;
 let tray = null;
 let targetWindowRef = null;
 let isQuitting = false;
 let isDockHiding = false;
-function captureActiveWindow() {
+async function captureActiveWindow() {
   try {
     if (process.platform === "win32") {
-      const result = child_process.execFileSync("powershell", [
+      const { stdout } = await execFileAsync("powershell", [
         "-NoProfile",
         "-WindowStyle",
         "Hidden",
         "-Command",
         `(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();' -Name FGW -Namespace VOX -PassThru)::GetForegroundWindow()`
       ], { timeout: 1500, encoding: "utf8" });
-      const hwnd = result.trim();
+      const hwnd = stdout.trim();
       targetWindowRef = hwnd ? { hwnd } : null;
     } else if (process.platform === "darwin") {
-      const result = child_process.execFileSync("osascript", [
+      const { stdout } = await execFileAsync("osascript", [
         "-e",
         'tell application "System Events" to get name of first process whose frontmost is true'
       ], { timeout: 1500, encoding: "utf8" });
-      const appName = result.trim();
+      const appName = stdout.trim();
       targetWindowRef = appName ? { appName } : null;
     } else if (process.platform === "linux") {
-      const result = child_process.execFileSync("xdotool", ["getactivewindow"], { timeout: 1500, encoding: "utf8" });
-      const windowId = result.trim();
+      const { stdout } = await execFileAsync("xdotool", ["getactivewindow"], { timeout: 1500, encoding: "utf8" });
+      const windowId = stdout.trim();
       targetWindowRef = windowId ? { windowId } : null;
     }
   } catch {
@@ -1084,6 +1094,34 @@ async function processTranscriptionResult(buffer) {
   }
   return result;
 }
+const GROQ_MODELS_ENDPOINT = "https://api.groq.com/openai/v1/models";
+async function fetchAvailableModels() {
+  const apiKey = getSetting("apiKey", "").trim();
+  if (!apiKey) {
+    return { stt: [], llm: [], error: "no-api-key" };
+  }
+  const response = await fetch(GROQ_MODELS_ENDPOINT, {
+    headers: { "Authorization": `Bearer ${apiKey}` }
+  });
+  if (!response.ok) {
+    console.warn(`[Main] Erro ao listar modelos (${response.status})`);
+    return { stt: [], llm: [], error: `http-${response.status}` };
+  }
+  const data = await response.json();
+  const list = Array.isArray(data?.data) ? data.data : [];
+  const stt = [];
+  const llm = [];
+  for (const m of list) {
+    const id = (m.id || "").trim();
+    if (!id || m.active === false) continue;
+    if (/whisper|distil-whisper/i.test(id)) {
+      stt.push(id);
+    } else {
+      llm.push(id);
+    }
+  }
+  return { stt: stt.sort(), llm: llm.sort() };
+}
 function setupIpcHandlers() {
   recorder.on("energy", (data) => {
     if (dockWindow && !dockWindow.isDestroyed()) {
@@ -1102,6 +1140,7 @@ function setupIpcHandlers() {
   ipcMain.handle("vox:stop-recording", async (_event, audioData) => {
     console.log("[Main] IPC vox:stop-recording acionado");
     hideDock();
+    const hadSpeech = recorder.getHasSpoken();
     let buffer;
     if (audioData && audioData.byteLength > 0) {
       buffer = Buffer.from(audioData);
@@ -1109,10 +1148,15 @@ function setupIpcHandlers() {
     } else {
       buffer = recorder.stopRecording();
     }
+    if (!hadSpeech) {
+      console.log("[Main] Nenhuma fala detectada, ignorando transcrição.");
+      return { text: "" };
+    }
     return processTranscriptionResult(buffer);
   });
   ipcMain.on("vox:audio-level", (_event, energy) => {
     const data = { energy, isSpeech: energy > 0.02 };
+    recorder.reportSpeech(data.isSpeech);
     if (dockWindow && !dockWindow.isDestroyed()) {
       dockWindow.webContents.send("vox:volume-update", data);
     }
@@ -1229,6 +1273,14 @@ function setupIpcHandlers() {
     wakewordDetector.setSensitivity(sensitivity);
     return { success: true };
   });
+  ipcMain.handle("vox:list-models", async () => {
+    try {
+      return await fetchAvailableModels();
+    } catch (err) {
+      console.error("[Main] Erro ao listar modelos:", err);
+      return { stt: [], llm: [], error: "unknown" };
+    }
+  });
   ipcMain.handle("vox:open-accessibility-preferences", () => {
     if (process.platform === "darwin") {
       try {
@@ -1271,33 +1323,37 @@ function toggleDockWindow() {
   if (isVisible) {
     hideDock();
   } else {
-    captureActiveWindow();
+    void captureActiveWindow();
     showDock();
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("vox:toggle-recording", !isVisible);
   }
 }
-let f9ReleaseTimer = null;
-function handleGlobalPushToTalk() {
+let isPushToTalkActive = false;
+function startPushToTalk() {
   if (!dockWindow) return;
-  if (!dockWindow.isVisible()) {
-    captureActiveWindow();
-    showDock();
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("vox:toggle-recording", true);
-    }
+  if (recorder.getIsRecording()) return;
+  void captureActiveWindow();
+  showDock();
+  recorder.startRecording({ autoStopOnSilence: process.platform !== "win32" });
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("vox:toggle-recording", true);
   }
-  if (f9ReleaseTimer) {
-    clearTimeout(f9ReleaseTimer);
+  isPushToTalkActive = true;
+  if (process.platform === "win32") {
+    const psScript = `Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);' -Name KS -Namespace VOX; while (([VOX.KS]::GetAsyncKeyState(0x78) -band 0x8000) -ne 0) { Start-Sleep -Milliseconds 30 }`;
+    const encoded = Buffer.from(psScript, "utf16le").toString("base64");
+    execFileAsync("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-EncodedCommand", encoded], { timeout: 6e4 }).then(() => stopPushToTalk()).catch(() => stopPushToTalk());
   }
-  f9ReleaseTimer = setTimeout(() => {
-    hideDock();
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send("vox:toggle-recording", false);
-    }
-    f9ReleaseTimer = null;
-  }, 180);
+}
+function stopPushToTalk() {
+  if (!isPushToTalkActive) return;
+  isPushToTalkActive = false;
+  hideDock();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("vox:toggle-recording", false);
+  }
 }
 app.whenReady().then(async () => {
   initDatabase();
@@ -1310,10 +1366,10 @@ app.whenReady().then(async () => {
   wakewordDetector.on("detected", () => {
     if (recorder.getIsRecording()) return;
     console.log('[Main] 🎙️ Wake Word "Vox" detectada! Capturando janela ativa e iniciando ditado por voz...');
-    captureActiveWindow();
-    showDock();
     wakewordDetector.pause();
     recorder.startRecording({ autoStopOnSilence: true });
+    void captureActiveWindow();
+    showDock();
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("vox:toggle-recording", true);
       mainWindow.webContents.send("vox:wakeword-fired");
@@ -1334,6 +1390,7 @@ app.whenReady().then(async () => {
   });
   recorder.on("auto-stop", async () => {
     console.log("[Main] Finalizando gravação por encerramento de fala...");
+    isPushToTalkActive = false;
     hideDock();
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("vox:toggle-recording", false);
@@ -1355,7 +1412,7 @@ app.whenReady().then(async () => {
     console.warn("[Main] Erro ao configurar autostart:", err);
   }
   globalShortcut.register("F10", toggleDockWindow);
-  globalShortcut.register("F9", handleGlobalPushToTalk);
+  globalShortcut.register("F9", startPushToTalk);
   const iconPath = getAppIconPath();
   const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
   tray = new Tray(trayIcon);

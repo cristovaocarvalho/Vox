@@ -191,7 +191,7 @@ export function getAllSettings() {
   const defaults = {
     apiKey: '',
     sttModel: 'whisper-large-v3-turbo',
-    llmModel: 'openai/gpt-oss-20b',
+    llmModel: 'llama-3.1-8b-instant',
     shortcutToggle: 'F10',
     shortcutPushToTalk: 'F9',
     wakeWordEnabled: 'true',
@@ -205,6 +205,10 @@ export function getAllSettings() {
   for (const k of Object.keys(defaults)) {
     const val = getSetting(k, defaults[k as keyof typeof defaults])
     if (val) result[k] = val
+  }
+
+  if (result.llmModel === 'openai/gpt-oss-20b') {
+    result.llmModel = 'llama-3.1-8b-instant'
   }
 
   return result

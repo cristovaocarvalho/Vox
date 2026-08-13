@@ -1,89 +1,82 @@
 /**
- * Módulo de Wake Word (Detecção de Palavra de Ativação Offline "Vox")
- * Utiliza ONNX Runtime (onnxruntime-node) e openWakeWord para processamento 100% offline.
+ * Módulo de Wake Word (Detecção da Palavra de Ativação "Vox")
+ * Detecta a palavra "Vox" transcrevendo enunciados curtos via STT (Groq/Whisper)
+ * e verificando se a transcrição corresponde à palavra-chave.
  */
 
-import path from 'path'
-import fs from 'fs'
 import { EventEmitter } from 'events'
+import { transcribeAudio } from './stt'
+import { getSetting } from './db'
 
-let ort: typeof import('onnxruntime-node') | null = null
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  ort = require('onnxruntime-node')
-} catch (err) {
-  console.warn('[WakeWord] onnxruntime-node não pôde ser carregado:', err)
-}
+const SAMPLE_RATE = 16000
+const MAX_BUFFER_SECONDS = 3
+const MIN_UTTERANCE_SECONDS = 0.3
+const SILENCE_END_SECONDS = 0.4
+const LEAD_IN_SECONDS = 0.15
 
-let recordLpcm: any = null
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  recordLpcm = require('node-record-lpcm16')
-} catch {
-  // node-record-lpcm16 opcional
+const KEYWORD_VARIANTS = ['vox', 'vocs', 'voks', 'voxs']
+
+function float32ToWav(samples: number[], sampleRate = SAMPLE_RATE): Buffer {
+  const dataLength = samples.length * 2
+  const buffer = Buffer.alloc(44 + dataLength)
+
+  buffer.write('RIFF', 0)
+  buffer.writeUInt32LE(36 + dataLength, 4)
+  buffer.write('WAVE', 8)
+  buffer.write('fmt ', 12)
+  buffer.writeUInt32LE(16, 16)
+  buffer.writeUInt16LE(1, 20)
+  buffer.writeUInt16LE(1, 22)
+  buffer.writeUInt32LE(sampleRate, 24)
+  buffer.writeUInt32LE(sampleRate * 2, 28)
+  buffer.writeUInt16LE(2, 32)
+  buffer.writeUInt16LE(16, 34)
+  buffer.write('data', 36)
+  buffer.writeUInt32LE(dataLength, 40)
+
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]))
+    buffer.writeInt16LE(s < 0 ? s * 0x8000 : s * 0x7fff, 44 + i * 2)
+  }
+
+  return buffer
 }
 
 export class WakeWordDetector extends EventEmitter {
   private active = false
   private paused = false
-  private session: any = null
-  private sensitivity = 0.5 // 0.0 a 1.0 (50% por padrão)
-  private threshold = 0.70 // Derivado da sensibilidade (0.9 - sens * 0.4)
-  private lastTriggerTime = 0
-  private cooldownMs = 2500 // Cooldown de 2.5s para evitar múltiplos disparos
-  private audioBuffer: number[] = []
-  private frameSize = 1280 // 1280 amostras = 80ms a 16kHz (exigido pelo openWakeWord)
-  private recordingStream: any = null
+  private sensitivity = 0.5
+  private vadThreshold = 0.025
   private modelLoaded = false
-  private isEvaluating = false
-  private nextFrameToEvaluate: number[] | null = null
+  private audioBuffer: number[] = []
+  private maxBufferSamples = SAMPLE_RATE * MAX_BUFFER_SECONDS
+  private minUtteranceSamples = Math.floor(SAMPLE_RATE * MIN_UTTERANCE_SECONDS)
+  private silenceSamples = Math.floor(SAMPLE_RATE * SILENCE_END_SECONDS)
+  private leadInSamples = Math.floor(SAMPLE_RATE * LEAD_IN_SECONDS)
+  private currentIndex = 0
+  private lastSpeechIndex = -1
+  private utteranceStartIndex = -1
+  private hasSpeech = false
+  private transcribing = false
+  private lastTriggerTime = 0
+  private cooldownMs = 2500
+  private warnedNoApiKey = false
 
   constructor() {
     super()
   }
 
-  public async init(modelPath?: string, sensitivity = 0.5): Promise<boolean> {
+  public async init(_modelPath?: string, sensitivity = 0.5): Promise<boolean> {
     this.setSensitivity(sensitivity)
-    const defaultModelPath = path.join(process.cwd(), 'resources', 'models', 'wakeword', 'vox.onnx')
-    const altModelPath = path.join(__dirname, '..', '..', 'resources', 'models', 'wakeword', 'vox.onnx')
-
-    let finalPath = modelPath || defaultModelPath
-    if (!fs.existsSync(finalPath) && fs.existsSync(altModelPath)) {
-      finalPath = altModelPath
-    }
-
-    if (!fs.existsSync(finalPath)) {
-      console.warn('[WakeWord] Aviso: Modelo vox.onnx não encontrado em:', finalPath)
-      this.modelLoaded = false
-      this.emit('wakeword-model-missing', { path: finalPath })
-      return false
-    }
-
-    if (!ort) {
-      console.error('[WakeWord] Erro: onnxruntime-node não disponível.')
-      this.modelLoaded = false
-      return false
-    }
-
-    try {
-      this.session = await ort.InferenceSession.create(finalPath)
-      this.modelLoaded = true
-      console.log('[WakeWord] Modelo ONNX "Vox" carregado com sucesso:', finalPath)
-      return true
-    } catch (err: any) {
-      console.error('[WakeWord] Erro ao carregar modelo ONNX "Vox":', err)
-      this.modelLoaded = false
-      this.emit('wakeword-error', { error: err?.message || 'Falha ao carregar modelo ONNX' })
-      return false
-    }
+    this.modelLoaded = true
+    return true
   }
 
   public setSensitivity(value: number) {
-    // Sensibilidade de 0 a 1 -> Threshold de 0.9 a 0.5 (invertido)
     const normalized = Math.max(0.0, Math.min(1.0, value))
     this.sensitivity = normalized
-    this.threshold = 0.9 - (normalized * 0.4)
-    console.log(`[WakeWord] Sensibilidade ajustada: ${Math.round(normalized * 100)}% (Threshold: ${this.threshold.toFixed(2)})`)
+    this.vadThreshold = 0.04 - normalized * 0.03
+    console.log(`[WakeWord] Sensibilidade ajustada: ${Math.round(normalized * 100)}% (VAD Threshold: ${this.vadThreshold.toFixed(3)})`)
   }
 
   public isListening(): boolean {
@@ -96,142 +89,146 @@ export class WakeWordDetector extends EventEmitter {
 
   public start() {
     if (this.active) return
-    if (!this.modelLoaded && !this.session) {
-      console.warn('[WakeWord] Tentativa de iniciar listener sem modelo ONNX carregado.')
-      this.emit('wakeword-model-missing', {})
-      return
-    }
-
     this.active = true
     this.paused = false
-    this.audioBuffer = []
-
-    this.startMicStream()
+    this.resetBuffer()
     console.log('[WakeWord] Escuta em segundo plano ativa para a palavra "Vox".')
   }
 
   public stop() {
     this.active = false
     this.paused = false
-    this.audioBuffer = []
-    this.stopMicStream()
+    this.resetBuffer()
     console.log('[WakeWord] Escuta de Wake Word encerrada.')
   }
 
   public pause() {
     if (!this.active) return
     this.paused = true
-    this.audioBuffer = []
+    this.resetBuffer()
     console.log('[WakeWord] Listener pausado temporariamente durante gravação de áudio.')
   }
 
   public resume() {
     if (!this.active) return
     this.paused = false
-    this.audioBuffer = []
+    this.resetBuffer()
     console.log('[WakeWord] Listener retomado.')
-  }
-
-  private startMicStream() {
-    // No-op: Audio stream is captured in the renderer and sent via IPC
-  }
-
-  private stopMicStream() {
-    // No-op
-  }
-
-  private queueFrameEvaluation(frame: number[]) {
-    if (this.isEvaluating) {
-      this.nextFrameToEvaluate = frame
-      return
-    }
-
-    this.isEvaluating = true
-    this.evaluateFrame(frame).then(() => {
-      this.isEvaluating = false
-      if (this.nextFrameToEvaluate) {
-        const next = this.nextFrameToEvaluate
-        this.nextFrameToEvaluate = null
-        this.queueFrameEvaluation(next)
-      }
-    })
   }
 
   public processAudioChunk(chunk: Buffer) {
     if (!this.active || this.paused) return
 
-    // Converte PCM 16-bit LE para Float32 (-1.0 a 1.0)
     const samplesCount = Math.floor(chunk.length / 2)
+    if (samplesCount === 0) return
+
+    let sumSq = 0
     for (let i = 0; i < samplesCount; i++) {
       const sample = chunk.readInt16LE(i * 2) / 32768.0
       this.audioBuffer.push(sample)
+      sumSq += sample * sample
+    }
+    this.currentIndex += samplesCount
+
+    if (this.audioBuffer.length > this.maxBufferSamples) {
+      this.audioBuffer.splice(0, this.audioBuffer.length - this.maxBufferSamples)
     }
 
-    // Processa em janelas de 1280 amostras (~80ms a 16kHz)
-    let offset = 0
-    while (offset + this.frameSize <= this.audioBuffer.length) {
-      const frame = this.audioBuffer.slice(offset, offset + this.frameSize)
-      offset += this.frameSize
-      this.queueFrameEvaluation(frame)
+    const rms = Math.sqrt(sumSq / samplesCount)
+    if (rms > this.vadThreshold) {
+      if (!this.hasSpeech) {
+        this.utteranceStartIndex = Math.max(0, this.currentIndex - samplesCount)
+      }
+      this.hasSpeech = true
+      this.lastSpeechIndex = this.currentIndex
     }
 
-    // Compact: remove processed samples
-    if (offset > 0) {
-      this.audioBuffer = this.audioBuffer.slice(offset)
+    if (
+      this.hasSpeech &&
+      !this.transcribing &&
+      this.currentIndex - this.lastSpeechIndex >= this.silenceSamples
+    ) {
+      this.onUtteranceEnd()
     }
   }
 
-  private async evaluateFrame(samples: number[]) {
+  private resetBuffer() {
+    this.audioBuffer = []
+    this.currentIndex = 0
+    this.lastSpeechIndex = -1
+    this.utteranceStartIndex = -1
+    this.hasSpeech = false
+  }
+
+  private async onUtteranceEnd() {
     const now = Date.now()
-    if (now - this.lastTriggerTime < this.cooldownMs) return
-
-    let ranOnnx = false
-    if (this.session && ort) {
-      try {
-        const tensor = new ort.Tensor('float32', Float32Array.from(samples), [1, samples.length])
-        const feeds: Record<string, any> = {}
-        const inputName = this.session.inputNames[0] || 'input'
-        feeds[inputName] = tensor
-
-        const results = await this.session.run(feeds)
-        const outputName = this.session.outputNames[0] || 'output'
-        const outputTensor = results[outputName]
-
-        if (outputTensor && outputTensor.data) {
-          const score = outputTensor.data[0] as number
-          if (score >= this.threshold) {
-            this.triggerDetection(score)
-          }
-        }
-        ranOnnx = true
-      } catch {
-        // ONNX threw exception (e.g. invalid rank for vox.onnx openWakeWord model)
-        // We log it in debug/warn and fallback to VAD algorithm
-        ranOnnx = false
-      }
+    if (now - this.lastTriggerTime < this.cooldownMs) {
+      this.hasSpeech = false
+      return
     }
 
-    if (!ranOnnx) {
-      // Algoritmo de VAD e Burst Peak adaptativo para acionamento sem modelo pesado
-      let sumSq = 0
-      for (let i = 0; i < samples.length; i++) {
-        sumSq += samples[i] * samples[i]
+    const bufferStart = this.currentIndex - this.audioBuffer.length
+    let startOffset = 0
+    if (this.utteranceStartIndex >= 0) {
+      startOffset = Math.max(0, this.utteranceStartIndex - bufferStart - this.leadInSamples)
+    }
+    const utterance = this.audioBuffer.slice(startOffset)
+
+    if (utterance.length < this.minUtteranceSamples) {
+      this.hasSpeech = false
+      return
+    }
+
+    const apiKey = getSetting('apiKey', '').trim()
+    if (!apiKey) {
+      if (!this.warnedNoApiKey) {
+        this.warnedNoApiKey = true
+        console.warn('[WakeWord] API Key não configurada — a detecção da palavra "Vox" depende da transcrição (Groq).')
       }
-      const rms = Math.sqrt(sumSq / samples.length)
-      
-      // Limiar dinâmico baseado na sensibilidade configurada
-      const dynamicThreshold = 0.25 * (1.1 - this.sensitivity)
-      if (rms > dynamicThreshold) {
-        this.triggerDetection(rms)
+      this.hasSpeech = false
+      this.resetBuffer()
+      return
+    }
+
+    this.transcribing = true
+    this.resetBuffer()
+
+    try {
+      const wav = float32ToWav(utterance)
+      const result = await transcribeAudio(wav)
+      const text = (result.text || '').trim()
+      console.log('[WakeWord] Transcrição para detecção:', text)
+
+      if (this.matchesKeyword(text)) {
+        this.triggerDetection()
       }
+    } catch (err) {
+      console.warn('[WakeWord] Falha ao transcrever para detecção:', err)
+    } finally {
+      this.transcribing = false
     }
   }
 
-  private triggerDetection(score: number) {
+  private matchesKeyword(text: string): boolean {
+    if (!text || text.startsWith('[')) return false
+
+    const normalized = text
+      .toLowerCase()
+      .replace(/[^a-z\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    if (!normalized) return false
+
+    const words = normalized.split(' ')
+    return words.some((w) => KEYWORD_VARIANTS.includes(w))
+  }
+
+  private triggerDetection() {
     const now = Date.now()
     this.lastTriggerTime = now
-    console.log(`[WakeWord] 🎙️ Wake Word "Vox" detectada! Score: ${score.toFixed(3)} (Threshold: ${this.threshold.toFixed(2)})`)
-    this.emit('detected', { keyword: 'Vox', score, timestamp: now })
+    console.log('[WakeWord] Palavra "Vox" detectada!')
+    this.emit('detected', { keyword: 'Vox', timestamp: now })
   }
 }
 

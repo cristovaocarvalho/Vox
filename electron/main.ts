@@ -7,10 +7,13 @@ import { transcribeAudio } from './modules/stt'
 import { correctTranscription } from './modules/corrector'
 import { injectText, WindowRef } from './modules/injector'
 
-import { initDatabase, getAllSettings, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, Session } from './modules/db'
+import { initDatabase, getAllSettings, getSetting, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, Session } from './modules/db'
 import wakewordDetector from './modules/wakeword'
-import { execFileSync } from 'child_process'
+import { execFile } from 'child_process'
+import { promisify } from 'util'
 import crypto from 'crypto'
+
+const execFileAsync = promisify(execFile)
 
 let mainWindow: BrowserWindowType | null = null
 let dockWindow: BrowserWindowType | null = null
@@ -19,24 +22,24 @@ let targetWindowRef: WindowRef | null = null
 let isQuitting = false
 let isDockHiding = false
 
-function captureActiveWindow(): WindowRef | null {
+async function captureActiveWindow(): Promise<WindowRef | null> {
   try {
     if (process.platform === 'win32') {
-      const result = execFileSync('powershell', [
+      const { stdout } = await execFileAsync('powershell', [
         '-NoProfile', '-WindowStyle', 'Hidden', '-Command',
         `(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();' -Name FGW -Namespace VOX -PassThru)::GetForegroundWindow()`
-      ], { timeout: 1500, encoding: 'utf8' }) as string
-      const hwnd = result.trim()
+      ], { timeout: 1500, encoding: 'utf8' })
+      const hwnd = stdout.trim()
       targetWindowRef = hwnd ? { hwnd } : null
     } else if (process.platform === 'darwin') {
-      const result = execFileSync('osascript', [
+      const { stdout } = await execFileAsync('osascript', [
         '-e', 'tell application "System Events" to get name of first process whose frontmost is true'
-      ], { timeout: 1500, encoding: 'utf8' }) as string
-      const appName = result.trim()
+      ], { timeout: 1500, encoding: 'utf8' })
+      const appName = stdout.trim()
       targetWindowRef = appName ? { appName } : null
     } else if (process.platform === 'linux') {
-      const result = execFileSync('xdotool', ['getactivewindow'], { timeout: 1500, encoding: 'utf8' }) as string
-      const windowId = result.trim()
+      const { stdout } = await execFileAsync('xdotool', ['getactivewindow'], { timeout: 1500, encoding: 'utf8' })
+      const windowId = stdout.trim()
       targetWindowRef = windowId ? { windowId } : null
     }
   } catch {
@@ -202,6 +205,41 @@ async function processTranscriptionResult(buffer: Buffer): Promise<{ text: strin
   return result
 }
 
+const GROQ_MODELS_ENDPOINT = 'https://api.groq.com/openai/v1/models'
+
+async function fetchAvailableModels(): Promise<{ stt: string[]; llm: string[]; error?: string }> {
+  const apiKey = getSetting('apiKey', '').trim()
+  if (!apiKey) {
+    return { stt: [], llm: [], error: 'no-api-key' }
+  }
+
+  const response = await fetch(GROQ_MODELS_ENDPOINT, {
+    headers: { 'Authorization': `Bearer ${apiKey}` }
+  })
+
+  if (!response.ok) {
+    console.warn(`[Main] Erro ao listar modelos (${response.status})`)
+    return { stt: [], llm: [], error: `http-${response.status}` }
+  }
+
+  const data = await response.json()
+  const list: { id?: string; active?: boolean }[] = Array.isArray(data?.data) ? data.data : []
+
+  const stt: string[] = []
+  const llm: string[] = []
+  for (const m of list) {
+    const id = (m.id || '').trim()
+    if (!id || m.active === false) continue
+    if (/whisper|distil-whisper/i.test(id)) {
+      stt.push(id)
+    } else {
+      llm.push(id)
+    }
+  }
+
+  return { stt: stt.sort(), llm: llm.sort() }
+}
+
 function setupIpcHandlers() {
   recorder.on('energy', (data: { energy: number; isSpeech: boolean }) => {
     if (dockWindow && !dockWindow.isDestroyed()) {
@@ -223,6 +261,8 @@ function setupIpcHandlers() {
     console.log('[Main] IPC vox:stop-recording acionado')
     hideDock()
 
+    const hadSpeech = recorder.getHasSpoken()
+
     let buffer: Buffer
     if (audioData && audioData.byteLength > 0) {
       buffer = Buffer.from(audioData)
@@ -231,11 +271,17 @@ function setupIpcHandlers() {
       buffer = recorder.stopRecording()
     }
 
+    if (!hadSpeech) {
+      console.log('[Main] Nenhuma fala detectada, ignorando transcrição.')
+      return { text: '' }
+    }
+
     return processTranscriptionResult(buffer)
   })
 
   ipcMain.on('vox:audio-level', (_event: unknown, energy: number) => {
     const data = { energy, isSpeech: energy > 0.02 }
+    recorder.reportSpeech(data.isSpeech)
     if (dockWindow && !dockWindow.isDestroyed()) {
       dockWindow.webContents.send('vox:volume-update', data)
     }
@@ -369,6 +415,15 @@ function setupIpcHandlers() {
     return { success: true }
   })
 
+  ipcMain.handle('vox:list-models', async () => {
+    try {
+      return await fetchAvailableModels()
+    } catch (err) {
+      console.error('[Main] Erro ao listar modelos:', err)
+      return { stt: [], llm: [], error: 'unknown' }
+    }
+  })
+
   ipcMain.handle('vox:open-accessibility-preferences', () => {
     if (process.platform === 'darwin') {
       try {
@@ -420,7 +475,7 @@ function toggleDockWindow() {
   if (isVisible) {
     hideDock()
   } else {
-    captureActiveWindow()
+    void captureActiveWindow()
     showDock()
   }
 
@@ -429,30 +484,36 @@ function toggleDockWindow() {
   }
 }
 
-let f9ReleaseTimer: NodeJS.Timeout | null = null
+let isPushToTalkActive = false
 
-function handleGlobalPushToTalk() {
+function startPushToTalk() {
   if (!dockWindow) return
+  if (recorder.getIsRecording()) return
 
-  if (!dockWindow.isVisible()) {
-    captureActiveWindow()
-    showDock()
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('vox:toggle-recording', true)
-    }
+  void captureActiveWindow()
+  showDock()
+  recorder.startRecording({ autoStopOnSilence: process.platform !== 'win32' })
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('vox:toggle-recording', true)
   }
+  isPushToTalkActive = true
 
-  if (f9ReleaseTimer) {
-    clearTimeout(f9ReleaseTimer)
+  if (process.platform === 'win32') {
+    const psScript = 'Add-Type -MemberDefinition \'[DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);\' -Name KS -Namespace VOX; while (([VOX.KS]::GetAsyncKeyState(0x78) -band 0x8000) -ne 0) { Start-Sleep -Milliseconds 30 }'
+    const encoded = Buffer.from(psScript, 'utf16le').toString('base64')
+    execFileAsync('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', encoded], { timeout: 60000 })
+      .then(() => stopPushToTalk())
+      .catch(() => stopPushToTalk())
   }
+}
 
-  f9ReleaseTimer = setTimeout(() => {
-    hideDock()
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('vox:toggle-recording', false)
-    }
-    f9ReleaseTimer = null
-  }, 180)
+function stopPushToTalk() {
+  if (!isPushToTalkActive) return
+  isPushToTalkActive = false
+  hideDock()
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('vox:toggle-recording', false)
+  }
 }
 
 app.whenReady().then(async () => {
@@ -470,10 +531,10 @@ app.whenReady().then(async () => {
   wakewordDetector.on('detected', () => {
     if (recorder.getIsRecording()) return
     console.log('[Main] 🎙️ Wake Word "Vox" detectada! Capturando janela ativa e iniciando ditado por voz...')
-    captureActiveWindow()
-    showDock()
     wakewordDetector.pause()
     recorder.startRecording({ autoStopOnSilence: true })
+    void captureActiveWindow()
+    showDock()
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('vox:toggle-recording', true)
       mainWindow.webContents.send('vox:wakeword-fired')
@@ -498,6 +559,7 @@ app.whenReady().then(async () => {
   // Encerramento automático quando o usuário para de falar (silêncio pós-fala)
   recorder.on('auto-stop', async () => {
     console.log('[Main] Finalizando gravação por encerramento de fala...')
+    isPushToTalkActive = false
     hideDock()
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('vox:toggle-recording', false)
@@ -524,7 +586,7 @@ app.whenReady().then(async () => {
 
   // F10: Toggle | F9: Push to Talk (Segurar F9 para falar)
   globalShortcut.register('F10', toggleDockWindow)
-  globalShortcut.register('F9', handleGlobalPushToTalk)
+  globalShortcut.register('F9', startPushToTalk)
 
   // Tray icon para manter o app vivo quando a janela principal é fechada
   const iconPath = getAppIconPath()

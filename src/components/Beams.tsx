@@ -2,7 +2,6 @@
 import React, { forwardRef, useImperativeHandle, useEffect, useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { PerspectiveCamera } from '@react-three/drei'
 import './Beams.css'
 
 function extendMaterial(BaseMaterial: any, cfg: any) {
@@ -52,7 +51,7 @@ function extendMaterial(BaseMaterial: any, cfg: any) {
 }
 
 const CanvasWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Canvas dpr={[1, 2]} frameloop="always" className="beams-container">
+  <Canvas dpr={[1, 1.5]} frameloop="always" camera={{ position: [0, 0, 20], fov: 30 }} className="beams-container">
     {children}
   </Canvas>
 )
@@ -248,7 +247,6 @@ export const Beams: React.FC<BeamsProps> = ({
           </group>
           <ambientLight intensity={1} />
           <color attach="background" args={['#000000']} />
-          <PerspectiveCamera makeDefault position={[0, 0, 20]} fov={30} />
         </CanvasWrapper>
       </div>
 

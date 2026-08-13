@@ -7,14 +7,16 @@ export class AudioRecorder extends EventEmitter {
   private autoStopOnSilence = false
   private hasSpoken = false
   private silenceTimer: NodeJS.Timeout | null = null
-  private silenceDurationMs = 1300 // 1.3s de silêncio para encerramento automático
+  private silenceDurationMs = 1500 // 1.5s de silêncio para encerramento automático
   private totalLength = 0
 
   public startRecording(options?: { autoStopOnSilence?: boolean }) {
     this.isRecording = true
     this.chunks = []
     this.totalLength = 0
-    this.autoStopOnSilence = options?.autoStopOnSilence ?? false
+    if (options?.autoStopOnSilence !== undefined) {
+      this.autoStopOnSilence = options.autoStopOnSilence
+    }
     this.hasSpoken = false
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer)
@@ -32,29 +34,41 @@ export class AudioRecorder extends EventEmitter {
     const energy = this.calculateRmsEnergy(chunk)
     const isSpeech = energy > this.vadThreshold
 
-    if (this.autoStopOnSilence) {
-      if (isSpeech) {
-        this.hasSpoken = true
-        if (this.silenceTimer) {
-          clearTimeout(this.silenceTimer)
-          this.silenceTimer = null
-        }
-      } else if (this.hasSpoken && !this.silenceTimer) {
-        this.silenceTimer = setTimeout(() => {
-          console.log('[Recorder] 🛑 Silêncio pós-fala detectado, encerrando gravação automaticamente...')
-          this.emit('auto-stop')
-        }, this.silenceDurationMs)
-      }
-    }
+    this.reportSpeech(isSpeech)
 
     this.emit('energy', { energy, isSpeech })
     return { energy, isSpeech }
   }
 
+  public reportSpeech(isSpeech: boolean) {
+    if (!this.isRecording) return
+
+    if (isSpeech) {
+      this.hasSpoken = true
+    }
+
+    if (!this.autoStopOnSilence) return
+
+    if (isSpeech) {
+      if (this.silenceTimer) {
+        clearTimeout(this.silenceTimer)
+        this.silenceTimer = null
+      }
+    } else if (!this.silenceTimer) {
+      this.silenceTimer = setTimeout(() => {
+        console.log('[Recorder] 🛑 Silêncio detectado, encerrando gravação automaticamente...')
+        this.emit('auto-stop')
+      }, this.silenceDurationMs)
+    }
+  }
+
+  public getHasSpoken(): boolean {
+    return this.hasSpoken
+  }
+
   public stopRecording(): Buffer {
     this.isRecording = false
     this.autoStopOnSilence = false
-    this.hasSpoken = false
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer)
       this.silenceTimer = null

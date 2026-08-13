@@ -1,7 +1,7 @@
 import { getSetting } from './db'
 
 const GROQ_CHAT_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
-const DEFAULT_LLM_MODEL = 'openai/gpt-oss-20b'
+const DEFAULT_LLM_MODEL = 'llama-3.1-8b-instant'
 
 export async function correctTranscription(text: string): Promise<string> {
   if (!text || text.trim().length === 0) return text
@@ -11,9 +11,13 @@ export async function correctTranscription(text: string): Promise<string> {
     console.warn('[Corrector] API Key não configurada, retornando texto original.')
     return text
   }
-  const model = getSetting('llmModel') || process.env.LLM_MODEL || DEFAULT_LLM_MODEL
+  const model = (getSetting('llmModel') || process.env.LLM_MODEL || DEFAULT_LLM_MODEL).trim()
+  const resolvedModel =
+    model === 'openai/gpt-oss-20b' || model === 'openai/gpt-oss-120b'
+      ? DEFAULT_LLM_MODEL
+      : model
 
-  console.log(`[Corrector] Revisando texto via Groq (${model})...`)
+  console.log(`[Corrector] Revisando texto via Groq (${resolvedModel})...`)
 
   try {
     const response = await fetch(GROQ_CHAT_ENDPOINT, {
@@ -23,7 +27,7 @@ export async function correctTranscription(text: string): Promise<string> {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model,
+        model: resolvedModel,
         messages: [
           {
             role: 'system',
@@ -35,7 +39,7 @@ export async function correctTranscription(text: string): Promise<string> {
           }
         ],
         temperature: 0.1,
-        max_tokens: 2048
+        max_tokens: 512
       })
     })
 

@@ -1,13 +1,17 @@
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import './index.css'
-import MainWindow from './windows/MainWindow'
-import DockWindow from './windows/DockWindow'
+
+const MainWindow = lazy(() => import('./windows/MainWindow'))
+const DockWindow = lazy(() => import('./windows/DockWindow'))
 
 const hash = window.location.hash
+const isDock = hash === '#/dock' || hash === '#dock'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {hash === '#/dock' || hash === '#dock' ? <DockWindow /> : <MainWindow />}
+    <Suspense fallback={null}>
+      {isDock ? <DockWindow /> : <MainWindow />}
+    </Suspense>
   </React.StrictMode>
 )
