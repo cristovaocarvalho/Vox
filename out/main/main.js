@@ -274,6 +274,9 @@ function getAllSettings() {
   }
   const defaults = {
     apiKey: "",
+    provider: "groq",
+    baseUrl: "",
+    azureApiVersion: "",
     sttModel: "whisper-large-v3-turbo",
     llmModel: "llama-3.1-8b-instant",
     shortcutToggle: "F10",
@@ -481,15 +484,57 @@ function searchSessions(query) {
   }
   return [];
 }
-const GROQ_STT_ENDPOINT = "https://api.groq.com/openai/v1/audio/transcriptions";
+const PROVIDER_PRESETS = [
+  { id: "groq", label: "Groq", baseUrl: "https://api.groq.com/openai/v1", requiresApiKey: true, isAzure: false, defaultApiVersion: "" },
+  { id: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", requiresApiKey: true, isAzure: false, defaultApiVersion: "" },
+  { id: "azure", label: "Azure OpenAI", baseUrl: "https://YOUR_RESOURCE.openai.azure.com", requiresApiKey: true, isAzure: true, defaultApiVersion: "2024-06-01" },
+  { id: "ollama", label: "Ollama (local)", baseUrl: "http://localhost:11434/v1", requiresApiKey: false, isAzure: false, defaultApiVersion: "" },
+  { id: "lmstudio", label: "LM Studio (local)", baseUrl: "http://localhost:1234/v1", requiresApiKey: false, isAzure: false, defaultApiVersion: "" }
+];
+function resolveProvider() {
+  const id = (getSetting("provider", "groq").trim() || "groq").toLowerCase();
+  const preset = PROVIDER_PRESETS.find((p) => p.id === id) || PROVIDER_PRESETS[0];
+  const baseUrl = (getSetting("baseUrl", "").trim() || preset.baseUrl).replace(/\/+$/, "");
+  const apiKey = getSetting("apiKey", "").trim();
+  const apiVersion = getSetting("azureApiVersion", preset.defaultApiVersion).trim() || preset.defaultApiVersion;
+  return {
+    id: preset.id,
+    baseUrl,
+    apiKey,
+    requiresApiKey: preset.requiresApiKey,
+    isAzure: preset.isAzure,
+    apiVersion
+  };
+}
+function getChatEndpoint(model) {
+  const p = resolveProvider();
+  if (p.isAzure) return `${p.baseUrl}/openai/deployments/${model}/chat/completions?api-version=${p.apiVersion}`;
+  return `${p.baseUrl}/chat/completions`;
+}
+function getSttEndpoint(model) {
+  const p = resolveProvider();
+  if (p.isAzure) return `${p.baseUrl}/openai/deployments/${model}/audio/transcriptions?api-version=${p.apiVersion}`;
+  return `${p.baseUrl}/audio/transcriptions`;
+}
+function getModelsEndpoint() {
+  const p = resolveProvider();
+  if (p.isAzure) return `${p.baseUrl}/openai/deployments?api-version=${p.apiVersion}`;
+  return `${p.baseUrl}/models`;
+}
+function getAuthHeaders() {
+  const p = resolveProvider();
+  if (!p.apiKey) return {};
+  if (p.isAzure) return { "api-key": p.apiKey };
+  return { "Authorization": `Bearer ${p.apiKey}` };
+}
 const DEFAULT_MODEL = "whisper-large-v3-turbo";
 async function transcribeAudio(audioBuffer, language) {
   if (!audioBuffer || audioBuffer.length < 1e3) {
     console.log("[STT] Áudio muito curto ou vazio, ignorando transcrição.");
     return { text: "", segments: [], duration: 0 };
   }
-  const apiKey = getSetting("apiKey", "").trim();
-  if (!apiKey) {
+  const provider = resolveProvider();
+  if (provider.requiresApiKey && !provider.apiKey) {
     console.warn("[STT] API Key não configurada.");
     const lang = getSetting("language", "pt-BR");
     const msg = lang === "en" ? "[Error: Configure your API Key in Vox settings]" : "[Erro: Configure sua API Key nas configurações do Vox]";
@@ -499,12 +544,13 @@ async function transcribeAudio(audioBuffer, language) {
       duration: 0
     };
   }
-  const endpoint = GROQ_STT_ENDPOINT;
   const model = getSetting("sttModel") || process.env.WHISPER_MODEL || DEFAULT_MODEL;
+  const endpoint = getSttEndpoint(model);
   const isWebm = audioBuffer.length >= 4 && audioBuffer[0] === 26 && audioBuffer[1] === 69 && audioBuffer[2] === 223 && audioBuffer[3] === 163;
   const mimeType = isWebm ? "audio/webm" : "audio/wav";
   const fileName = isWebm ? "audio.webm" : "audio.wav";
   console.log("[STT] Transcrevendo mídia:", {
+    provider: provider.id,
     model,
     audioSize: audioBuffer.length,
     mimeType,
@@ -521,14 +567,14 @@ async function transcribeAudio(audioBuffer, language) {
     formData.append("temperature", "0");
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}` },
+      headers: getAuthHeaders(),
       body: formData
     });
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
-      console.warn(`[STT] Erro da API Groq (${response.status}):`, errText);
+      console.warn(`[STT] Erro da API (${response.status}):`, errText);
       return {
-        text: `[Erro Groq ${response.status}] ${errText || "Falha na comunicação"}`,
+        text: `[Erro ${response.status}] ${errText || "Falha na comunicação"}`,
         segments: [],
         duration: 0
       };
@@ -563,7 +609,7 @@ async function transcribeAudio(audioBuffer, language) {
       duration
     };
   } catch (error) {
-    console.error("[STT] Exceção na API Groq:", error);
+    console.error("[STT] Exceção na API:", error);
     return {
       text: `[Erro na transcrição] ${error?.message || "Ocorreu um erro ao processar o áudio."}`,
       segments: [],
@@ -571,45 +617,48 @@ async function transcribeAudio(audioBuffer, language) {
     };
   }
 }
-const GROQ_CHAT_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 const DEFAULT_LLM_MODEL = "llama-3.1-8b-instant";
 async function correctTranscription(text, context) {
   if (!text || text.trim().length === 0) return text;
-  const apiKey = getSetting("apiKey", "").trim();
-  if (!apiKey) {
+  const provider = resolveProvider();
+  if (provider.requiresApiKey && !provider.apiKey) {
     console.warn("[Corrector] API Key não configurada, retornando texto original.");
     return text;
   }
   const model = (getSetting("llmModel") || process.env.LLM_MODEL || DEFAULT_LLM_MODEL).trim();
   const resolvedModel = model === "openai/gpt-oss-20b" || model === "openai/gpt-oss-120b" ? DEFAULT_LLM_MODEL : model;
-  console.log(`[Corrector] Revisando texto via Groq (${resolvedModel})...`);
+  const endpoint = getChatEndpoint(resolvedModel);
+  console.log(`[Corrector] Revisando texto (${provider.id}, ${resolvedModel})...`);
   const contextLine = context ? ` Contexto do ditado: o usuário está digitando em ${context}. Ajuste a formatação de acordo (ex.: código, e-mail, documento, chat).` : "";
   try {
-    const response = await fetch(GROQ_CHAT_ENDPOINT, {
+    const body = {
+      messages: [
+        {
+          role: "system",
+          content: `Você é um revisor de transcrições de áudio. Sua ÚNICA função é ajustar pontuação, maiúsculas e ortografia do texto recebido.${contextLine} MANTENHA RIGOROSAMENTE O IDIOMA ORIGINAL DO TEXTO (se o texto estiver em inglês, mantenha em inglês; se estiver em português, mantenha em português). É ESTRITAMENTE PROIBIDO TRADUZIR O TEXTO. Retorne APENAS o texto revisado, sem apresentações ou explicações.`
+        },
+        {
+          role: "user",
+          content: text
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 512
+    };
+    if (!provider.isAzure) {
+      body.model = resolvedModel;
+    }
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        ...getAuthHeaders(),
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        model: resolvedModel,
-        messages: [
-          {
-            role: "system",
-            content: `Você é um revisor de transcrições de áudio. Sua ÚNICA função é ajustar pontuação, maiúsculas e ortografia do texto recebido.${contextLine} MANTENHA RIGOROSAMENTE O IDIOMA ORIGINAL DO TEXTO (se o texto estiver em inglês, mantenha em inglês; se estiver em português, mantenha em português). É ESTRITAMENTE PROIBIDO TRADUZIR O TEXTO. Retorne APENAS o texto revisado, sem apresentações ou explicações.`
-          },
-          {
-            role: "user",
-            content: text
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 512
-      })
+      body: JSON.stringify(body)
     });
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
-      console.warn(`[Corrector] Erro da API Groq (${response.status}):`, errText);
+      console.warn(`[Corrector] Erro da API (${response.status}):`, errText);
       return text;
     }
     const data = await response.json();
@@ -620,7 +669,7 @@ async function correctTranscription(text, context) {
     }
     return text;
   } catch (error) {
-    console.error("[Corrector] Erro ao se comunicar com Groq LLM API:", error);
+    console.error("[Corrector] Erro ao se comunicar com a LLM API:", error);
     return text;
   }
 }
@@ -1031,14 +1080,13 @@ async function processTranscriptionResult(buffer) {
   }
   return result;
 }
-const GROQ_MODELS_ENDPOINT = "https://api.groq.com/openai/v1/models";
 async function fetchAvailableModels() {
-  const apiKey = getSetting("apiKey", "").trim();
-  if (!apiKey) {
+  const provider = resolveProvider();
+  if (provider.requiresApiKey && !provider.apiKey) {
     return { stt: [], llm: [], error: "no-api-key" };
   }
-  const response = await fetch(GROQ_MODELS_ENDPOINT, {
-    headers: { "Authorization": `Bearer ${apiKey}` }
+  const response = await fetch(getModelsEndpoint(), {
+    headers: getAuthHeaders()
   });
   if (!response.ok) {
     console.warn(`[Main] Erro ao listar modelos (${response.status})`);
@@ -1217,6 +1265,9 @@ function setupIpcHandlers() {
       console.error("[Main] Erro ao listar modelos:", err);
       return { stt: [], llm: [], error: "unknown" };
     }
+  });
+  ipcMain.handle("vox:get-providers", () => {
+    return PROVIDER_PRESETS.map((p) => ({ ...p }));
   });
   ipcMain.handle("vox:list-sessions", (_event, limit, type) => {
     return listSessions(limit || 50, type);

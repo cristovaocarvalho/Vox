@@ -9,6 +9,12 @@ export interface VoxState {
   setLastTranscript: (transcript: string) => void
   apiKey: string
   setApiKey: (key: string) => void
+  provider: string
+  setProvider: (provider: string) => void
+  baseUrl: string
+  setBaseUrl: (baseUrl: string) => void
+  azureApiVersion: string
+  setAzureApiVersion: (version: string) => void
   sttModel: string
   setSttModel: (model: string) => void
   llmModel: string
@@ -44,6 +50,12 @@ export const useVoxStore = create<VoxState>((set) => ({
   setLastTranscript: (transcript) => set({ lastTranscript: transcript }),
   apiKey: '',
   setApiKey: (apiKey) => set({ apiKey }),
+  provider: 'groq',
+  setProvider: (provider) => set({ provider }),
+  baseUrl: '',
+  setBaseUrl: (baseUrl) => set({ baseUrl }),
+  azureApiVersion: '',
+  setAzureApiVersion: (azureApiVersion) => set({ azureApiVersion }),
   sttModel: 'whisper-large-v3-turbo',
   setSttModel: (sttModel) => set({ sttModel }),
   llmModel: 'llama-3.1-8b-instant',

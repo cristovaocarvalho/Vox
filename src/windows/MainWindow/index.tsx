@@ -32,6 +32,23 @@ const prettyModelName = (id: string): string => {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+interface ProviderOption {
+  id: string
+  label: string
+  baseUrl: string
+  requiresApiKey: boolean
+  isAzure: boolean
+  defaultApiVersion: string
+}
+
+const FALLBACK_PROVIDERS: ProviderOption[] = [
+  { id: 'groq', label: 'Groq', baseUrl: 'https://api.groq.com/openai/v1', requiresApiKey: true, isAzure: false, defaultApiVersion: '' },
+  { id: 'openai', label: 'OpenAI', baseUrl: 'https://api.openai.com/v1', requiresApiKey: true, isAzure: false, defaultApiVersion: '' },
+  { id: 'azure', label: 'Azure OpenAI', baseUrl: 'https://YOUR_RESOURCE.openai.azure.com', requiresApiKey: true, isAzure: true, defaultApiVersion: '2024-06-01' },
+  { id: 'ollama', label: 'Ollama (local)', baseUrl: 'http://localhost:11434/v1', requiresApiKey: false, isAzure: false, defaultApiVersion: '' },
+  { id: 'lmstudio', label: 'LM Studio (local)', baseUrl: 'http://localhost:1234/v1', requiresApiKey: false, isAzure: false, defaultApiVersion: '' }
+]
+
 export const MainWindow: React.FC = () => {
   const { t, localeTag } = useI18n()
   const {
@@ -41,6 +58,12 @@ export const MainWindow: React.FC = () => {
     setLastTranscript,
     apiKey,
     setApiKey,
+    provider,
+    setProvider,
+    baseUrl,
+    setBaseUrl,
+    azureApiVersion,
+    setAzureApiVersion,
     sttModel,
     setSttModel,
     llmModel,
@@ -63,11 +86,15 @@ export const MainWindow: React.FC = () => {
   const [partialTranscript, setPartialTranscript] = useState('')
   const [isCopied, setIsCopied] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [settingsPage, setSettingsPage] = useState<'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences'>('provider')
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
 
   // Local drafts for Settings modal (so Cancel reverts changes)
   const [draftApiKey, setDraftApiKey] = useState(apiKey)
+  const [draftProvider, setDraftProvider] = useState(provider)
+  const [draftBaseUrl, setDraftBaseUrl] = useState(baseUrl)
+  const [draftAzureApiVersion, setDraftAzureApiVersion] = useState(azureApiVersion)
   const [draftShortcutToggle, setDraftShortcutToggle] = useState(shortcutToggle)
   const [draftShortcutPushToTalk, setDraftShortcutPushToTalk] = useState(shortcutPushToTalk)
   const [draftWakeWordEnabled, setDraftWakeWordEnabled] = useState(wakeWordEnabled)
@@ -76,6 +103,8 @@ export const MainWindow: React.FC = () => {
   const [draftAutoStartEnabled, setDraftAutoStartEnabled] = useState(autoStartEnabled)
   const [draftSttModel, setDraftSttModel] = useState(sttModel)
   const [draftLlmModel, setDraftLlmModel] = useState(llmModel)
+
+  const [providers, setProviders] = useState<ProviderOption[]>([])
 
   const [openModelDropdown, setOpenModelDropdown] = useState<'stt' | 'llm' | null>(null)
   const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; width: number; up: boolean } | null>(null)
@@ -137,6 +166,9 @@ export const MainWindow: React.FC = () => {
 
   const handleOpenSettings = () => {
     setDraftApiKey(apiKey)
+    setDraftProvider(provider)
+    setDraftBaseUrl(baseUrl)
+    setDraftAzureApiVersion(azureApiVersion)
     setDraftShortcutToggle(shortcutToggle)
     setDraftShortcutPushToTalk(shortcutPushToTalk)
     setDraftWakeWordEnabled(wakeWordEnabled)
@@ -145,6 +177,7 @@ export const MainWindow: React.FC = () => {
     setDraftAutoStartEnabled(autoStartEnabled)
     setDraftSttModel(sttModel)
     setDraftLlmModel(llmModel)
+    setSettingsPage('provider')
     setIsSettingsOpen(true)
   }
 
@@ -197,10 +230,32 @@ export const MainWindow: React.FC = () => {
     closeModelDropdown()
   }
 
+  const providerList = providers.length ? providers : FALLBACK_PROVIDERS
+  const currentProvider = providerList.find((p) => p.id === draftProvider)
+
+  const selectProvider = (p: ProviderOption) => {
+    setDraftProvider(p.id)
+    setDraftBaseUrl(p.baseUrl)
+    if (p.isAzure && !draftAzureApiVersion) {
+      setDraftAzureApiVersion(p.defaultApiVersion)
+    }
+  }
+
+  const settingsNavItems: { id: 'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences'; label: string }[] = [
+    { id: 'provider', label: t('settings.provider') },
+    { id: 'models', label: t('settings.models') },
+    { id: 'shortcuts', label: t('settings.shortcuts') },
+    { id: 'voice', label: t('settings.voice') },
+    { id: 'preferences', label: t('settings.preferences') }
+  ]
+
   const handleSaveSettings = () => {
     const trimmedKey = draftApiKey.trim()
     updateSettings({
       apiKey: trimmedKey,
+      provider: draftProvider,
+      baseUrl: draftBaseUrl,
+      azureApiVersion: draftAzureApiVersion,
       sttModel: draftSttModel,
       llmModel: draftLlmModel,
       shortcutToggle: draftShortcutToggle,
@@ -215,6 +270,9 @@ export const MainWindow: React.FC = () => {
     if (window.vox?.saveSettings) {
       window.vox.saveSettings({
         apiKey: trimmedKey,
+        provider: draftProvider,
+        baseUrl: draftBaseUrl,
+        azureApiVersion: draftAzureApiVersion,
         sttModel: draftSttModel,
         llmModel: draftLlmModel,
         shortcutToggle: draftShortcutToggle,
@@ -240,6 +298,9 @@ export const MainWindow: React.FC = () => {
       window.vox.getSettings().then((saved: Record<string, string>) => {
         const settingsToUpdate: Partial<VoxState> = {}
         if (saved.apiKey) settingsToUpdate.apiKey = saved.apiKey
+        if (saved.provider) settingsToUpdate.provider = saved.provider
+        if (saved.baseUrl !== undefined) settingsToUpdate.baseUrl = saved.baseUrl
+        if (saved.azureApiVersion !== undefined) settingsToUpdate.azureApiVersion = saved.azureApiVersion
         if (saved.sttModel) settingsToUpdate.sttModel = saved.sttModel
         if (saved.llmModel) settingsToUpdate.llmModel = saved.llmModel
         if (saved.shortcutToggle) settingsToUpdate.shortcutToggle = saved.shortcutToggle
@@ -287,6 +348,14 @@ export const MainWindow: React.FC = () => {
       unsubError?.()
     }
   }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setWakeWordEnabled, setWakeWordSensitivity, setLanguage])
+
+  React.useEffect(() => {
+    if (window.vox?.getProviders) {
+      window.vox.getProviders().then((list: ProviderOption[]) => {
+        if (Array.isArray(list)) setProviders(list)
+      }).catch(() => {})
+    }
+  }, [])
 
   const mediaStreamRef = React.useRef<MediaStream | null>(null)
   const audioContextRef = React.useRef<AudioContext | null>(null)
@@ -815,7 +884,7 @@ export const MainWindow: React.FC = () => {
 
 
 
-      {/* Settings Modal (LiquidGlassCard aesthetic) */}
+      {/* Settings Modal (sidebar + pages) */}
       <AnimatePresence>
         {isSettingsOpen && (
           <motion.div
@@ -833,11 +902,11 @@ export const MainWindow: React.FC = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
               transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full max-w-xl"
+              className="w-full max-w-3xl"
             >
-              <LiquidGlassCard glowIntensity="md" blurIntensity="lg" className="p-6 sm:p-7 flex flex-col gap-10 border border-border/80 shadow-2xl relative">
+              <LiquidGlassCard glowIntensity="md" blurIntensity="lg" className="flex flex-col border border-border/80 shadow-2xl">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border/40">
                   <div className="flex items-center gap-2.5">
                     <img src={configImg} alt="" className="w-4 h-4 object-contain opacity-90" />
                     <h2 className="text-base font-semibold font-heading tracking-tight text-text-primary">{t('settings.title')}</h2>
@@ -851,210 +920,306 @@ export const MainWindow: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Form Fields */}
-                <div className="space-y-5">
-                  {/* API Key */}
-                  <div>
-                    <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                      {t('settings.apiKey')}
-                    </label>
-                    <SmoothInput
-                      type="password"
-                      value={draftApiKey}
-                      onChange={(e) => setDraftApiKey(e.target.value)}
-                      placeholder="gsk_..."
-                    />
-                  </div>
-
-                  {/* Models (Seleção de modelos ativos) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                        {t('settings.sttModel')}
-                      </label>
-                      <button
-                        type="button"
-                        onClick={(e) => toggleModelDropdown('stt', e)}
-                        className="w-full flex items-center justify-between gap-2 p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary hover:border-border hover:bg-background/80 transition-all duration-250 cursor-pointer"
-                      >
-                        <span className="truncate">{prettyModelName(draftSttModel)}</span>
-                        <IconChevronDown className={`w-3.5 h-3.5 text-text-muted shrink-0 transition-transform duration-250 ${openModelDropdown === 'stt' ? 'rotate-180' : ''}`} />
-                      </button>
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                        {t('settings.llmModel')}
-                      </label>
-                      <button
-                        type="button"
-                        onClick={(e) => toggleModelDropdown('llm', e)}
-                        className="w-full flex items-center justify-between gap-2 p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary hover:border-border hover:bg-background/80 transition-all duration-250 cursor-pointer"
-                      >
-                        <span className="truncate">{prettyModelName(draftLlmModel)}</span>
-                        <IconChevronDown className={`w-3.5 h-3.5 text-text-muted shrink-0 transition-transform duration-250 ${openModelDropdown === 'llm' ? 'rotate-180' : ''}`} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Shortcuts */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                        {t('settings.shortcutToggle')}
-                      </label>
-                      <ShortcutInput
-                        value={draftShortcutToggle}
-                        onChange={(val) => setDraftShortcutToggle(val)}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                        {t('settings.shortcutPtt')}
-                      </label>
-                      <ShortcutInput
-                        value={draftShortcutPushToTalk}
-                        onChange={(val) => setDraftShortcutPushToTalk(val)}
-                      />
-                    </div>
-                  </div>
-
-
-                  {/* Language */}
-                  <div>
-                    <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                      {t('settings.language')}
-                    </label>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {([
-                        { id: 'en' as const, label: t('settings.langEn') },
-                        { id: 'pt-BR' as const, label: t('settings.langPt') }
-                      ]).map((opt) => (
+                {/* Body: sidebar + content */}
+                <div className="flex flex-1 min-h-0">
+                  {/* Sidebar */}
+                  <aside className="w-44 shrink-0 border-r border-border/40 p-3">
+                    <nav className="space-y-1">
+                      {settingsNavItems.map((item) => (
                         <button
-                          key={opt.id}
+                          key={item.id}
                           type="button"
-                          onClick={() => setDraftLanguage(opt.id)}
-                          className={`py-1.5 px-2 text-xs font-medium rounded-lg border transition-all duration-250 ease-smooth text-center cursor-pointer ${draftLanguage === opt.id
-                            ? 'bg-accent/15 text-accent border-accent/40 font-semibold'
-                            : 'bg-transparent text-text-secondary border-border/50 hover:text-text-primary hover:border-border'
+                          onClick={() => setSettingsPage(item.id)}
+                          className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-left transition-all duration-200 cursor-pointer ${settingsPage === item.id
+                            ? 'bg-accent/10 text-accent'
+                            : 'text-text-secondary hover:bg-surface hover:text-text-primary'
                             }`}
                         >
-                          {opt.label}
+                          {item.label}
                         </button>
                       ))}
-                    </div>
-                  </div>
+                    </nav>
+                  </aside>
 
-                  {/* Auto Start (Iniciar com o sistema) */}
-                  <div className="p-4 bg-background/50 border border-border/60 rounded-xl">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <span className="text-xs font-semibold text-text-primary block leading-relaxed">{t('settings.autoStart')}</span>
-                        <span className="text-[11px] text-text-secondary leading-relaxed">{t('settings.autoStartHint')}</span>
-                      </div>
-                      <div className="switch-button">
-                        <label className="switch-outer">
-                          <input
-                            type="checkbox"
-                            checked={draftAutoStartEnabled}
-                            onChange={(e) => setDraftAutoStartEnabled(e.target.checked)}
-                          />
-                          <div className="button">
-                            <div className="button-toggle"></div>
-                            <div className="button-indicator"></div>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0 p-6 max-h-[62vh] overflow-y-auto custom-scrollbar">
+                    {settingsPage === 'provider' && (
+                      <div className="space-y-5">
+                        {/* Provider */}
+                        <div>
+                          <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
+                            {t('settings.provider')}
+                          </label>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                            {providerList.map((p) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => selectProvider(p)}
+                                className={`py-1.5 px-2 text-xs font-medium rounded-lg border transition-all duration-250 ease-smooth text-center cursor-pointer ${draftProvider === p.id
+                                  ? 'bg-accent/15 text-accent border-accent/40 font-semibold'
+                                  : 'bg-transparent text-text-secondary border-border/50 hover:text-text-primary hover:border-border'
+                                  }`}
+                              >
+                                {p.label}
+                              </button>
+                            ))}
                           </div>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Wake Word (Comando de Voz Offline) */}
-
-                  <div className="p-4 bg-background/50 border border-border/60 rounded-xl space-y-3.5">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <span className="text-xs font-semibold text-text-primary block leading-relaxed">{t('settings.wakeWord')}</span>
-                        <span className="text-[11px] text-text-secondary leading-relaxed">{t('settings.wakeWordHint')}</span>
-                      </div>
-                      <div className="switch-button">
-                        <label className="switch-outer">
-                          <input
-                            type="checkbox"
-                            checked={draftWakeWordEnabled}
-                            onChange={(e) => setDraftWakeWordEnabled(e.target.checked)}
-                          />
-                          <div className="button">
-                            <div className="button-toggle"></div>
-                            <div className="button-indicator"></div>
-                          </div>
-                        </label>
-                      </div>
-                    </div>
-
-                    {wakeWordModelMissing && (
-                      <div className="p-2.5 bg-accent/10 border border-accent/20 rounded-lg text-[11px] text-text-primary font-medium flex items-start gap-1.5 leading-relaxed">
-                        <IconAlert className="w-3.5 h-3.5 shrink-0 mt-px" />
-                        <span>{t('settings.wakeWordMissing')}</span>
-                      </div>
-                    )}
-
-                    {wakeWordError && (
-                      <div className="p-2.5 bg-error/15 border border-error/30 rounded-lg text-[11px] text-error font-medium flex items-start gap-1.5 leading-relaxed">
-                        <IconAlert className="w-3.5 h-3.5 shrink-0 mt-px" />
-                        <span>{t('settings.micError')} {wakeWordError}</span>
-                      </div>
-                    )}
-
-                    {draftWakeWordEnabled && (
-                      <div className="pt-3 border-t border-border/30">
-                        <div className="flex items-center justify-between text-xs mb-1.5">
-                          <span className="text-text-secondary font-medium">{t('settings.sensitivity')}</span>
-                          <span className="text-text-primary font-mono tnum">{Math.round(draftWakeWordSensitivity * 100)}%</span>
                         </div>
-                        <label className="slider w-full mt-1">
-                          <input
-                            type="range"
-                            min="0.1"
-                            max="1.0"
-                            step="0.05"
-                            value={draftWakeWordSensitivity}
-                            onChange={(e) => setDraftWakeWordSensitivity(parseFloat(e.target.value))}
-                            className="level"
+
+                        {/* Base URL */}
+                        <div>
+                          <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
+                            {t('settings.baseUrl')}
+                          </label>
+                          <SmoothInput
+                            value={draftBaseUrl}
+                            onChange={(e) => setDraftBaseUrl(e.target.value)}
+                            placeholder="https://api.example.com/v1"
                           />
-                        </label>
+                          {draftProvider === 'azure' && (
+                            <p className="text-[11px] text-text-muted mt-2 leading-relaxed">
+                              {t('settings.baseUrlAzureHint')}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Azure API Version */}
+                        {currentProvider?.isAzure && (
+                          <div>
+                            <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
+                              {t('settings.azureApiVersion')}
+                            </label>
+                            <SmoothInput
+                              value={draftAzureApiVersion}
+                              onChange={(e) => setDraftAzureApiVersion(e.target.value)}
+                              placeholder="2024-06-01"
+                            />
+                          </div>
+                        )}
+
+                        {/* API Key */}
+                        {(currentProvider ? currentProvider.requiresApiKey : true) && (
+                          <div>
+                            <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
+                              {t('settings.apiKey')}
+                            </label>
+                            <SmoothInput
+                              type="password"
+                              value={draftApiKey}
+                              onChange={(e) => setDraftApiKey(e.target.value)}
+                              placeholder="gsk_..."
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {settingsPage === 'models' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
+                            {t('settings.sttModel')}
+                          </label>
+                          <button
+                            type="button"
+                            onClick={(e) => toggleModelDropdown('stt', e)}
+                            className="w-full flex items-center justify-between gap-2 p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary hover:border-border hover:bg-background/80 transition-all duration-250 cursor-pointer"
+                          >
+                            <span className="truncate">{prettyModelName(draftSttModel)}</span>
+                            <IconChevronDown className={`w-3.5 h-3.5 text-text-muted shrink-0 transition-transform duration-250 ${openModelDropdown === 'stt' ? 'rotate-180' : ''}`} />
+                          </button>
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
+                            {t('settings.llmModel')}
+                          </label>
+                          <button
+                            type="button"
+                            onClick={(e) => toggleModelDropdown('llm', e)}
+                            className="w-full flex items-center justify-between gap-2 p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary hover:border-border hover:bg-background/80 transition-all duration-250 cursor-pointer"
+                          >
+                            <span className="truncate">{prettyModelName(draftLlmModel)}</span>
+                            <IconChevronDown className={`w-3.5 h-3.5 text-text-muted shrink-0 transition-transform duration-250 ${openModelDropdown === 'llm' ? 'rotate-180' : ''}`} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {settingsPage === 'shortcuts' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
+                            {t('settings.shortcutToggle')}
+                          </label>
+                          <ShortcutInput
+                            value={draftShortcutToggle}
+                            onChange={(val) => setDraftShortcutToggle(val)}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
+                            {t('settings.shortcutPtt')}
+                          </label>
+                          <ShortcutInput
+                            value={draftShortcutPushToTalk}
+                            onChange={(val) => setDraftShortcutPushToTalk(val)}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {settingsPage === 'voice' && (
+                      <div className="space-y-4">
+                        <div className="p-4 bg-background/50 border border-border/60 rounded-xl space-y-3.5">
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <span className="text-xs font-semibold text-text-primary block leading-relaxed">{t('settings.wakeWord')}</span>
+                              <span className="text-[11px] text-text-secondary leading-relaxed">{t('settings.wakeWordHint')}</span>
+                            </div>
+                            <div className="switch-button">
+                              <label className="switch-outer">
+                                <input
+                                  type="checkbox"
+                                  checked={draftWakeWordEnabled}
+                                  onChange={(e) => setDraftWakeWordEnabled(e.target.checked)}
+                                />
+                                <div className="button">
+                                  <div className="button-toggle"></div>
+                                  <div className="button-indicator"></div>
+                                </div>
+                              </label>
+                            </div>
+                          </div>
+
+                          {wakeWordModelMissing && (
+                            <div className="p-2.5 bg-accent/10 border border-accent/20 rounded-lg text-[11px] text-text-primary font-medium flex items-start gap-1.5 leading-relaxed">
+                              <IconAlert className="w-3.5 h-3.5 shrink-0 mt-px" />
+                              <span>{t('settings.wakeWordMissing')}</span>
+                            </div>
+                          )}
+
+                          {wakeWordError && (
+                            <div className="p-2.5 bg-error/15 border border-error/30 rounded-lg text-[11px] text-error font-medium flex items-start gap-1.5 leading-relaxed">
+                              <IconAlert className="w-3.5 h-3.5 shrink-0 mt-px" />
+                              <span>{t('settings.micError')} {wakeWordError}</span>
+                            </div>
+                          )}
+
+                          {draftWakeWordEnabled && (
+                            <div className="pt-3 border-t border-border/30">
+                              <div className="flex items-center justify-between text-xs mb-1.5">
+                                <span className="text-text-secondary font-medium">{t('settings.sensitivity')}</span>
+                                <span className="text-text-primary font-mono tnum">{Math.round(draftWakeWordSensitivity * 100)}%</span>
+                              </div>
+                              <label className="slider w-full mt-1">
+                                <input
+                                  type="range"
+                                  min="0.1"
+                                  max="1.0"
+                                  step="0.05"
+                                  value={draftWakeWordSensitivity}
+                                  onChange={(e) => setDraftWakeWordSensitivity(parseFloat(e.target.value))}
+                                  className="level"
+                                />
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {settingsPage === 'preferences' && (
+                      <div className="space-y-4">
+                        {/* Language */}
+                        <div>
+                          <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
+                            {t('settings.language')}
+                          </label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {([
+                              { id: 'en' as const, label: t('settings.langEn') },
+                              { id: 'pt-BR' as const, label: t('settings.langPt') }
+                            ]).map((opt) => (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => setDraftLanguage(opt.id)}
+                                className={`py-1.5 px-2 text-xs font-medium rounded-lg border transition-all duration-250 ease-smooth text-center cursor-pointer ${draftLanguage === opt.id
+                                  ? 'bg-accent/15 text-accent border-accent/40 font-semibold'
+                                  : 'bg-transparent text-text-secondary border-border/50 hover:text-text-primary hover:border-border'
+                                  }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Auto Start */}
+                        <div className="p-4 bg-background/50 border border-border/60 rounded-xl">
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <span className="text-xs font-semibold text-text-primary block leading-relaxed">{t('settings.autoStart')}</span>
+                              <span className="text-[11px] text-text-secondary leading-relaxed">{t('settings.autoStartHint')}</span>
+                            </div>
+                            <div className="switch-button">
+                              <label className="switch-outer">
+                                <input
+                                  type="checkbox"
+                                  checked={draftAutoStartEnabled}
+                                  onChange={(e) => setDraftAutoStartEnabled(e.target.checked)}
+                                />
+                                <div className="button">
+                                  <div className="button-toggle"></div>
+                                  <div className="button-indicator"></div>
+                                </div>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Clear History */}
+                        <div className="p-4 bg-background/50 border border-border/60 rounded-xl">
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <span className="text-xs font-semibold text-text-primary block leading-relaxed">{t('settings.clearHistory')}</span>
+                              <span className="text-[11px] text-text-secondary leading-relaxed">{t('settings.clearConfirm')}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleClearHistory}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-error hover:bg-error/10 border border-border/50 hover:border-error/30 rounded-xl transition-all duration-250 cursor-pointer shrink-0"
+                            >
+                              <IconTrash className="w-3.5 h-3.5" />
+                              {t('settings.clearHistory')}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Footer Actions */}
-                <div className="flex flex-wrap items-center justify-between gap-2.5 pt-5 border-t border-border/40">
+                {/* Footer */}
+                <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border/40">
                   <button
                     type="button"
-                    onClick={handleClearHistory}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-surface border border-border/50 hover:border-border rounded-xl transition-all duration-250 cursor-pointer"
+                    onClick={() => setIsSettingsOpen(false)}
+                    className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer"
                   >
-                    <IconTrash className="w-3.5 h-3.5" />
-                    {t('settings.clearHistory')}
+                    {t('settings.cancel')}
                   </button>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsSettingsOpen(false)}
-                      className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer"
-                    >
-                      {t('settings.cancel')}
-                    </button>
-                    <SpecularButton
-                      size="sm"
-                      radius={12}
-                      onClick={handleSaveSettings}
-                      className="!px-6"
-                    >
-                      {t('settings.save')}
-                    </SpecularButton>
-                  </div>
+                  <SpecularButton
+                    size="sm"
+                    radius={12}
+                    onClick={handleSaveSettings}
+                    className="!px-6"
+                  >
+                    {t('settings.save')}
+                  </SpecularButton>
                 </div>
               </LiquidGlassCard>
             </motion.div>

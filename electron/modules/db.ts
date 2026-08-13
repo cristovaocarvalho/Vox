@@ -190,6 +190,9 @@ export function getAllSettings() {
 
   const defaults = {
     apiKey: '',
+    provider: 'groq',
+    baseUrl: '',
+    azureApiVersion: '',
     sttModel: 'whisper-large-v3-turbo',
     llmModel: 'llama-3.1-8b-instant',
     shortcutToggle: 'F10',

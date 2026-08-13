@@ -33,6 +33,7 @@ const voxApi = {
     return ipcRenderer.invoke("vox:set-wakeword-sensitivity", sensitivity);
   },
   listModels: () => ipcRenderer.invoke("vox:list-models"),
+  getProviders: () => ipcRenderer.invoke("vox:get-providers"),
   // Histórico de Transcrições (Sessions)
   listSessions: (limit, type) => {
     if (limit !== void 0 && typeof limit !== "number") {

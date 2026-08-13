@@ -1,4 +1,5 @@
 import { getSetting } from './db'
+import { resolveProvider, getSttEndpoint, getAuthHeaders } from './providers'
 
 export interface TranscriptionSegment {
   start: number
@@ -13,7 +14,6 @@ export interface TranscriptionResult {
   duration: number
 }
 
-const GROQ_STT_ENDPOINT = 'https://api.groq.com/openai/v1/audio/transcriptions'
 const DEFAULT_MODEL = 'whisper-large-v3-turbo'
 
 export async function transcribeAudio(
@@ -25,8 +25,8 @@ export async function transcribeAudio(
     return { text: '', segments: [], duration: 0 }
   }
 
-  const apiKey = getSetting('apiKey', '').trim()
-  if (!apiKey) {
+  const provider = resolveProvider()
+  if (provider.requiresApiKey && !provider.apiKey) {
     console.warn('[STT] API Key não configurada.')
     const lang = getSetting('language', 'pt-BR')
     const msg = lang === 'en'
@@ -38,14 +38,16 @@ export async function transcribeAudio(
       duration: 0
     }
   }
-  const endpoint = GROQ_STT_ENDPOINT
+
   const model = getSetting('sttModel') || process.env.WHISPER_MODEL || DEFAULT_MODEL
+  const endpoint = getSttEndpoint(model)
 
   const isWebm = audioBuffer.length >= 4 && audioBuffer[0] === 0x1a && audioBuffer[1] === 0x45 && audioBuffer[2] === 0xdf && audioBuffer[3] === 0xa3
   const mimeType = isWebm ? 'audio/webm' : 'audio/wav'
   const fileName = isWebm ? 'audio.webm' : 'audio.wav'
 
   console.log('[STT] Transcrevendo mídia:', {
+    provider: provider.id,
     model,
     audioSize: audioBuffer.length,
     mimeType,
@@ -69,15 +71,15 @@ export async function transcribeAudio(
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}` },
+      headers: getAuthHeaders(),
       body: formData
     })
 
     if (!response.ok) {
       const errText = await response.text().catch(() => '')
-      console.warn(`[STT] Erro da API Groq (${response.status}):`, errText)
+      console.warn(`[STT] Erro da API (${response.status}):`, errText)
       return {
-        text: `[Erro Groq ${response.status}] ${errText || 'Falha na comunicação'}`,
+        text: `[Erro ${response.status}] ${errText || 'Falha na comunicação'}`,
         segments: [],
         duration: 0
       }
@@ -119,7 +121,7 @@ export async function transcribeAudio(
       duration
     }
   } catch (error: any) {
-    console.error('[STT] Exceção na API Groq:', error)
+    console.error('[STT] Exceção na API:', error)
     return {
       text: `[Erro na transcrição] ${error?.message || 'Ocorreu um erro ao processar o áudio.'}`,
       segments: [],

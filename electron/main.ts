@@ -9,6 +9,7 @@ import { injectText, WindowRef } from './modules/injector'
 
 import { initDatabase, getAllSettings, getSetting, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, Session } from './modules/db'
 import wakewordDetector from './modules/wakeword'
+import { resolveProvider, getModelsEndpoint, getAuthHeaders, PROVIDER_PRESETS } from './modules/providers'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import crypto from 'crypto'
@@ -240,16 +241,14 @@ async function processTranscriptionResult(buffer: Buffer): Promise<{ text: strin
   return result
 }
 
-const GROQ_MODELS_ENDPOINT = 'https://api.groq.com/openai/v1/models'
-
 async function fetchAvailableModels(): Promise<{ stt: string[]; llm: string[]; error?: string }> {
-  const apiKey = getSetting('apiKey', '').trim()
-  if (!apiKey) {
+  const provider = resolveProvider()
+  if (provider.requiresApiKey && !provider.apiKey) {
     return { stt: [], llm: [], error: 'no-api-key' }
   }
 
-  const response = await fetch(GROQ_MODELS_ENDPOINT, {
-    headers: { 'Authorization': `Bearer ${apiKey}` }
+  const response = await fetch(getModelsEndpoint(), {
+    headers: getAuthHeaders()
   })
 
   if (!response.ok) {
@@ -457,6 +456,10 @@ function setupIpcHandlers() {
       console.error('[Main] Erro ao listar modelos:', err)
       return { stt: [], llm: [], error: 'unknown' }
     }
+  })
+
+  ipcMain.handle('vox:get-providers', () => {
+    return PROVIDER_PRESETS.map((p) => ({ ...p }))
   })
 
   // Transcriptions History Handlers
