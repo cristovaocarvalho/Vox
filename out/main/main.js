@@ -127,6 +127,8 @@ let dbInstance = null;
 let fallbackFileSettings = null;
 let fallbackFileSessions = null;
 let fallbackFileApiLogs = null;
+let fallbackFileCorrections = null;
+let fallbackFileVocabulary = null;
 const stmtCache = /* @__PURE__ */ new Map();
 function encryptValue(plainText) {
   try {
@@ -176,6 +178,8 @@ function initDatabase() {
     fallbackFileSettings = path.join(userDataPath, "vox_settings.json");
     fallbackFileSessions = path.join(userDataPath, "vox_sessions.json");
     fallbackFileApiLogs = path.join(userDataPath, "vox_api_logs.json");
+    fallbackFileCorrections = path.join(userDataPath, "vox_corrections.json");
+    fallbackFileVocabulary = path.join(userDataPath, "vox_vocabulary.json");
     if (Database) {
       dbInstance = new Database(dbPath);
       dbInstance.exec(`
@@ -209,6 +213,18 @@ function initDatabase() {
           operation  TEXT,
           model      TEXT,
           bytesSent  INTEGER DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS corrections (
+          raw       TEXT NOT NULL,
+          corrected TEXT NOT NULL,
+          count     INTEGER DEFAULT 0,
+          PRIMARY KEY (raw, corrected)
+        );
+
+        CREATE TABLE IF NOT EXISTS vocabulary (
+          term      TEXT PRIMARY KEY,
+          createdAt TEXT NOT NULL
         );
       `);
       console.log("[DB] Banco de dados SQLite pronto em:", dbPath);
@@ -293,6 +309,7 @@ function getAllSettings() {
     llmModel: "llama-3.1-8b-instant",
     shortcutToggle: "F10",
     shortcutPushToTalk: "F9",
+    shortcutClipboard: "F11",
     wakeWordEnabled: "true",
     wakeWordSensitivity: "0.5",
     language: systemLanguage,
@@ -303,8 +320,10 @@ function getAllSettings() {
     const val = getSetting(k, defaults[k]);
     if (val) result[k] = val;
   }
-  if (result.llmModel === "openai/gpt-oss-20b") {
+  if (result.llmModel === "openai/gpt-oss-20b" && getSetting("llmModelMigrated", "false") !== "true") {
     result.llmModel = "llama-3.1-8b-instant";
+    setSetting("llmModel", "llama-3.1-8b-instant");
+    setSetting("llmModelMigrated", "true");
   }
   return result;
 }
@@ -570,6 +589,209 @@ function clearApiLogs() {
     console.error("[DB] Erro ao limpar logs de API:", err);
   }
 }
+function tokenize(text) {
+  return text.toLowerCase().replace(/[^a-z0-9à-ÿ\s]/g, " ").split(/\s+/).filter(Boolean);
+}
+function extractCorrections(rawText, correctedText) {
+  const a = tokenize(rawText);
+  const b = tokenize(correctedText);
+  if (a.length === 0 || b.length === 0) return [];
+  const n = a.length;
+  const m = b.length;
+  const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i2 = n - 1; i2 >= 0; i2--) {
+    for (let j2 = m - 1; j2 >= 0; j2--) {
+      dp[i2][j2] = a[i2] === b[j2] ? dp[i2 + 1][j2 + 1] + 1 : Math.max(dp[i2 + 1][j2], dp[i2][j2 + 1]);
+    }
+  }
+  const matched = [];
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) {
+      matched.push([i, j]);
+      i++;
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      i++;
+    } else {
+      j++;
+    }
+  }
+  const corrections = [];
+  let prevI = -1;
+  let prevJ = -1;
+  const consumeGap = (fromI, toI, fromJ, toJ) => {
+    const rawGap = a.slice(fromI, toI);
+    const corrGap = b.slice(fromJ, toJ);
+    const minLen = Math.min(rawGap.length, corrGap.length);
+    for (let k = 0; k < minLen; k++) {
+      if (rawGap[k] !== corrGap[k]) corrections.push([rawGap[k], corrGap[k]]);
+    }
+  };
+  for (const [mi, mj] of matched) {
+    consumeGap(prevI + 1, mi, prevJ + 1, mj);
+    prevI = mi;
+    prevJ = mj;
+  }
+  consumeGap(prevI + 1, n, prevJ + 1, m);
+  return corrections;
+}
+function recordCorrections(rawText, correctedText) {
+  if (!rawText || !correctedText) return;
+  const pairs = extractCorrections(rawText, correctedText).filter(
+    ([r, c]) => r.length >= 3 && c.length >= 3 && r !== c
+  );
+  if (pairs.length === 0) return;
+  try {
+    if (dbInstance) {
+      const upsert = dbInstance.prepare(`
+        INSERT INTO corrections (raw, corrected, count)
+        VALUES (?, ?, 1)
+        ON CONFLICT(raw, corrected) DO UPDATE SET count = count + 1
+      `);
+      for (const [r, c] of pairs) {
+        upsert.run(r, c);
+      }
+      return;
+    }
+    if (fallbackFileCorrections) {
+      let corrections = [];
+      if (fs.existsSync(fallbackFileCorrections)) {
+        try {
+          corrections = JSON.parse(fs.readFileSync(fallbackFileCorrections, "utf-8"));
+        } catch {
+          corrections = [];
+        }
+      }
+      for (const [r, c] of pairs) {
+        const existing = corrections.find((e) => e.raw === r && e.corrected === c);
+        if (existing) existing.count += 1;
+        else corrections.push({ raw: r, corrected: c, count: 1 });
+      }
+      fs.writeFileSync(fallbackFileCorrections, JSON.stringify(corrections, null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao registrar correções:", err);
+  }
+}
+function getCorrectionDictionary(minCount = 2, limit = 50) {
+  try {
+    const rows = [];
+    if (dbInstance) {
+      const stmt = dbInstance.prepare("SELECT raw, corrected, count FROM corrections");
+      rows.push(...stmt.all());
+    } else if (fallbackFileCorrections && fs.existsSync(fallbackFileCorrections)) {
+      rows.push(...JSON.parse(fs.readFileSync(fallbackFileCorrections, "utf-8")));
+    }
+    const map = /* @__PURE__ */ new Map();
+    for (const row of rows) {
+      const cur = map.get(row.raw);
+      if (!cur) {
+        map.set(row.raw, { corrected: row.corrected, count: row.count, bestCount: row.count });
+      } else {
+        cur.count += row.count;
+        if (row.count > cur.bestCount) {
+          cur.bestCount = row.count;
+          cur.corrected = row.corrected;
+        }
+      }
+    }
+    return Array.from(map.entries()).map(([raw, v]) => ({ raw, corrected: v.corrected, count: v.count })).filter((e) => e.count >= minCount && e.raw !== e.corrected).sort((x, y) => y.count - x.count).slice(0, limit);
+  } catch (err) {
+    console.error("[DB] Erro ao obter dicionário de correções:", err);
+  }
+  return [];
+}
+function getSessionCount() {
+  try {
+    if (dbInstance) {
+      const row = dbInstance.prepare("SELECT COUNT(*) AS c FROM sessions").get();
+      return row?.c || 0;
+    }
+    if (fallbackFileSessions && fs.existsSync(fallbackFileSessions)) {
+      const sessions = JSON.parse(fs.readFileSync(fallbackFileSessions, "utf-8"));
+      return Array.isArray(sessions) ? sessions.length : 0;
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao contar sessões:", err);
+  }
+  return 0;
+}
+function addVocabularyTerm(term) {
+  const cleaned = (term || "").trim();
+  if (!cleaned) return;
+  try {
+    const record = { term: cleaned, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
+    if (dbInstance) {
+      dbInstance.prepare(`
+        INSERT INTO vocabulary (term, createdAt)
+        VALUES (?, ?)
+        ON CONFLICT(term) DO NOTHING
+      `).run(record.term, record.createdAt);
+      return;
+    }
+    if (fallbackFileVocabulary) {
+      let terms = [];
+      if (fs.existsSync(fallbackFileVocabulary)) {
+        try {
+          terms = JSON.parse(fs.readFileSync(fallbackFileVocabulary, "utf-8"));
+        } catch {
+          terms = [];
+        }
+      }
+      if (!terms.some((t) => t.term.toLowerCase() === cleaned.toLowerCase())) {
+        terms.unshift(record);
+        fs.writeFileSync(fallbackFileVocabulary, JSON.stringify(terms, null, 2), "utf-8");
+      }
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao adicionar termo ao vocabulário:", err);
+  }
+}
+function listVocabulary() {
+  try {
+    if (dbInstance) {
+      const rows = dbInstance.prepare("SELECT term FROM vocabulary ORDER BY datetime(createdAt) ASC").all();
+      return rows.map((r) => r.term);
+    }
+    if (fallbackFileVocabulary && fs.existsSync(fallbackFileVocabulary)) {
+      const terms = JSON.parse(fs.readFileSync(fallbackFileVocabulary, "utf-8"));
+      return (terms || []).map((t) => t.term);
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao listar vocabulário:", err);
+  }
+  return [];
+}
+function removeVocabularyTerm(term) {
+  try {
+    if (dbInstance) {
+      dbInstance.prepare("DELETE FROM vocabulary WHERE term = ?").run(term);
+      return;
+    }
+    if (fallbackFileVocabulary && fs.existsSync(fallbackFileVocabulary)) {
+      const terms = JSON.parse(fs.readFileSync(fallbackFileVocabulary, "utf-8"));
+      const filtered = (terms || []).filter((t) => t.term !== term);
+      fs.writeFileSync(fallbackFileVocabulary, JSON.stringify(filtered, null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao remover termo do vocabulário:", err);
+  }
+}
+function clearVocabulary() {
+  try {
+    if (dbInstance) {
+      dbInstance.exec("DELETE FROM vocabulary;");
+      return;
+    }
+    if (fallbackFileVocabulary) {
+      fs.writeFileSync(fallbackFileVocabulary, JSON.stringify([], null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao limpar vocabulário:", err);
+  }
+}
 const PROVIDER_PRESETS = [
   { id: "groq", label: "Groq", baseUrl: "https://api.groq.com/openai/v1", requiresApiKey: true, isAzure: false, defaultApiVersion: "" },
   { id: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", requiresApiKey: true, isAzure: false, defaultApiVersion: "" },
@@ -711,6 +933,20 @@ async function transcribeAudio(audioBuffer, language) {
   }
 }
 const DEFAULT_LLM_MODEL = "llama-3.1-8b-instant";
+const CALIBRATION_SESSIONS = 25;
+function buildDictionaryLine() {
+  if (getSessionCount() < CALIBRATION_SESSIONS) return "";
+  const dict = getCorrectionDictionary(2, 30);
+  if (dict.length === 0) return "";
+  const items = dict.map((e) => `"${e.raw}" → "${e.corrected}"`).join(", ");
+  return ` Dicionário de correções recorrentes do usuário (aplique quando corresponder ao contexto): ${items}.`;
+}
+function buildVocabularyLine() {
+  const terms = listVocabulary();
+  if (terms.length === 0) return "";
+  const items = terms.map((t) => `"${t}"`).join(", ");
+  return ` Vocabulário pessoal do usuário (nomes próprios, siglas e termos técnicos que devem ser reconhecidos e mantidos exatamente como escritos): ${items}.`;
+}
 async function correctTranscription(text, context) {
   if (!text || text.trim().length === 0) return text;
   const provider = resolveProvider();
@@ -719,16 +955,17 @@ async function correctTranscription(text, context) {
     return text;
   }
   const model = (getSetting("llmModel") || process.env.LLM_MODEL || DEFAULT_LLM_MODEL).trim();
-  const resolvedModel = model === "openai/gpt-oss-20b" || model === "openai/gpt-oss-120b" ? DEFAULT_LLM_MODEL : model;
-  const endpoint = getChatEndpoint(resolvedModel);
-  console.log(`[Corrector] Revisando texto (${provider.id}, ${resolvedModel})...`);
+  const endpoint = getChatEndpoint(model);
+  console.log(`[Corrector] Revisando texto (${provider.id}, ${model})...`);
   const contextLine = context ? ` Contexto do ditado: o usuário está digitando em ${context}. Ajuste a formatação de acordo (ex.: código, e-mail, documento, chat).` : "";
+  const dictionaryLine = buildDictionaryLine();
+  const vocabularyLine = buildVocabularyLine();
   try {
     const body = {
       messages: [
         {
           role: "system",
-          content: `Você é um revisor de transcrições de áudio. Sua ÚNICA função é ajustar pontuação, maiúsculas e ortografia do texto recebido.${contextLine} MANTENHA RIGOROSAMENTE O IDIOMA ORIGINAL DO TEXTO (se o texto estiver em inglês, mantenha em inglês; se estiver em português, mantenha em português). É ESTRITAMENTE PROIBIDO TRADUZIR O TEXTO. Retorne APENAS o texto revisado, sem apresentações ou explicações.`
+          content: `Você é um revisor de transcrições de áudio. Sua ÚNICA função é ajustar pontuação, maiúsculas e ortografia do texto recebido.${contextLine}${vocabularyLine}${dictionaryLine} MANTENHA RIGOROSAMENTE O IDIOMA ORIGINAL DO TEXTO (se o texto estiver em inglês, mantenha em inglês; se estiver em português, mantenha em português). É ESTRITAMENTE PROIBIDO TRADUZIR O TEXTO. Retorne APENAS o texto revisado, sem apresentações ou explicações.`
         },
         {
           role: "user",
@@ -739,14 +976,14 @@ async function correctTranscription(text, context) {
       max_tokens: 512
     };
     if (!provider.isAzure) {
-      body.model = resolvedModel;
+      body.model = model;
     }
     const bodyStr = JSON.stringify(body);
     logApiCall({
       provider: provider.id,
       endpoint,
       operation: "llm",
-      model: resolvedModel,
+      model,
       bytesSent: Buffer.byteLength(bodyStr)
     });
     const response = await fetch(endpoint, {
@@ -990,6 +1227,7 @@ const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeI
 const execFileAsync = util.promisify(child_process.execFile);
 let mainWindow = null;
 let dockWindow = null;
+let clipboardWindow = null;
 let tray = null;
 let targetWindowRef = null;
 let isQuitting = false;
@@ -1134,6 +1372,76 @@ function hideDock() {
     isDockHiding = false;
   }, 280);
 }
+function positionClipboardWindow() {
+  if (!clipboardWindow) return;
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+  const winWidth = 420;
+  const winHeight = 480;
+  const x = Math.round((width - winWidth) / 2);
+  const y = Math.round((height - winHeight) / 2);
+  clipboardWindow.setBounds({ x, y, width: winWidth, height: winHeight });
+}
+function createClipboardWindow() {
+  const win = new BrowserWindow({
+    width: 420,
+    height: 480,
+    alwaysOnTop: true,
+    frame: false,
+    transparent: true,
+    backgroundColor: "#00000000",
+    resizable: false,
+    show: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/preload.js"),
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  win.setMenu(null);
+  win.on("close", (e) => {
+    e.preventDefault();
+    win.hide();
+  });
+  win.on("blur", () => {
+    hideClipboardHistory();
+  });
+  const devUrl = getDevUrl();
+  if (devUrl) {
+    win.loadURL(`${devUrl}#/clipboard`);
+  } else {
+    win.loadFile(path.join(__dirname, "../renderer/index.html"), { hash: "clipboard" });
+  }
+  clipboardWindow = win;
+  positionClipboardWindow();
+}
+function showClipboardHistory() {
+  if (!clipboardWindow) return;
+  void captureActiveWindow();
+  positionClipboardWindow();
+  if (clipboardWindow.isMinimized()) clipboardWindow.restore();
+  clipboardWindow.show();
+  clipboardWindow.setAlwaysOnTop(true, "screen-saver");
+  clipboardWindow.focus();
+  if (!clipboardWindow.isDestroyed()) {
+    clipboardWindow.webContents.send("vox:clipboard-refresh");
+  }
+}
+function hideClipboardHistory() {
+  if (clipboardWindow && clipboardWindow.isVisible()) {
+    clipboardWindow.hide();
+  }
+}
+function toggleClipboardHistory() {
+  if (clipboardWindow && clipboardWindow.isVisible()) {
+    hideClipboardHistory();
+  } else {
+    showClipboardHistory();
+  }
+}
 const APP_CONTEXT_RULES = [
   { category: "a code editor or IDE", keywords: ["code", "visual studio", "vscode", "intellij", "pycharm", "webstorm", "phpstorm", "goland", "rider", "sublime", "notepad++", "vim", "neovim", "emacs", "atom", "eclipse", "android studio", "xcode", "cursor"] },
   { category: "an email message", keywords: ["outlook", "gmail", "thunderbird", "mail", "proton", "postbox"] },
@@ -1156,10 +1464,14 @@ function buildContextHint(ref) {
 async function processTranscriptionResult(buffer) {
   if (!buffer || buffer.length === 0) return { text: "" };
   const result = await transcribeAudio(buffer);
+  const rawText = result.text;
   console.log("[Main] Transcrição bruta:", result.text);
   if (result.text && !result.text.startsWith("[Erro")) {
     result.text = await correctTranscription(result.text, buildContextHint(targetWindowRef));
     console.log("[Main] Transcrição corrigida:", result.text);
+    if (rawText && result.text && rawText !== result.text) {
+      recordCorrections(rawText, result.text);
+    }
   }
   if (result.text) {
     const sessionData = {
@@ -1167,7 +1479,7 @@ async function processTranscriptionResult(buffer) {
       type: "dictation",
       title: result.text.slice(0, 60),
       text: result.text,
-      rawText: result.rawText || result.text,
+      rawText: rawText || result.text,
       createdAt: (/* @__PURE__ */ new Date()).toISOString()
     };
     saveSession(sessionData);
@@ -1335,6 +1647,9 @@ function setupIpcHandlers() {
             console.warn("[Main] Erro ao salvar configuração de autostart:", err);
           }
         }
+        if (settings.shortcutToggle || settings.shortcutPushToTalk || settings.shortcutClipboard) {
+          registerShortcuts();
+        }
       }
       return { success: true };
     } catch (err) {
@@ -1394,6 +1709,32 @@ function setupIpcHandlers() {
     clearApiLogs();
     return { success: true };
   });
+  ipcMain.handle("vox:list-vocabulary", () => {
+    return listVocabulary();
+  });
+  ipcMain.handle("vox:add-vocabulary-term", (_event, term) => {
+    if (typeof term === "string") addVocabularyTerm(term);
+    return listVocabulary();
+  });
+  ipcMain.handle("vox:remove-vocabulary-term", (_event, term) => {
+    if (typeof term === "string") removeVocabularyTerm(term);
+    return listVocabulary();
+  });
+  ipcMain.handle("vox:clear-vocabulary", () => {
+    clearVocabulary();
+    return { success: true };
+  });
+  ipcMain.handle("vox:insert-clipboard-item", async (_event, text) => {
+    hideClipboardHistory();
+    if (text && typeof text === "string" && text.trim()) {
+      await injectText(text, targetWindowRef || void 0);
+    }
+    return { success: true };
+  });
+  ipcMain.handle("vox:hide-clipboard", () => {
+    hideClipboardHistory();
+    return { success: true };
+  });
 }
 let lastToggleTime = 0;
 function toggleDockWindow() {
@@ -1413,18 +1754,26 @@ function toggleDockWindow() {
   }
 }
 let isPushToTalkActive = false;
+function getPushToTalkVk() {
+  const shortcut = getSetting("shortcutPushToTalk", "F9").trim();
+  const m = /^F([1-9]|1[0-9]|2[0-4])$/i.exec(shortcut);
+  if (!m) return null;
+  return 112 + (parseInt(m[1], 10) - 1);
+}
 function startPushToTalk() {
   if (!dockWindow) return;
   if (recorder.getIsRecording()) return;
+  const vk = getPushToTalkVk();
+  const useAutoStop = process.platform !== "win32" || vk === null;
   void captureActiveWindow();
   showDock();
-  recorder.startRecording({ autoStopOnSilence: process.platform !== "win32" });
+  recorder.startRecording({ autoStopOnSilence: useAutoStop });
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("vox:toggle-recording", true);
   }
   isPushToTalkActive = true;
-  if (process.platform === "win32") {
-    const psScript = `Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);' -Name KS -Namespace VOX; while (([VOX.KS]::GetAsyncKeyState(0x78) -band 0x8000) -ne 0) { Start-Sleep -Milliseconds 30 }`;
+  if (process.platform === "win32" && vk !== null) {
+    const psScript = `Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);' -Name KS -Namespace VOX; while (([VOX.KS]::GetAsyncKeyState(${vk}) -band 0x8000) -ne 0) { Start-Sleep -Milliseconds 30 }`;
     const encoded = Buffer.from(psScript, "utf16le").toString("base64");
     execFileAsync("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-EncodedCommand", encoded], { timeout: 6e4 }).then(() => stopPushToTalk()).catch(() => stopPushToTalk());
   }
@@ -1437,10 +1786,48 @@ function stopPushToTalk() {
     mainWindow.webContents.send("vox:toggle-recording", false);
   }
 }
+const MODIFIER_MAP = {
+  Ctrl: "Control",
+  Alt: "Alt",
+  Shift: "Shift",
+  Cmd: "Super"
+};
+function toAccelerator(shortcut) {
+  const parts = shortcut.split("+").map((s) => s.trim()).filter(Boolean);
+  if (parts.length === 0) return null;
+  const key = parts[parts.length - 1];
+  const mods = parts.slice(0, -1).map((m) => MODIFIER_MAP[m] || m);
+  return [...mods, key].join("+");
+}
+function registerShortcuts() {
+  globalShortcut.unregisterAll();
+  const toggle = getSetting("shortcutToggle", "F10").trim() || "F10";
+  const ptt = getSetting("shortcutPushToTalk", "F9").trim() || "F9";
+  const clipboard2 = getSetting("shortcutClipboard", "F11").trim() || "F11";
+  const register = (shortcut, handler, name) => {
+    const accel = toAccelerator(shortcut);
+    if (!accel) {
+      console.warn(`[Main] Atalho inválido para ${name}: "${shortcut}"`);
+      return;
+    }
+    try {
+      const ok = globalShortcut.register(accel, handler);
+      if (!ok) {
+        console.warn(`[Main] Falha ao registrar o atalho ${accel} (${name}) — pode estar em uso por outro app.`);
+      }
+    } catch (err) {
+      console.warn(`[Main] Erro ao registrar o atalho ${accel}:`, err);
+    }
+  };
+  register(toggle, toggleDockWindow, "toggle");
+  register(ptt, startPushToTalk, "push-to-talk");
+  register(clipboard2, toggleClipboardHistory, "clipboard");
+}
 app.whenReady().then(async () => {
   initDatabase();
   createMainWindow();
   createDockWindow();
+  createClipboardWindow();
   setupIpcHandlers();
   const settings = getAllSettings();
   const sensitivity = parseFloat(settings.wakeWordSensitivity || "0.5");
@@ -1493,14 +1880,7 @@ app.whenReady().then(async () => {
   } catch (err) {
     console.warn("[Main] Erro ao configurar autostart:", err);
   }
-  const toggleRegistered = globalShortcut.register("F10", toggleDockWindow);
-  if (!toggleRegistered) {
-    console.warn("[Main] Falha ao registrar o atalho F10 (pode estar em uso por outro app ou reservado pelo sistema).");
-  }
-  const pttRegistered = globalShortcut.register("F9", startPushToTalk);
-  if (!pttRegistered) {
-    console.warn("[Main] Falha ao registrar o atalho F9 (pode estar em uso por outro app ou reservado pelo sistema).");
-  }
+  registerShortcuts();
   const iconPath = getAppIconPath();
   const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
   tray = new Tray(trayIcon);

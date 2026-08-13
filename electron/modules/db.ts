@@ -40,10 +40,18 @@ export interface ApiLogEntry {
   bytesSent: number
 }
 
+export interface CorrectionEntry {
+  raw: string
+  corrected: string
+  count: number
+}
+
 let dbInstance: any = null
 let fallbackFileSettings: string | null = null
 let fallbackFileSessions: string | null = null
 let fallbackFileApiLogs: string | null = null
+let fallbackFileCorrections: string | null = null
+let fallbackFileVocabulary: string | null = null
 const stmtCache = new Map<string, any>()
 
 function encryptValue(plainText: string): string {
@@ -98,6 +106,8 @@ export function initDatabase() {
     fallbackFileSettings = path.join(userDataPath, 'vox_settings.json')
     fallbackFileSessions = path.join(userDataPath, 'vox_sessions.json')
     fallbackFileApiLogs = path.join(userDataPath, 'vox_api_logs.json')
+    fallbackFileCorrections = path.join(userDataPath, 'vox_corrections.json')
+    fallbackFileVocabulary = path.join(userDataPath, 'vox_vocabulary.json')
 
     if (Database) {
       dbInstance = new Database(dbPath)
@@ -132,6 +142,18 @@ export function initDatabase() {
           operation  TEXT,
           model      TEXT,
           bytesSent  INTEGER DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS corrections (
+          raw       TEXT NOT NULL,
+          corrected TEXT NOT NULL,
+          count     INTEGER DEFAULT 0,
+          PRIMARY KEY (raw, corrected)
+        );
+
+        CREATE TABLE IF NOT EXISTS vocabulary (
+          term      TEXT PRIMARY KEY,
+          createdAt TEXT NOT NULL
         );
       `)
       console.log('[DB] Banco de dados SQLite pronto em:', dbPath)
@@ -220,6 +242,7 @@ export function getAllSettings() {
     llmModel: 'llama-3.1-8b-instant',
     shortcutToggle: 'F10',
     shortcutPushToTalk: 'F9',
+    shortcutClipboard: 'F11',
     wakeWordEnabled: 'true',
     wakeWordSensitivity: '0.5',
     language: systemLanguage,
@@ -233,8 +256,10 @@ export function getAllSettings() {
     if (val) result[k] = val
   }
 
-  if (result.llmModel === 'openai/gpt-oss-20b') {
+  if (result.llmModel === 'openai/gpt-oss-20b' && getSetting('llmModelMigrated', 'false') !== 'true') {
     result.llmModel = 'llama-3.1-8b-instant'
+    setSetting('llmModel', 'llama-3.1-8b-instant')
+    setSetting('llmModelMigrated', 'true')
   }
 
   return result
@@ -529,6 +554,242 @@ export function clearApiLogs(): void {
   }
 }
 
+// ================= Corrections (Pattern History) =================
+
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9à-ÿ\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+}
+
+function extractCorrections(rawText: string, correctedText: string): Array<[string, string]> {
+  const a = tokenize(rawText)
+  const b = tokenize(correctedText)
+  if (a.length === 0 || b.length === 0) return []
+
+  const n = a.length
+  const m = b.length
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1])
+    }
+  }
+
+  const matched: Array<[number, number]> = []
+  let i = 0
+  let j = 0
+  while (i < n && j < m) {
+    if (a[i] === b[j]) {
+      matched.push([i, j])
+      i++
+      j++
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      i++
+    } else {
+      j++
+    }
+  }
+
+  const corrections: Array<[string, string]> = []
+  let prevI = -1
+  let prevJ = -1
+  const consumeGap = (fromI: number, toI: number, fromJ: number, toJ: number) => {
+    const rawGap = a.slice(fromI, toI)
+    const corrGap = b.slice(fromJ, toJ)
+    const minLen = Math.min(rawGap.length, corrGap.length)
+    for (let k = 0; k < minLen; k++) {
+      if (rawGap[k] !== corrGap[k]) corrections.push([rawGap[k], corrGap[k]])
+    }
+  }
+
+  for (const [mi, mj] of matched) {
+    consumeGap(prevI + 1, mi, prevJ + 1, mj)
+    prevI = mi
+    prevJ = mj
+  }
+  consumeGap(prevI + 1, n, prevJ + 1, m)
+
+  return corrections
+}
+
+export function recordCorrections(rawText: string, correctedText: string): void {
+  if (!rawText || !correctedText) return
+
+  const pairs = extractCorrections(rawText, correctedText).filter(
+    ([r, c]) => r.length >= 3 && c.length >= 3 && r !== c
+  )
+  if (pairs.length === 0) return
+
+  try {
+    if (dbInstance) {
+      const upsert = dbInstance.prepare(`
+        INSERT INTO corrections (raw, corrected, count)
+        VALUES (?, ?, 1)
+        ON CONFLICT(raw, corrected) DO UPDATE SET count = count + 1
+      `)
+      for (const [r, c] of pairs) {
+        upsert.run(r, c)
+      }
+      return
+    }
+
+    if (fallbackFileCorrections) {
+      let corrections: Array<{ raw: string; corrected: string; count: number }> = []
+      if (fs.existsSync(fallbackFileCorrections)) {
+        try {
+          corrections = JSON.parse(fs.readFileSync(fallbackFileCorrections, 'utf-8'))
+        } catch {
+          corrections = []
+        }
+      }
+      for (const [r, c] of pairs) {
+        const existing = corrections.find((e) => e.raw === r && e.corrected === c)
+        if (existing) existing.count += 1
+        else corrections.push({ raw: r, corrected: c, count: 1 })
+      }
+      fs.writeFileSync(fallbackFileCorrections, JSON.stringify(corrections, null, 2), 'utf-8')
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao registrar correções:', err)
+  }
+}
+
+export function getCorrectionDictionary(minCount = 2, limit = 50): CorrectionEntry[] {
+  try {
+    const rows: Array<{ raw: string; corrected: string; count: number }> = []
+    if (dbInstance) {
+      const stmt = dbInstance.prepare('SELECT raw, corrected, count FROM corrections')
+      rows.push(...stmt.all())
+    } else if (fallbackFileCorrections && fs.existsSync(fallbackFileCorrections)) {
+      rows.push(...JSON.parse(fs.readFileSync(fallbackFileCorrections, 'utf-8')))
+    }
+
+    const map = new Map<string, { corrected: string; count: number; bestCount: number }>()
+    for (const row of rows) {
+      const cur = map.get(row.raw)
+      if (!cur) {
+        map.set(row.raw, { corrected: row.corrected, count: row.count, bestCount: row.count })
+      } else {
+        cur.count += row.count
+        if (row.count > cur.bestCount) {
+          cur.bestCount = row.count
+          cur.corrected = row.corrected
+        }
+      }
+    }
+
+    return Array.from(map.entries())
+      .map(([raw, v]) => ({ raw, corrected: v.corrected, count: v.count }))
+      .filter((e) => e.count >= minCount && e.raw !== e.corrected)
+      .sort((x, y) => y.count - x.count)
+      .slice(0, limit)
+  } catch (err) {
+    console.error('[DB] Erro ao obter dicionário de correções:', err)
+  }
+  return []
+}
+
+export function getSessionCount(): number {
+  try {
+    if (dbInstance) {
+      const row = dbInstance.prepare('SELECT COUNT(*) AS c FROM sessions').get()
+      return row?.c || 0
+    }
+    if (fallbackFileSessions && fs.existsSync(fallbackFileSessions)) {
+      const sessions = JSON.parse(fs.readFileSync(fallbackFileSessions, 'utf-8'))
+      return Array.isArray(sessions) ? sessions.length : 0
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao contar sessões:', err)
+  }
+  return 0
+}
+
+// ================= Personal Vocabulary =================
+
+export function addVocabularyTerm(term: string): void {
+  const cleaned = (term || '').trim()
+  if (!cleaned) return
+
+  try {
+    const record = { term: cleaned, createdAt: new Date().toISOString() }
+    if (dbInstance) {
+      dbInstance.prepare(`
+        INSERT INTO vocabulary (term, createdAt)
+        VALUES (?, ?)
+        ON CONFLICT(term) DO NOTHING
+      `).run(record.term, record.createdAt)
+      return
+    }
+
+    if (fallbackFileVocabulary) {
+      let terms: Array<{ term: string; createdAt: string }> = []
+      if (fs.existsSync(fallbackFileVocabulary)) {
+        try {
+          terms = JSON.parse(fs.readFileSync(fallbackFileVocabulary, 'utf-8'))
+        } catch {
+          terms = []
+        }
+      }
+      if (!terms.some((t) => t.term.toLowerCase() === cleaned.toLowerCase())) {
+        terms.unshift(record)
+        fs.writeFileSync(fallbackFileVocabulary, JSON.stringify(terms, null, 2), 'utf-8')
+      }
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao adicionar termo ao vocabulário:', err)
+  }
+}
+
+export function listVocabulary(): string[] {
+  try {
+    if (dbInstance) {
+      const rows = dbInstance.prepare('SELECT term FROM vocabulary ORDER BY datetime(createdAt) ASC').all()
+      return rows.map((r: any) => r.term)
+    }
+    if (fallbackFileVocabulary && fs.existsSync(fallbackFileVocabulary)) {
+      const terms = JSON.parse(fs.readFileSync(fallbackFileVocabulary, 'utf-8'))
+      return (terms || []).map((t: any) => t.term)
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao listar vocabulário:', err)
+  }
+  return []
+}
+
+export function removeVocabularyTerm(term: string): void {
+  try {
+    if (dbInstance) {
+      dbInstance.prepare('DELETE FROM vocabulary WHERE term = ?').run(term)
+      return
+    }
+    if (fallbackFileVocabulary && fs.existsSync(fallbackFileVocabulary)) {
+      const terms = JSON.parse(fs.readFileSync(fallbackFileVocabulary, 'utf-8'))
+      const filtered = (terms || []).filter((t: any) => t.term !== term)
+      fs.writeFileSync(fallbackFileVocabulary, JSON.stringify(filtered, null, 2), 'utf-8')
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao remover termo do vocabulário:', err)
+  }
+}
+
+export function clearVocabulary(): void {
+  try {
+    if (dbInstance) {
+      dbInstance.exec('DELETE FROM vocabulary;')
+      return
+    }
+    if (fallbackFileVocabulary) {
+      fs.writeFileSync(fallbackFileVocabulary, JSON.stringify([], null, 2), 'utf-8')
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao limpar vocabulário:', err)
+  }
+}
+
 export default {
   initDatabase,
   getSetting,
@@ -542,5 +803,12 @@ export default {
   searchSessions,
   logApiCall,
   listApiLogs,
-  clearApiLogs
+  clearApiLogs,
+  recordCorrections,
+  getCorrectionDictionary,
+  getSessionCount,
+  addVocabularyTerm,
+  listVocabulary,
+  removeVocabularyTerm,
+  clearVocabulary
 }

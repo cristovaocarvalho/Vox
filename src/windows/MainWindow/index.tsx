@@ -85,6 +85,8 @@ export const MainWindow: React.FC = () => {
     setShortcutToggle,
     shortcutPushToTalk,
     setShortcutPushToTalk,
+    shortcutClipboard,
+    setShortcutClipboard,
     wakeWordEnabled,
     setWakeWordEnabled,
     wakeWordSensitivity,
@@ -99,7 +101,7 @@ export const MainWindow: React.FC = () => {
   const [partialTranscript, setPartialTranscript] = useState('')
   const [isCopied, setIsCopied] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [settingsPage, setSettingsPage] = useState<'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences' | 'privacy'>('provider')
+  const [settingsPage, setSettingsPage] = useState<'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences' | 'privacy' | 'vocabulary'>('provider')
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
 
@@ -110,6 +112,7 @@ export const MainWindow: React.FC = () => {
   const [draftAzureApiVersion, setDraftAzureApiVersion] = useState(azureApiVersion)
   const [draftShortcutToggle, setDraftShortcutToggle] = useState(shortcutToggle)
   const [draftShortcutPushToTalk, setDraftShortcutPushToTalk] = useState(shortcutPushToTalk)
+  const [draftShortcutClipboard, setDraftShortcutClipboard] = useState(shortcutClipboard)
   const [draftWakeWordEnabled, setDraftWakeWordEnabled] = useState(wakeWordEnabled)
   const [draftWakeWordSensitivity, setDraftWakeWordSensitivity] = useState(wakeWordSensitivity)
   const [draftLanguage, setDraftLanguage] = useState<AppLocale>(language)
@@ -134,6 +137,9 @@ export const MainWindow: React.FC = () => {
 
   const [apiLogs, setApiLogs] = useState<any[]>([])
   const [privacyLoading, setPrivacyLoading] = useState(false)
+
+  const [vocabulary, setVocabulary] = useState<string[]>([])
+  const [newTerm, setNewTerm] = useState('')
 
 
 
@@ -199,6 +205,36 @@ export const MainWindow: React.FC = () => {
     }
   }
 
+  const loadVocabulary = React.useCallback(async () => {
+    if (!window.vox?.listVocabulary) return
+    try {
+      const terms = await window.vox.listVocabulary()
+      setVocabulary(Array.isArray(terms) ? terms : [])
+    } catch (err) {
+      console.error('Erro ao carregar vocabulário:', err)
+    }
+  }, [])
+
+  const handleAddVocabularyTerm = async () => {
+    const term = newTerm.trim()
+    if (!term || !window.vox?.addVocabularyTerm) return
+    const updated = await window.vox.addVocabularyTerm(term)
+    setVocabulary(Array.isArray(updated) ? updated : [...vocabulary, term])
+    setNewTerm('')
+  }
+
+  const handleRemoveVocabularyTerm = async (term: string) => {
+    if (!window.vox?.removeVocabularyTerm) return
+    const updated = await window.vox.removeVocabularyTerm(term)
+    setVocabulary(Array.isArray(updated) ? updated : vocabulary.filter((t) => t !== term))
+  }
+
+  const handleClearVocabulary = async () => {
+    if (!window.vox?.clearVocabulary) return
+    await window.vox.clearVocabulary()
+    setVocabulary([])
+  }
+
 
   const handleOpenSettings = () => {
     setDraftApiKey(apiKey)
@@ -207,6 +243,7 @@ export const MainWindow: React.FC = () => {
     setDraftAzureApiVersion(azureApiVersion)
     setDraftShortcutToggle(shortcutToggle)
     setDraftShortcutPushToTalk(shortcutPushToTalk)
+    setDraftShortcutClipboard(shortcutClipboard)
     setDraftWakeWordEnabled(wakeWordEnabled)
     setDraftWakeWordSensitivity(wakeWordSensitivity)
     setDraftLanguage(language)
@@ -279,12 +316,13 @@ export const MainWindow: React.FC = () => {
     }
   }
 
-  const settingsNavItems: { id: 'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences' | 'privacy'; label: string }[] = [
+  const settingsNavItems: { id: 'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences' | 'privacy' | 'vocabulary'; label: string }[] = [
     { id: 'provider', label: t('settings.provider') },
     { id: 'models', label: t('settings.models') },
     { id: 'shortcuts', label: t('settings.shortcuts') },
     { id: 'voice', label: t('settings.voice') },
     { id: 'preferences', label: t('settings.preferences') },
+    { id: 'vocabulary', label: t('settings.vocabulary') },
     { id: 'privacy', label: t('settings.privacy') }
   ]
 
@@ -299,6 +337,7 @@ export const MainWindow: React.FC = () => {
       llmModel: draftLlmModel,
       shortcutToggle: draftShortcutToggle,
       shortcutPushToTalk: draftShortcutPushToTalk,
+      shortcutClipboard: draftShortcutClipboard,
       wakeWordEnabled: draftWakeWordEnabled,
       wakeWordSensitivity: draftWakeWordSensitivity,
       language: draftLanguage,
@@ -316,6 +355,7 @@ export const MainWindow: React.FC = () => {
         llmModel: draftLlmModel,
         shortcutToggle: draftShortcutToggle,
         shortcutPushToTalk: draftShortcutPushToTalk,
+        shortcutClipboard: draftShortcutClipboard,
         wakeWordEnabled: String(draftWakeWordEnabled),
         wakeWordSensitivity: String(draftWakeWordSensitivity),
         language: draftLanguage,
@@ -344,6 +384,7 @@ export const MainWindow: React.FC = () => {
         if (saved.llmModel) settingsToUpdate.llmModel = saved.llmModel
         if (saved.shortcutToggle) settingsToUpdate.shortcutToggle = saved.shortcutToggle
         if (saved.shortcutPushToTalk) settingsToUpdate.shortcutPushToTalk = saved.shortcutPushToTalk
+        if (saved.shortcutClipboard) settingsToUpdate.shortcutClipboard = saved.shortcutClipboard
         if (saved.wakeWordEnabled !== undefined) settingsToUpdate.wakeWordEnabled = saved.wakeWordEnabled === 'true'
         if (saved.wakeWordSensitivity) settingsToUpdate.wakeWordSensitivity = parseFloat(saved.wakeWordSensitivity)
         if (saved.autoStartEnabled !== undefined) {
@@ -400,7 +441,10 @@ export const MainWindow: React.FC = () => {
     if (isSettingsOpen && settingsPage === 'privacy') {
       loadApiLogs()
     }
-  }, [isSettingsOpen, settingsPage, loadApiLogs])
+    if (isSettingsOpen && settingsPage === 'vocabulary') {
+      loadVocabulary()
+    }
+  }, [isSettingsOpen, settingsPage, loadApiLogs, loadVocabulary])
 
   const mediaStreamRef = React.useRef<MediaStream | null>(null)
   const audioContextRef = React.useRef<AudioContext | null>(null)
@@ -1113,6 +1157,16 @@ export const MainWindow: React.FC = () => {
                             onChange={(val) => setDraftShortcutPushToTalk(val)}
                           />
                         </div>
+
+                        <div>
+                          <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
+                            {t('settings.shortcutClipboard')}
+                          </label>
+                          <ShortcutInput
+                            value={draftShortcutClipboard}
+                            onChange={(val) => setDraftShortcutClipboard(val)}
+                          />
+                        </div>
                       </div>
                     )}
 
@@ -1303,6 +1357,69 @@ export const MainWindow: React.FC = () => {
                               </div>
                             ))}
                           </div>
+                        )}
+                      </div>
+                    )}
+
+                    {settingsPage === 'vocabulary' && (
+                      <div className="space-y-4">
+                        <p className="text-[11px] text-text-secondary leading-relaxed">
+                          {t('settings.vocabularyHint')}
+                        </p>
+
+                        <div className="flex gap-2">
+                          <SmoothInput
+                            type="text"
+                            value={newTerm}
+                            onChange={(e) => setNewTerm(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleAddVocabularyTerm()
+                            }}
+                            placeholder={t('settings.vocabularyPlaceholder')}
+                          />
+                          <SpecularButton
+                            size="sm"
+                            radius={12}
+                            onClick={handleAddVocabularyTerm}
+                            disabled={!newTerm.trim()}
+                            className="shrink-0 !px-4"
+                          >
+                            {t('settings.vocabularyAdd')}
+                          </SpecularButton>
+                        </div>
+
+                        {vocabulary.length === 0 ? (
+                          <p className="text-xs text-text-muted py-8 text-center">{t('settings.vocabularyEmpty')}</p>
+                        ) : (
+                          <>
+                            <div className="flex flex-wrap gap-1.5">
+                              {vocabulary.map((term) => (
+                                <span
+                                  key={term}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-background/50 border border-border/50 text-xs font-medium text-text-primary"
+                                >
+                                  {term}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveVocabularyTerm(term)}
+                                    className="text-text-muted hover:text-error transition-colors cursor-pointer"
+                                  >
+                                    <IconX className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                onClick={handleClearVocabulary}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-error hover:bg-error/10 border border-border/50 hover:border-error/30 rounded-xl transition-all duration-250 cursor-pointer"
+                              >
+                                <IconTrash className="w-3.5 h-3.5" />
+                                {t('settings.vocabularyClear')}
+                              </button>
+                            </div>
+                          </>
                         )}
                       </div>
                     )}

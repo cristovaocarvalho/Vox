@@ -23,6 +23,8 @@ export interface VoxState {
   setShortcutToggle: (shortcut: string) => void
   shortcutPushToTalk: string
   setShortcutPushToTalk: (shortcut: string) => void
+  shortcutClipboard: string
+  setShortcutClipboard: (shortcut: string) => void
   wakeWordEnabled: boolean
   setWakeWordEnabled: (enabled: boolean) => void
   wakeWordSensitivity: number
@@ -64,6 +66,8 @@ export const useVoxStore = create<VoxState>((set) => ({
   setShortcutToggle: (shortcutToggle) => set({ shortcutToggle }),
   shortcutPushToTalk: 'F9',
   setShortcutPushToTalk: (shortcutPushToTalk) => set({ shortcutPushToTalk }),
+  shortcutClipboard: 'F11',
+  setShortcutClipboard: (shortcutClipboard) => set({ shortcutClipboard }),
   wakeWordEnabled: false,
   setWakeWordEnabled: (wakeWordEnabled) => set({ wakeWordEnabled }),
   wakeWordSensitivity: 0.5,

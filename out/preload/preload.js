@@ -65,6 +65,12 @@ const voxApi = {
   },
   listApiLogs: (limit) => ipcRenderer.invoke("vox:list-api-logs", limit),
   clearApiLogs: () => ipcRenderer.invoke("vox:clear-api-logs"),
+  listVocabulary: () => ipcRenderer.invoke("vox:list-vocabulary"),
+  addVocabularyTerm: (term) => ipcRenderer.invoke("vox:add-vocabulary-term", term),
+  removeVocabularyTerm: (term) => ipcRenderer.invoke("vox:remove-vocabulary-term", term),
+  clearVocabulary: () => ipcRenderer.invoke("vox:clear-vocabulary"),
+  insertClipboardItem: (text) => ipcRenderer.invoke("vox:insert-clipboard-item", text),
+  hideClipboard: () => ipcRenderer.invoke("vox:hide-clipboard"),
   // Event Listeners
   onDockTextUpdate: (callback) => {
     const handler = (_event, text) => callback(text);
@@ -115,6 +121,11 @@ const voxApi = {
     const handler = () => callback();
     ipcRenderer.on("vox:dock-hide", handler);
     return () => ipcRenderer.removeListener("vox:dock-hide", handler);
+  },
+  onClipboardRefresh: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on("vox:clipboard-refresh", handler);
+    return () => ipcRenderer.removeListener("vox:clipboard-refresh", handler);
   }
 };
 contextBridge.exposeInMainWorld("vox", voxApi);

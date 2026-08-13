@@ -7,7 +7,7 @@ import { transcribeAudio } from './modules/stt'
 import { correctTranscription } from './modules/corrector'
 import { injectText, WindowRef } from './modules/injector'
 
-import { initDatabase, getAllSettings, getSetting, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, listApiLogs, clearApiLogs, Session } from './modules/db'
+import { initDatabase, getAllSettings, getSetting, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, listApiLogs, clearApiLogs, recordCorrections, addVocabularyTerm, listVocabulary, removeVocabularyTerm, clearVocabulary, Session } from './modules/db'
 import wakewordDetector from './modules/wakeword'
 import { resolveProvider, getModelsEndpoint, getAuthHeaders, PROVIDER_PRESETS } from './modules/providers'
 import { execFile } from 'child_process'
@@ -18,6 +18,7 @@ const execFileAsync = promisify(execFile)
 
 let mainWindow: BrowserWindowType | null = null
 let dockWindow: BrowserWindowType | null = null
+let clipboardWindow: BrowserWindowType | null = null
 let tray: InstanceType<typeof Tray> | null = null
 let targetWindowRef: WindowRef | null = null
 let isQuitting = false
@@ -180,6 +181,86 @@ function hideDock() {
   }, 280)
 }
 
+function positionClipboardWindow() {
+  if (!clipboardWindow) return
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { width, height } = primaryDisplay.workAreaSize
+  const winWidth = 420
+  const winHeight = 480
+  const x = Math.round((width - winWidth) / 2)
+  const y = Math.round((height - winHeight) / 2)
+  clipboardWindow.setBounds({ x, y, width: winWidth, height: winHeight })
+}
+
+function createClipboardWindow() {
+  const win = new BrowserWindow({
+    width: 420,
+    height: 480,
+    alwaysOnTop: true,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    resizable: false,
+    show: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/preload.js'),
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  })
+
+  win.setMenu(null)
+
+  win.on('close', (e: Electron.Event) => {
+    e.preventDefault()
+    win.hide()
+  })
+
+  win.on('blur', () => {
+    hideClipboardHistory()
+  })
+
+  const devUrl = getDevUrl()
+  if (devUrl) {
+    win.loadURL(`${devUrl}#/clipboard`)
+  } else {
+    win.loadFile(path.join(__dirname, '../renderer/index.html'), { hash: 'clipboard' })
+  }
+
+  clipboardWindow = win
+  positionClipboardWindow()
+}
+
+function showClipboardHistory() {
+  if (!clipboardWindow) return
+  void captureActiveWindow()
+  positionClipboardWindow()
+  if (clipboardWindow.isMinimized()) clipboardWindow.restore()
+  clipboardWindow.show()
+  clipboardWindow.setAlwaysOnTop(true, 'screen-saver')
+  clipboardWindow.focus()
+  if (!clipboardWindow.isDestroyed()) {
+    clipboardWindow.webContents.send('vox:clipboard-refresh')
+  }
+}
+
+function hideClipboardHistory() {
+  if (clipboardWindow && clipboardWindow.isVisible()) {
+    clipboardWindow.hide()
+  }
+}
+
+function toggleClipboardHistory() {
+  if (clipboardWindow && clipboardWindow.isVisible()) {
+    hideClipboardHistory()
+  } else {
+    showClipboardHistory()
+  }
+}
+
 const APP_CONTEXT_RULES: { category: string; keywords: string[] }[] = [
   { category: 'a code editor or IDE', keywords: ['code', 'visual studio', 'vscode', 'intellij', 'pycharm', 'webstorm', 'phpstorm', 'goland', 'rider', 'sublime', 'notepad++', 'vim', 'neovim', 'emacs', 'atom', 'eclipse', 'android studio', 'xcode', 'cursor'] },
   { category: 'an email message', keywords: ['outlook', 'gmail', 'thunderbird', 'mail', 'proton', 'postbox'] },
@@ -211,11 +292,16 @@ async function processTranscriptionResult(buffer: Buffer): Promise<{ text: strin
   if (!buffer || buffer.length === 0) return { text: '' }
 
   const result = await transcribeAudio(buffer)
+  const rawText = result.text
   console.log('[Main] Transcrição bruta:', result.text)
 
   if (result.text && !result.text.startsWith('[Erro')) {
     result.text = await correctTranscription(result.text, buildContextHint(targetWindowRef))
     console.log('[Main] Transcrição corrigida:', result.text)
+
+    if (rawText && result.text && rawText !== result.text) {
+      recordCorrections(rawText, result.text)
+    }
   }
 
   if (result.text) {
@@ -224,7 +310,7 @@ async function processTranscriptionResult(buffer: Buffer): Promise<{ text: strin
       type: 'dictation',
       title: result.text.slice(0, 60),
       text: result.text,
-      rawText: result.rawText || result.text,
+      rawText: rawText || result.text,
       createdAt: new Date().toISOString()
     }
     saveSession(sessionData)
@@ -422,6 +508,10 @@ function setupIpcHandlers() {
             console.warn('[Main] Erro ao salvar configuração de autostart:', err)
           }
         }
+
+        if (settings.shortcutToggle || settings.shortcutPushToTalk || settings.shortcutClipboard) {
+          registerShortcuts()
+        }
       }
       return { success: true }
     } catch (err) {
@@ -494,6 +584,40 @@ function setupIpcHandlers() {
     clearApiLogs()
     return { success: true }
   })
+
+  // Personal Vocabulary Handlers
+  ipcMain.handle('vox:list-vocabulary', () => {
+    return listVocabulary()
+  })
+
+  ipcMain.handle('vox:add-vocabulary-term', (_event: unknown, term: string) => {
+    if (typeof term === 'string') addVocabularyTerm(term)
+    return listVocabulary()
+  })
+
+  ipcMain.handle('vox:remove-vocabulary-term', (_event: unknown, term: string) => {
+    if (typeof term === 'string') removeVocabularyTerm(term)
+    return listVocabulary()
+  })
+
+  ipcMain.handle('vox:clear-vocabulary', () => {
+    clearVocabulary()
+    return { success: true }
+  })
+
+  // Voice Clipboard History Handlers
+  ipcMain.handle('vox:insert-clipboard-item', async (_event: unknown, text: string) => {
+    hideClipboardHistory()
+    if (text && typeof text === 'string' && text.trim()) {
+      await injectText(text, targetWindowRef || undefined)
+    }
+    return { success: true }
+  })
+
+  ipcMain.handle('vox:hide-clipboard', () => {
+    hideClipboardHistory()
+    return { success: true }
+  })
 }
 
 let lastToggleTime = 0
@@ -519,20 +643,30 @@ function toggleDockWindow() {
 
 let isPushToTalkActive = false
 
+function getPushToTalkVk(): number | null {
+  const shortcut = getSetting('shortcutPushToTalk', 'F9').trim()
+  const m = /^F([1-9]|1[0-9]|2[0-4])$/i.exec(shortcut)
+  if (!m) return null
+  return 0x70 + (parseInt(m[1], 10) - 1)
+}
+
 function startPushToTalk() {
   if (!dockWindow) return
   if (recorder.getIsRecording()) return
 
+  const vk = getPushToTalkVk()
+  const useAutoStop = process.platform !== 'win32' || vk === null
+
   void captureActiveWindow()
   showDock()
-  recorder.startRecording({ autoStopOnSilence: process.platform !== 'win32' })
+  recorder.startRecording({ autoStopOnSilence: useAutoStop })
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('vox:toggle-recording', true)
   }
   isPushToTalkActive = true
 
-  if (process.platform === 'win32') {
-    const psScript = 'Add-Type -MemberDefinition \'[DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);\' -Name KS -Namespace VOX; while (([VOX.KS]::GetAsyncKeyState(0x78) -band 0x8000) -ne 0) { Start-Sleep -Milliseconds 30 }'
+  if (process.platform === 'win32' && vk !== null) {
+    const psScript = `Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);' -Name KS -Namespace VOX; while (([VOX.KS]::GetAsyncKeyState(${vk}) -band 0x8000) -ne 0) { Start-Sleep -Milliseconds 30 }`
     const encoded = Buffer.from(psScript, 'utf16le').toString('base64')
     execFileAsync('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', encoded], { timeout: 60000 })
       .then(() => stopPushToTalk())
@@ -549,10 +683,54 @@ function stopPushToTalk() {
   }
 }
 
+const MODIFIER_MAP: Record<string, string> = {
+  Ctrl: 'Control',
+  Alt: 'Alt',
+  Shift: 'Shift',
+  Cmd: 'Super'
+}
+
+function toAccelerator(shortcut: string): string | null {
+  const parts = shortcut.split('+').map((s) => s.trim()).filter(Boolean)
+  if (parts.length === 0) return null
+  const key = parts[parts.length - 1]
+  const mods = parts.slice(0, -1).map((m) => MODIFIER_MAP[m] || m)
+  return [...mods, key].join('+')
+}
+
+function registerShortcuts() {
+  globalShortcut.unregisterAll()
+
+  const toggle = getSetting('shortcutToggle', 'F10').trim() || 'F10'
+  const ptt = getSetting('shortcutPushToTalk', 'F9').trim() || 'F9'
+  const clipboard = getSetting('shortcutClipboard', 'F11').trim() || 'F11'
+
+  const register = (shortcut: string, handler: () => void, name: string) => {
+    const accel = toAccelerator(shortcut)
+    if (!accel) {
+      console.warn(`[Main] Atalho inválido para ${name}: "${shortcut}"`)
+      return
+    }
+    try {
+      const ok = globalShortcut.register(accel, handler)
+      if (!ok) {
+        console.warn(`[Main] Falha ao registrar o atalho ${accel} (${name}) — pode estar em uso por outro app.`)
+      }
+    } catch (err) {
+      console.warn(`[Main] Erro ao registrar o atalho ${accel}:`, err)
+    }
+  }
+
+  register(toggle, toggleDockWindow, 'toggle')
+  register(ptt, startPushToTalk, 'push-to-talk')
+  register(clipboard, toggleClipboardHistory, 'clipboard')
+}
+
 app.whenReady().then(async () => {
   initDatabase()
   createMainWindow()
   createDockWindow()
+  createClipboardWindow()
   setupIpcHandlers()
 
   // Inicializa o módulo Wake Word
@@ -617,15 +795,8 @@ app.whenReady().then(async () => {
     console.warn('[Main] Erro ao configurar autostart:', err)
   }
 
-  // F10: Toggle | F9: Push to Talk (Segurar F9 para falar)
-  const toggleRegistered = globalShortcut.register('F10', toggleDockWindow)
-  if (!toggleRegistered) {
-    console.warn('[Main] Falha ao registrar o atalho F10 (pode estar em uso por outro app ou reservado pelo sistema).')
-  }
-  const pttRegistered = globalShortcut.register('F9', startPushToTalk)
-  if (!pttRegistered) {
-    console.warn('[Main] Falha ao registrar o atalho F9 (pode estar em uso por outro app ou reservado pelo sistema).')
-  }
+  // Registra os atalhos globais a partir das configurações salvas
+  registerShortcuts()
 
   // Tray icon para manter o app vivo quando a janela principal é fechada
   const iconPath = getAppIconPath()
