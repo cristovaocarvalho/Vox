@@ -2,9 +2,9 @@
 const path = require("path");
 const events = require("events");
 const fs = require("fs");
+const crypto = require("crypto");
 const child_process = require("child_process");
 const util = require("util");
-const crypto = require("crypto");
 class AudioRecorder extends events.EventEmitter {
   isRecording = false;
   chunks = [];
@@ -126,6 +126,7 @@ try {
 let dbInstance = null;
 let fallbackFileSettings = null;
 let fallbackFileSessions = null;
+let fallbackFileApiLogs = null;
 const stmtCache = /* @__PURE__ */ new Map();
 function encryptValue(plainText) {
   try {
@@ -174,6 +175,7 @@ function initDatabase() {
     const dbPath = path.join(userDataPath, "vox_settings.db");
     fallbackFileSettings = path.join(userDataPath, "vox_settings.json");
     fallbackFileSessions = path.join(userDataPath, "vox_sessions.json");
+    fallbackFileApiLogs = path.join(userDataPath, "vox_api_logs.json");
     if (Database) {
       dbInstance = new Database(dbPath);
       dbInstance.exec(`
@@ -197,6 +199,16 @@ function initDatabase() {
           exportPaths TEXT,
           audioKept   INTEGER DEFAULT 0,
           createdAt   TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS api_logs (
+          id         TEXT PRIMARY KEY,
+          createdAt  TEXT NOT NULL,
+          provider   TEXT,
+          endpoint   TEXT,
+          operation  TEXT,
+          model      TEXT,
+          bytesSent  INTEGER DEFAULT 0
         );
       `);
       console.log("[DB] Banco de dados SQLite pronto em:", dbPath);
@@ -484,6 +496,80 @@ function searchSessions(query) {
   }
   return [];
 }
+function logApiCall(entry) {
+  try {
+    const record = {
+      id: crypto.randomUUID(),
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      provider: entry.provider || "",
+      endpoint: entry.endpoint || "",
+      operation: entry.operation || "",
+      model: entry.model || null,
+      bytesSent: entry.bytesSent || 0
+    };
+    if (dbInstance) {
+      dbInstance.prepare(`
+        INSERT INTO api_logs (id, createdAt, provider, endpoint, operation, model, bytesSent)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        record.id,
+        record.createdAt,
+        record.provider,
+        record.endpoint,
+        record.operation,
+        record.model,
+        record.bytesSent
+      );
+      return;
+    }
+    if (fallbackFileApiLogs) {
+      let logs = [];
+      if (fs.existsSync(fallbackFileApiLogs)) {
+        try {
+          logs = JSON.parse(fs.readFileSync(fallbackFileApiLogs, "utf-8"));
+        } catch {
+          logs = [];
+        }
+      }
+      logs.unshift(record);
+      fs.writeFileSync(fallbackFileApiLogs, JSON.stringify(logs, null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao registrar chamada de API:", err);
+  }
+}
+function listApiLogs(limit = 200) {
+  try {
+    if (dbInstance) {
+      const stmt = dbInstance.prepare(`
+        SELECT * FROM api_logs
+        ORDER BY datetime(createdAt) DESC
+        LIMIT ?
+      `);
+      return stmt.all(limit);
+    }
+    if (fallbackFileApiLogs && fs.existsSync(fallbackFileApiLogs)) {
+      const logs = JSON.parse(fs.readFileSync(fallbackFileApiLogs, "utf-8"));
+      return logs.slice(0, limit);
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao listar logs de API:", err);
+  }
+  return [];
+}
+function clearApiLogs() {
+  try {
+    if (dbInstance) {
+      dbInstance.exec("DELETE FROM api_logs;");
+      return;
+    }
+    if (fallbackFileApiLogs) {
+      fs.writeFileSync(fallbackFileApiLogs, JSON.stringify([], null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao limpar logs de API:", err);
+  }
+}
 const PROVIDER_PRESETS = [
   { id: "groq", label: "Groq", baseUrl: "https://api.groq.com/openai/v1", requiresApiKey: true, isAzure: false, defaultApiVersion: "" },
   { id: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", requiresApiKey: true, isAzure: false, defaultApiVersion: "" },
@@ -565,6 +651,13 @@ async function transcribeAudio(audioBuffer, language) {
     formData.append("response_format", "verbose_json");
     formData.append("prompt", "Transcrição direta e exata da fala no seu idioma original (sem traduzir para outro idioma).");
     formData.append("temperature", "0");
+    logApiCall({
+      provider: provider.id,
+      endpoint,
+      operation: "stt",
+      model,
+      bytesSent: audioBuffer.length
+    });
     const response = await fetch(endpoint, {
       method: "POST",
       headers: getAuthHeaders(),
@@ -648,13 +741,21 @@ async function correctTranscription(text, context) {
     if (!provider.isAzure) {
       body.model = resolvedModel;
     }
+    const bodyStr = JSON.stringify(body);
+    logApiCall({
+      provider: provider.id,
+      endpoint,
+      operation: "llm",
+      model: resolvedModel,
+      bytesSent: Buffer.byteLength(bodyStr)
+    });
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         ...getAuthHeaders(),
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(body)
+      body: bodyStr
     });
     if (!response.ok) {
       const errText = await response.text().catch(() => "");
@@ -1285,6 +1386,13 @@ function setupIpcHandlers() {
   });
   ipcMain.handle("vox:search-sessions", (_event, query) => {
     return searchSessions(query);
+  });
+  ipcMain.handle("vox:list-api-logs", (_event, limit) => {
+    return listApiLogs(limit || 200);
+  });
+  ipcMain.handle("vox:clear-api-logs", () => {
+    clearApiLogs();
+    return { success: true };
   });
 }
 let lastToggleTime = 0;

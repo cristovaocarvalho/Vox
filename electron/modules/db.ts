@@ -1,5 +1,6 @@
 import path from 'path'
 import fs from 'fs'
+import crypto from 'crypto'
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { app, safeStorage } = require('electron')
@@ -29,9 +30,20 @@ export interface Session {
   createdAt: string
 }
 
+export interface ApiLogEntry {
+  id: string
+  createdAt: string
+  provider: string
+  endpoint: string
+  operation: string
+  model?: string
+  bytesSent: number
+}
+
 let dbInstance: any = null
 let fallbackFileSettings: string | null = null
 let fallbackFileSessions: string | null = null
+let fallbackFileApiLogs: string | null = null
 const stmtCache = new Map<string, any>()
 
 function encryptValue(plainText: string): string {
@@ -85,6 +97,7 @@ export function initDatabase() {
     const dbPath = path.join(userDataPath, 'vox_settings.db')
     fallbackFileSettings = path.join(userDataPath, 'vox_settings.json')
     fallbackFileSessions = path.join(userDataPath, 'vox_sessions.json')
+    fallbackFileApiLogs = path.join(userDataPath, 'vox_api_logs.json')
 
     if (Database) {
       dbInstance = new Database(dbPath)
@@ -109,6 +122,16 @@ export function initDatabase() {
           exportPaths TEXT,
           audioKept   INTEGER DEFAULT 0,
           createdAt   TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS api_logs (
+          id         TEXT PRIMARY KEY,
+          createdAt  TEXT NOT NULL,
+          provider   TEXT,
+          endpoint   TEXT,
+          operation  TEXT,
+          model      TEXT,
+          bytesSent  INTEGER DEFAULT 0
         );
       `)
       console.log('[DB] Banco de dados SQLite pronto em:', dbPath)
@@ -424,6 +447,88 @@ export function searchSessions(query: string): Session[] {
   return []
 }
 
+// ================= API Logs (Privacy) =================
+
+export function logApiCall(entry: Omit<ApiLogEntry, 'id' | 'createdAt'>): void {
+  try {
+    const record: ApiLogEntry = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      provider: entry.provider || '',
+      endpoint: entry.endpoint || '',
+      operation: entry.operation || '',
+      model: entry.model || null as any,
+      bytesSent: entry.bytesSent || 0
+    }
+
+    if (dbInstance) {
+      dbInstance.prepare(`
+        INSERT INTO api_logs (id, createdAt, provider, endpoint, operation, model, bytesSent)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        record.id,
+        record.createdAt,
+        record.provider,
+        record.endpoint,
+        record.operation,
+        record.model,
+        record.bytesSent
+      )
+      return
+    }
+
+    if (fallbackFileApiLogs) {
+      let logs: ApiLogEntry[] = []
+      if (fs.existsSync(fallbackFileApiLogs)) {
+        try {
+          logs = JSON.parse(fs.readFileSync(fallbackFileApiLogs, 'utf-8'))
+        } catch {
+          logs = []
+        }
+      }
+      logs.unshift(record)
+      fs.writeFileSync(fallbackFileApiLogs, JSON.stringify(logs, null, 2), 'utf-8')
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao registrar chamada de API:', err)
+  }
+}
+
+export function listApiLogs(limit = 200): ApiLogEntry[] {
+  try {
+    if (dbInstance) {
+      const stmt = dbInstance.prepare(`
+        SELECT * FROM api_logs
+        ORDER BY datetime(createdAt) DESC
+        LIMIT ?
+      `)
+      return stmt.all(limit)
+    }
+
+    if (fallbackFileApiLogs && fs.existsSync(fallbackFileApiLogs)) {
+      const logs: ApiLogEntry[] = JSON.parse(fs.readFileSync(fallbackFileApiLogs, 'utf-8'))
+      return logs.slice(0, limit)
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao listar logs de API:', err)
+  }
+  return []
+}
+
+export function clearApiLogs(): void {
+  try {
+    if (dbInstance) {
+      dbInstance.exec('DELETE FROM api_logs;')
+      return
+    }
+    if (fallbackFileApiLogs) {
+      fs.writeFileSync(fallbackFileApiLogs, JSON.stringify([], null, 2), 'utf-8')
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao limpar logs de API:', err)
+  }
+}
+
 export default {
   initDatabase,
   getSetting,
@@ -434,5 +539,8 @@ export default {
   listSessions,
   deleteSession,
   clearAllSessions,
-  searchSessions
+  searchSessions,
+  logApiCall,
+  listApiLogs,
+  clearApiLogs
 }

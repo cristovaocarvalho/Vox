@@ -1,4 +1,4 @@
-import { getSetting } from './db'
+import { getSetting, logApiCall } from './db'
 import { resolveProvider, getChatEndpoint, getAuthHeaders } from './providers'
 
 const DEFAULT_LLM_MODEL = 'llama-3.1-8b-instant'
@@ -44,13 +44,22 @@ export async function correctTranscription(text: string, context?: string): Prom
       body.model = resolvedModel
     }
 
+    const bodyStr = JSON.stringify(body)
+    logApiCall({
+      provider: provider.id,
+      endpoint,
+      operation: 'llm',
+      model: resolvedModel,
+      bytesSent: Buffer.byteLength(bodyStr)
+    })
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         ...getAuthHeaders(),
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(body)
+      body: bodyStr
     })
 
     if (!response.ok) {

@@ -49,6 +49,19 @@ const FALLBACK_PROVIDERS: ProviderOption[] = [
   { id: 'lmstudio', label: 'LM Studio (local)', baseUrl: 'http://localhost:1234/v1', requiresApiKey: false, isAzure: false, defaultApiVersion: '' }
 ]
 
+const formatBytes = (bytes: number): string => {
+  if (!bytes || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(1024))
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`
+}
+
+const formatLogTime = (iso: string): string => {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  return d.toLocaleString()
+}
+
 export const MainWindow: React.FC = () => {
   const { t, localeTag } = useI18n()
   const {
@@ -86,7 +99,7 @@ export const MainWindow: React.FC = () => {
   const [partialTranscript, setPartialTranscript] = useState('')
   const [isCopied, setIsCopied] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [settingsPage, setSettingsPage] = useState<'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences'>('provider')
+  const [settingsPage, setSettingsPage] = useState<'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences' | 'privacy'>('provider')
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
 
@@ -118,6 +131,9 @@ export const MainWindow: React.FC = () => {
 
   const [dictationHistory, setDictationHistory] = useState<any[]>([])
   const [isDictationHistoryOpen, setIsDictationHistoryOpen] = useState(false)
+
+  const [apiLogs, setApiLogs] = useState<any[]>([])
+  const [privacyLoading, setPrivacyLoading] = useState(false)
 
 
 
@@ -160,6 +176,26 @@ export const MainWindow: React.FC = () => {
     if (window.vox?.deleteSession) {
       await window.vox.deleteSession(id)
       fetchHistory()
+    }
+  }
+
+  const loadApiLogs = React.useCallback(async () => {
+    if (!window.vox?.listApiLogs) return
+    setPrivacyLoading(true)
+    try {
+      const logs = await window.vox.listApiLogs(200)
+      setApiLogs(logs || [])
+    } catch (err) {
+      console.error('Erro ao carregar logs de privacidade:', err)
+    } finally {
+      setPrivacyLoading(false)
+    }
+  }, [])
+
+  const handleClearApiLogs = async () => {
+    if (window.vox?.clearApiLogs) {
+      await window.vox.clearApiLogs()
+      setApiLogs([])
     }
   }
 
@@ -232,6 +268,8 @@ export const MainWindow: React.FC = () => {
 
   const providerList = providers.length ? providers : FALLBACK_PROVIDERS
   const currentProvider = providerList.find((p) => p.id === draftProvider)
+  const providerLabel = (id: string) => providerList.find((p) => p.id === id)?.label || id
+  const totalApiBytes = apiLogs.reduce((sum, l) => sum + (Number(l.bytesSent) || 0), 0)
 
   const selectProvider = (p: ProviderOption) => {
     setDraftProvider(p.id)
@@ -241,12 +279,13 @@ export const MainWindow: React.FC = () => {
     }
   }
 
-  const settingsNavItems: { id: 'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences'; label: string }[] = [
+  const settingsNavItems: { id: 'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences' | 'privacy'; label: string }[] = [
     { id: 'provider', label: t('settings.provider') },
     { id: 'models', label: t('settings.models') },
     { id: 'shortcuts', label: t('settings.shortcuts') },
     { id: 'voice', label: t('settings.voice') },
-    { id: 'preferences', label: t('settings.preferences') }
+    { id: 'preferences', label: t('settings.preferences') },
+    { id: 'privacy', label: t('settings.privacy') }
   ]
 
   const handleSaveSettings = () => {
@@ -356,6 +395,12 @@ export const MainWindow: React.FC = () => {
       }).catch(() => {})
     }
   }, [])
+
+  React.useEffect(() => {
+    if (isSettingsOpen && settingsPage === 'privacy') {
+      loadApiLogs()
+    }
+  }, [isSettingsOpen, settingsPage, loadApiLogs])
 
   const mediaStreamRef = React.useRef<MediaStream | null>(null)
   const audioContextRef = React.useRef<AudioContext | null>(null)
@@ -1198,6 +1243,67 @@ export const MainWindow: React.FC = () => {
                             </button>
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {settingsPage === 'privacy' && (
+                      <div className="space-y-4">
+                        <p className="text-[11px] text-text-secondary leading-relaxed">
+                          {t('settings.privacyHint')}
+                        </p>
+
+                        {/* Summary */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="p-4 bg-background/50 border border-border/60 rounded-xl">
+                            <span className="text-[11px] text-text-muted block mb-1">{t('settings.privacyTotalCalls')}</span>
+                            <span className="text-lg font-semibold font-heading text-text-primary">{apiLogs.length}</span>
+                          </div>
+                          <div className="p-4 bg-background/50 border border-border/60 rounded-xl">
+                            <span className="text-[11px] text-text-muted block mb-1">{t('settings.privacyTotalBytes')}</span>
+                            <span className="text-lg font-semibold font-heading text-text-primary">{formatBytes(totalApiBytes)}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide">
+                            {t('settings.privacyEntries')}
+                          </span>
+                          {apiLogs.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={handleClearApiLogs}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-error hover:bg-error/10 border border-border/50 hover:border-error/30 rounded-xl transition-all duration-250 cursor-pointer"
+                            >
+                              <IconTrash className="w-3.5 h-3.5" />
+                              {t('settings.privacyClear')}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Entries */}
+                        {privacyLoading ? (
+                          <p className="text-xs text-text-secondary py-8 text-center">{t('settings.loadingModels')}</p>
+                        ) : apiLogs.length === 0 ? (
+                          <p className="text-xs text-text-muted py-8 text-center">{t('settings.privacyEmpty')}</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {apiLogs.map((log) => (
+                              <div key={log.id} className="flex items-center justify-between gap-3 p-3 bg-background/40 border border-border/50 rounded-xl">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold text-text-primary">{providerLabel(log.provider)}</span>
+                                    <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-accent/10 text-accent border border-accent/20">{log.operation}</span>
+                                  </div>
+                                  <p className="text-[11px] text-text-muted truncate mt-0.5">{log.endpoint}</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <span className="text-xs font-mono text-text-primary block">{formatBytes(log.bytesSent)}</span>
+                                  <span className="text-[10px] text-text-muted">{formatLogTime(log.createdAt)}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

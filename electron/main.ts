@@ -7,7 +7,7 @@ import { transcribeAudio } from './modules/stt'
 import { correctTranscription } from './modules/corrector'
 import { injectText, WindowRef } from './modules/injector'
 
-import { initDatabase, getAllSettings, getSetting, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, Session } from './modules/db'
+import { initDatabase, getAllSettings, getSetting, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, listApiLogs, clearApiLogs, Session } from './modules/db'
 import wakewordDetector from './modules/wakeword'
 import { resolveProvider, getModelsEndpoint, getAuthHeaders, PROVIDER_PRESETS } from './modules/providers'
 import { execFile } from 'child_process'
@@ -483,6 +483,16 @@ function setupIpcHandlers() {
 
   ipcMain.handle('vox:search-sessions', (_event: unknown, query: string) => {
     return searchSessions(query)
+  })
+
+  // Privacy Log Handlers
+  ipcMain.handle('vox:list-api-logs', (_event: unknown, limit?: number) => {
+    return listApiLogs(limit || 200)
+  })
+
+  ipcMain.handle('vox:clear-api-logs', () => {
+    clearApiLogs()
+    return { success: true }
   })
 }
 

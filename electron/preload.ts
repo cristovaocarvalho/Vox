@@ -65,6 +65,8 @@ export const voxApi = {
     }
     return ipcRenderer.invoke('vox:search-sessions', query)
   },
+  listApiLogs: (limit?: number) => ipcRenderer.invoke('vox:list-api-logs', limit),
+  clearApiLogs: () => ipcRenderer.invoke('vox:clear-api-logs'),
 
   // Event Listeners
   onDockTextUpdate: (callback: (text: string) => void) => {
