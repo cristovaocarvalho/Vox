@@ -35,6 +35,8 @@ export class WakeWordDetector extends EventEmitter {
   private frameSize = 1280 // 1280 amostras = 80ms a 16kHz (exigido pelo openWakeWord)
   private recordingStream: any = null
   private modelLoaded = false
+  private isEvaluating = false
+  private nextFrameToEvaluate: number[] | null = null
 
   constructor() {
     super()
@@ -170,7 +172,24 @@ export class WakeWordDetector extends EventEmitter {
     }
   }
 
-  public async processAudioChunk(chunk: Buffer) {
+  private queueFrameEvaluation(frame: number[]) {
+    if (this.isEvaluating) {
+      this.nextFrameToEvaluate = frame
+      return
+    }
+
+    this.isEvaluating = true
+    this.evaluateFrame(frame).then(() => {
+      this.isEvaluating = false
+      if (this.nextFrameToEvaluate) {
+        const next = this.nextFrameToEvaluate
+        this.nextFrameToEvaluate = null
+        this.queueFrameEvaluation(next)
+      }
+    })
+  }
+
+  public processAudioChunk(chunk: Buffer) {
     if (!this.active || this.paused) return
 
     // Converte PCM 16-bit LE para Float32 (-1.0 a 1.0)
@@ -181,9 +200,16 @@ export class WakeWordDetector extends EventEmitter {
     }
 
     // Processa em janelas de 1280 amostras (~80ms a 16kHz)
-    while (this.audioBuffer.length >= this.frameSize) {
-      const frame = this.audioBuffer.splice(0, this.frameSize)
-      await this.evaluateFrame(frame)
+    let offset = 0
+    while (offset + this.frameSize <= this.audioBuffer.length) {
+      const frame = this.audioBuffer.slice(offset, offset + this.frameSize)
+      offset += this.frameSize
+      this.queueFrameEvaluation(frame)
+    }
+
+    // Compact: remove processed samples
+    if (offset > 0) {
+      this.audioBuffer = this.audioBuffer.slice(offset)
     }
   }
 
@@ -221,14 +247,5 @@ export class WakeWordDetector extends EventEmitter {
   }
 }
 
-export const wakewordDetector = new WakeWordDetector()
-
-export function startWakeWordListener() {
-  wakewordDetector.start()
-}
-
-export function stopWakeWordListener() {
-  wakewordDetector.stop()
-}
-
+const wakewordDetector = new WakeWordDetector()
 export default wakewordDetector

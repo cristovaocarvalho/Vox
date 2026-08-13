@@ -2,7 +2,7 @@ import path from 'path'
 import fs from 'fs'
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { app } = require('electron')
+const { app, safeStorage } = require('electron')
 
 let Database: any = null
 try {
@@ -32,6 +32,48 @@ export interface Session {
 let dbInstance: any = null
 let fallbackFileSettings: string | null = null
 let fallbackFileSessions: string | null = null
+const stmtCache = new Map<string, any>()
+
+function encryptValue(plainText: string): string {
+  try {
+    if (safeStorage && safeStorage.isEncryptionAvailable()) {
+      const encrypted = safeStorage.encryptString(plainText)
+      return 'scrypt:' + encrypted.toString('hex')
+    }
+  } catch (e) {
+    console.warn('[DB] Falha ao encriptar com safeStorage:', e)
+  }
+  return 'plaintext:' + plainText
+}
+
+function decryptValue(storedValue: string): string {
+  if (storedValue.startsWith('scrypt:')) {
+    try {
+      const hex = storedValue.substring(7)
+      if (safeStorage && safeStorage.isEncryptionAvailable()) {
+        const decrypted = safeStorage.decryptString(Buffer.from(hex, 'hex'))
+        return decrypted
+      }
+    } catch (e) {
+      console.error('[DB] Falha ao decriptar valor do safeStorage:', e)
+    }
+    return ''
+  }
+  if (storedValue.startsWith('plaintext:')) {
+    return storedValue.substring(10)
+  }
+  return storedValue
+}
+
+function cachedStmt(sql: string) {
+  if (!dbInstance) return null
+  let stmt = stmtCache.get(sql)
+  if (!stmt) {
+    stmt = dbInstance.prepare(sql)
+    stmtCache.set(sql, stmt)
+  }
+  return stmt
+}
 
 export function initDatabase() {
   try {
@@ -81,13 +123,21 @@ export function initDatabase() {
 export function getSetting(key: string, defaultValue = ''): string {
   try {
     if (dbInstance) {
-      const stmt = dbInstance.prepare('SELECT value FROM settings WHERE key = ?')
+      const stmt = cachedStmt('SELECT value FROM settings WHERE key = ?')
       const row = stmt.get(key)
-      return row ? row.value : defaultValue
+      let val = row ? row.value : defaultValue
+      if (key === 'apiKey' && val) {
+        val = decryptValue(val)
+      }
+      return val
     }
     if (fallbackFileSettings && fs.existsSync(fallbackFileSettings)) {
       const data = JSON.parse(fs.readFileSync(fallbackFileSettings, 'utf-8'))
-      return data[key] !== undefined ? data[key] : defaultValue
+      let val = data[key] !== undefined ? data[key] : defaultValue
+      if (key === 'apiKey' && val) {
+        val = decryptValue(val)
+      }
+      return val
     }
   } catch (err) {
     console.error(`[DB] Erro ao obter configuração (${key}):`, err)
@@ -97,13 +147,17 @@ export function getSetting(key: string, defaultValue = ''): string {
 
 export function setSetting(key: string, value: string) {
   try {
+    let valToStore = value
+    if (key === 'apiKey' && value) {
+      valToStore = encryptValue(value)
+    }
     if (dbInstance) {
-      const stmt = dbInstance.prepare(`
+      const stmt = cachedStmt(`
         INSERT INTO settings (key, value)
         VALUES (?, ?)
         ON CONFLICT(key) DO UPDATE SET value = excluded.value
       `)
-      stmt.run(key, value)
+      stmt.run(key, valToStore)
       return
     }
     if (fallbackFileSettings) {
@@ -115,7 +169,7 @@ export function setSetting(key: string, value: string) {
           data = {}
         }
       }
-      data[key] = value
+      data[key] = valToStore
       fs.writeFileSync(fallbackFileSettings, JSON.stringify(data, null, 2), 'utf-8')
     }
   } catch (err) {
@@ -140,10 +194,10 @@ export function getAllSettings() {
     llmModel: 'openai/gpt-oss-20b',
     shortcutToggle: 'F10',
     shortcutPushToTalk: 'F9',
-    browserCookies: 'chrome',
     wakeWordEnabled: 'true',
     wakeWordSensitivity: '0.5',
-    language: systemLanguage
+    language: systemLanguage,
+    autoStartEnabled: 'true'
   }
 
   const result: Record<string, string> = { ...defaults }

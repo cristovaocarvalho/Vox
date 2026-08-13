@@ -91,8 +91,6 @@ const en = {
     llmModel: 'LLM Model (Corrector)',
     shortcutToggle: 'Toggle Shortcut',
     shortcutPtt: 'Push-to-Talk Shortcut',
-    cookies: 'Browser Cookies (Media Extraction)',
-    none: 'None',
     wakeWord: 'Wake Word (Voice Activation)',
     wakeWordHint: 'Trigger Vox by speaking in the background (openWakeWord ONNX)',
     wakeWordMissing: 'ONNX model (vox.onnx) not found in resources/models/wakeword/. Run npm run setup:wakeword to download.',
@@ -104,7 +102,9 @@ const en = {
     save: 'Save Settings',
     language: 'Language',
     langEn: 'English',
-    langPt: 'Português (BR)'
+    langPt: 'Português (BR)',
+    autoStart: 'Start with System',
+    autoStartHint: 'Automatically launch Vox when you log in'
   },
   accessibility: {
     title: 'Accessibility Permission Required',
@@ -120,8 +120,7 @@ const en = {
     understood: 'Got it'
   },
   common: {
-    settings: 'Settings',
-    cookiesNone: 'None'
+    settings: 'Settings'
   }
 }
 

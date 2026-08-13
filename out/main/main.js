@@ -14,9 +14,11 @@ class AudioRecorder extends events.EventEmitter {
   silenceTimer = null;
   silenceDurationMs = 1300;
   // 1.3s de silêncio para encerramento automático
+  totalLength = 0;
   startRecording(options) {
     this.isRecording = true;
     this.chunks = [];
+    this.totalLength = 0;
     this.autoStopOnSilence = options?.autoStopOnSilence ?? false;
     this.hasSpoken = false;
     if (this.silenceTimer) {
@@ -29,6 +31,7 @@ class AudioRecorder extends events.EventEmitter {
   processAudioChunk(chunk) {
     if (!this.isRecording) return { energy: 0, isSpeech: false };
     this.chunks.push(chunk);
+    this.totalLength += chunk.length;
     const energy = this.calculateRmsEnergy(chunk);
     const isSpeech = energy > this.vadThreshold;
     if (this.autoStopOnSilence) {
@@ -58,7 +61,7 @@ class AudioRecorder extends events.EventEmitter {
     }
     console.log("[Recorder] Parando gravação...");
     this.emit("stop");
-    const pcmData = Buffer.concat(this.chunks);
+    const pcmData = Buffer.concat(this.chunks, this.totalLength);
     this.chunks = [];
     if (pcmData.length === 0) {
       return Buffer.alloc(0);
@@ -103,7 +106,7 @@ class AudioRecorder extends events.EventEmitter {
   }
 }
 const recorder = new AudioRecorder();
-const { app: app$1 } = require("electron");
+const { app: app$1, safeStorage } = require("electron");
 let Database = null;
 try {
   Database = require("better-sqlite3");
@@ -113,6 +116,45 @@ try {
 let dbInstance = null;
 let fallbackFileSettings = null;
 let fallbackFileSessions = null;
+const stmtCache = /* @__PURE__ */ new Map();
+function encryptValue(plainText) {
+  try {
+    if (safeStorage && safeStorage.isEncryptionAvailable()) {
+      const encrypted = safeStorage.encryptString(plainText);
+      return "scrypt:" + encrypted.toString("hex");
+    }
+  } catch (e) {
+    console.warn("[DB] Falha ao encriptar com safeStorage:", e);
+  }
+  return "plaintext:" + plainText;
+}
+function decryptValue(storedValue) {
+  if (storedValue.startsWith("scrypt:")) {
+    try {
+      const hex = storedValue.substring(7);
+      if (safeStorage && safeStorage.isEncryptionAvailable()) {
+        const decrypted = safeStorage.decryptString(Buffer.from(hex, "hex"));
+        return decrypted;
+      }
+    } catch (e) {
+      console.error("[DB] Falha ao decriptar valor do safeStorage:", e);
+    }
+    return "";
+  }
+  if (storedValue.startsWith("plaintext:")) {
+    return storedValue.substring(10);
+  }
+  return storedValue;
+}
+function cachedStmt(sql) {
+  if (!dbInstance) return null;
+  let stmt = stmtCache.get(sql);
+  if (!stmt) {
+    stmt = dbInstance.prepare(sql);
+    stmtCache.set(sql, stmt);
+  }
+  return stmt;
+}
 function initDatabase() {
   try {
     const userDataPath = app$1.getPath("userData");
@@ -158,13 +200,21 @@ function initDatabase() {
 function getSetting(key, defaultValue = "") {
   try {
     if (dbInstance) {
-      const stmt = dbInstance.prepare("SELECT value FROM settings WHERE key = ?");
+      const stmt = cachedStmt("SELECT value FROM settings WHERE key = ?");
       const row = stmt.get(key);
-      return row ? row.value : defaultValue;
+      let val = row ? row.value : defaultValue;
+      if (key === "apiKey" && val) {
+        val = decryptValue(val);
+      }
+      return val;
     }
     if (fallbackFileSettings && fs.existsSync(fallbackFileSettings)) {
       const data = JSON.parse(fs.readFileSync(fallbackFileSettings, "utf-8"));
-      return data[key] !== void 0 ? data[key] : defaultValue;
+      let val = data[key] !== void 0 ? data[key] : defaultValue;
+      if (key === "apiKey" && val) {
+        val = decryptValue(val);
+      }
+      return val;
     }
   } catch (err) {
     console.error(`[DB] Erro ao obter configuração (${key}):`, err);
@@ -173,13 +223,17 @@ function getSetting(key, defaultValue = "") {
 }
 function setSetting(key, value) {
   try {
+    let valToStore = value;
+    if (key === "apiKey" && value) {
+      valToStore = encryptValue(value);
+    }
     if (dbInstance) {
-      const stmt = dbInstance.prepare(`
+      const stmt = cachedStmt(`
         INSERT INTO settings (key, value)
         VALUES (?, ?)
         ON CONFLICT(key) DO UPDATE SET value = excluded.value
       `);
-      stmt.run(key, value);
+      stmt.run(key, valToStore);
       return;
     }
     if (fallbackFileSettings) {
@@ -191,7 +245,7 @@ function setSetting(key, value) {
           data = {};
         }
       }
-      data[key] = value;
+      data[key] = valToStore;
       fs.writeFileSync(fallbackFileSettings, JSON.stringify(data, null, 2), "utf-8");
     }
   } catch (err) {
@@ -214,10 +268,10 @@ function getAllSettings() {
     llmModel: "openai/gpt-oss-20b",
     shortcutToggle: "F10",
     shortcutPushToTalk: "F9",
-    browserCookies: "chrome",
     wakeWordEnabled: "true",
     wakeWordSensitivity: "0.5",
-    language: systemLanguage
+    language: systemLanguage,
+    autoStartEnabled: "true"
   };
   const result = { ...defaults };
   for (const k of Object.keys(defaults)) {
@@ -441,16 +495,14 @@ async function transcribeAudio(audioBuffer, language) {
     model,
     audioSize: audioBuffer.length,
     mimeType,
-    specifiedLanguage: language || "auto-detect (sem tradução)"
+    specifiedLanguage: "auto-detect (sem tradução)"
   });
   try {
-    const file = new File([Uint8Array.from(audioBuffer)], fileName, { type: mimeType });
+    const file = new File([new Uint8Array(audioBuffer)], fileName, { type: mimeType });
     const formData = new FormData();
     formData.append("file", file);
     formData.append("model", model);
-    if (language) {
-      formData.append("language", language);
-    }
+    if (language) ;
     formData.append("response_format", "verbose_json");
     formData.append("prompt", "Transcrição direta e exata da fala no seu idioma original (sem traduzir para outro idioma).");
     formData.append("temperature", "0");
@@ -699,6 +751,8 @@ class WakeWordDetector extends events.EventEmitter {
   // 1280 amostras = 80ms a 16kHz (exigido pelo openWakeWord)
   recordingStream = null;
   modelLoaded = false;
+  isEvaluating = false;
+  nextFrameToEvaluate = null;
   constructor() {
     super();
   }
@@ -810,16 +864,36 @@ class WakeWordDetector extends events.EventEmitter {
       this.recordingStream = null;
     }
   }
-  async processAudioChunk(chunk) {
+  queueFrameEvaluation(frame) {
+    if (this.isEvaluating) {
+      this.nextFrameToEvaluate = frame;
+      return;
+    }
+    this.isEvaluating = true;
+    this.evaluateFrame(frame).then(() => {
+      this.isEvaluating = false;
+      if (this.nextFrameToEvaluate) {
+        const next = this.nextFrameToEvaluate;
+        this.nextFrameToEvaluate = null;
+        this.queueFrameEvaluation(next);
+      }
+    });
+  }
+  processAudioChunk(chunk) {
     if (!this.active || this.paused) return;
     const samplesCount = Math.floor(chunk.length / 2);
     for (let i = 0; i < samplesCount; i++) {
       const sample = chunk.readInt16LE(i * 2) / 32768;
       this.audioBuffer.push(sample);
     }
-    while (this.audioBuffer.length >= this.frameSize) {
-      const frame = this.audioBuffer.splice(0, this.frameSize);
-      await this.evaluateFrame(frame);
+    let offset = 0;
+    while (offset + this.frameSize <= this.audioBuffer.length) {
+      const frame = this.audioBuffer.slice(offset, offset + this.frameSize);
+      offset += this.frameSize;
+      this.queueFrameEvaluation(frame);
+    }
+    if (offset > 0) {
+      this.audioBuffer = this.audioBuffer.slice(offset);
     }
   }
   async evaluateFrame(samples) {
@@ -858,6 +932,7 @@ let dockWindow = null;
 let tray = null;
 let targetWindowRef = null;
 let isQuitting = false;
+let isDockHiding = false;
 function captureActiveWindow() {
   try {
     if (process.platform === "win32") {
@@ -906,7 +981,7 @@ function createMainWindow() {
     backgroundColor: "#0D0D0F",
     webPreferences: {
       preload: path.join(__dirname, "../preload/preload.js"),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -949,7 +1024,7 @@ function createDockWindow() {
     hasShadow: false,
     webPreferences: {
       preload: path.join(__dirname, "../preload/preload.js"),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -964,6 +1039,7 @@ function createDockWindow() {
 }
 function showDock() {
   if (!dockWindow) return;
+  isDockHiding = false;
   if (dockWindow.isVisible()) return;
   positionDockWindow();
   if (dockWindow.isMinimized()) dockWindow.restore();
@@ -978,7 +1054,8 @@ function showDock() {
 }
 function hideDock() {
   if (!dockWindow) return;
-  if (!dockWindow.isVisible()) return;
+  if (!dockWindow.isVisible() || isDockHiding) return;
+  isDockHiding = true;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("vox:dock-hide");
   }
@@ -987,7 +1064,40 @@ function hideDock() {
   }
   setTimeout(() => {
     dockWindow?.hide();
+    isDockHiding = false;
   }, 280);
+}
+async function processTranscriptionResult(buffer) {
+  if (!buffer || buffer.length === 0) return { text: "" };
+  const result = await transcribeAudio(buffer);
+  console.log("[Main] Transcrição bruta:", result.text);
+  if (result.text && !result.text.startsWith("[Erro")) {
+    result.text = await correctTranscription(result.text);
+    console.log("[Main] Transcrição corrigida:", result.text);
+  }
+  if (result.text) {
+    const sessionData = {
+      id: crypto.randomUUID(),
+      type: "dictation",
+      title: result.text.slice(0, 60),
+      text: result.text,
+      rawText: result.rawText || result.text,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    saveSession(sessionData);
+    const injectRes = await injectText(result.text, targetWindowRef || void 0);
+    if (!injectRes.success) {
+      if (injectRes.error === "accessibility-required") {
+        mainWindow?.webContents.send("vox:accessibility-required");
+      } else if (injectRes.error === "xdotool-missing" || injectRes.error === "wtype-missing") {
+        mainWindow?.webContents.send("vox:xdotool-missing", { isWayland: process.env.WAYLAND_DISPLAY !== void 0 });
+      }
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("vox:transcript-result", result.text);
+    }
+  }
+  return result;
 }
 function setupIpcHandlers() {
   recorder.on("energy", (data) => {
@@ -1014,38 +1124,7 @@ function setupIpcHandlers() {
     } else {
       buffer = recorder.stopRecording();
     }
-    if (!buffer || buffer.length === 0) {
-      return { text: "" };
-    }
-    const result = await transcribeAudio(buffer);
-    console.log("[Main] Transcrição bruta:", result.text);
-    if (result.text && !result.text.startsWith("[Erro")) {
-      result.text = await correctTranscription(result.text);
-      console.log("[Main] Transcrição corrigida:", result.text);
-    }
-    if (result.text) {
-      const sessionData = {
-        id: crypto.randomUUID(),
-        type: "dictation",
-        title: result.text.slice(0, 60),
-        text: result.text,
-        rawText: result.rawText || result.text,
-        createdAt: (/* @__PURE__ */ new Date()).toISOString()
-      };
-      saveSession(sessionData);
-      const injectRes = await injectText(result.text, targetWindowRef || void 0);
-      if (!injectRes.success) {
-        if (injectRes.error === "accessibility-required") {
-          mainWindow?.webContents.send("vox:accessibility-required");
-        } else if (injectRes.error === "xdotool-missing" || injectRes.error === "wtype-missing") {
-          mainWindow?.webContents.send("vox:xdotool-missing", { isWayland: process.env.WAYLAND_DISPLAY !== void 0 });
-        }
-      }
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("vox:transcript-result", result.text);
-      }
-    }
-    return result;
+    return processTranscriptionResult(buffer);
   });
   ipcMain.on("vox:audio-level", (_event, energy) => {
     const data = { energy, isSpeech: energy > 0.02 };
@@ -1124,6 +1203,17 @@ function setupIpcHandlers() {
           }
         } else if (settings.wakeWordEnabled === "false") {
           wakewordDetector.stop();
+        }
+        if (settings.autoStartEnabled) {
+          const autoStart = settings.autoStartEnabled === "true";
+          try {
+            app.setLoginItemSettings({
+              openAtLogin: autoStart,
+              path: process.execPath
+            });
+          } catch (err) {
+            console.warn("[Main] Erro ao salvar configuração de autostart:", err);
+          }
         }
       }
       return { success: true };
@@ -1260,47 +1350,19 @@ app.whenReady().then(async () => {
     }
     const buffer = recorder.stopRecording();
     wakewordDetector.resume();
-    if (!buffer || buffer.length === 0) return;
-    const result = await transcribeAudio(buffer);
-    console.log("[Main] Transcrição bruta:", result.text);
-    if (result.text && !result.text.startsWith("[Erro")) {
-      result.text = await correctTranscription(result.text);
-      console.log("[Main] Transcrição corrigida:", result.text);
-    }
-    if (result.text) {
-      const sessionData = {
-        id: crypto.randomUUID(),
-        type: "dictation",
-        title: result.text.slice(0, 60),
-        text: result.text,
-        rawText: result.rawText || result.text,
-        createdAt: (/* @__PURE__ */ new Date()).toISOString()
-      };
-      saveSession(sessionData);
-      console.log("[Main] Injetando texto no cursor da janela ativa:", targetWindowRef, ")...");
-      const injectRes = await injectText(result.text, targetWindowRef || void 0);
-      if (!injectRes.success) {
-        if (injectRes.error === "accessibility-required") {
-          mainWindow?.webContents.send("vox:accessibility-required");
-        } else if (injectRes.error === "xdotool-missing" || injectRes.error === "wtype-missing") {
-          mainWindow?.webContents.send("vox:xdotool-missing", { isWayland: process.env.WAYLAND_DISPLAY !== void 0 });
-        }
-      }
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("vox:transcript-result", result.text);
-      }
-    }
+    await processTranscriptionResult(buffer);
   });
   if (settings.wakeWordEnabled !== "false") {
     wakewordDetector.start();
   }
+  const autoStart = settings.autoStartEnabled !== "false";
   try {
     app.setLoginItemSettings({
-      openAtLogin: true,
+      openAtLogin: autoStart,
       path: process.execPath
     });
   } catch (err) {
-    console.warn("[Main] Erro ao configurar autostart no Windows:", err);
+    console.warn("[Main] Erro ao configurar autostart:", err);
   }
   globalShortcut.register("F10", toggleDockWindow);
   globalShortcut.register("F9", handleGlobalPushToTalk);

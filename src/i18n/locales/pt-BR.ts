@@ -93,8 +93,6 @@ const ptBR: TranslationKeys = {
     llmModel: 'Modelo LLM (Corretor)',
     shortcutToggle: 'Atalho Toggle',
     shortcutPtt: 'Atalho Push-to-Talk',
-    cookies: 'Cookies do Navegador (Extração Mídia)',
-    none: 'Nenhum',
     wakeWord: 'Wake Word (Ativação por Voz)',
     wakeWordHint: 'Acione o Vox falando em segundo plano (openWakeWord ONNX)',
     wakeWordMissing: 'Modelo ONNX (vox.onnx) não encontrado em resources/models/wakeword/. Execute npm run setup:wakeword para baixar.',
@@ -106,7 +104,9 @@ const ptBR: TranslationKeys = {
     save: 'Salvar Configurações',
     language: 'Idioma',
     langEn: 'English',
-    langPt: 'Português (BR)'
+    langPt: 'Português (BR)',
+    autoStart: 'Iniciar com o Sistema',
+    autoStartHint: 'Inicia o Vox automaticamente ao fazer login'
   },
   accessibility: {
     title: 'Permissão de Acessibilidade Necessária',
@@ -122,8 +122,7 @@ const ptBR: TranslationKeys = {
     understood: 'Entendi'
   },
   common: {
-    settings: 'Configurações',
-    cookiesNone: 'Nenhum'
+    settings: 'Configurações'
   }
 }
 

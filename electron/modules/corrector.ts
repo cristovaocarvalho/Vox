@@ -59,11 +59,3 @@ export async function correctTranscription(text: string): Promise<string> {
     return text
   }
 }
-
-// Export legado
-export const correctWithNvidia = correctTranscription
-
-export default {
-  correctTranscription,
-  correctWithNvidia
-}

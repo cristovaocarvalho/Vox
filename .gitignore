@@ -1,7 +1,9 @@
 node_modules/
 dist/
 dist-electron/
+out/
 .vite/
+electron.vite.config.*.mjs
 *.local
 .env
 .env.*

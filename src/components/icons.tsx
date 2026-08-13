@@ -139,12 +139,6 @@ export const IconTerminal: React.FC<IconProps> = (props) => (
   </Svg>
 )
 
-export const IconSparkle: React.FC<IconProps> = (props) => (
-  <Svg {...props}>
-    <path d="M12 4l1.8 4.7L18.5 10l-4.7 1.8L12 16.5l-1.8-4.7L5.5 10l4.7-1.3z" />
-    <path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" />
-  </Svg>
-)
 
 export const IconGear: React.FC<IconProps> = (props) => (
   <Svg {...props}>

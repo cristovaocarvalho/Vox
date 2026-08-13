@@ -52,7 +52,6 @@ O **Wispr Flow** é uma solução comercial proprietária que oferece um plano g
 | **Plano Gratuito / Custo** | 100% Gratuito no dia a dia (via Free Tier da Groq API) | Grátis limitado a 2.000 palavras/semana (Pro: $9 a $29+/mês) |
 | **Wake Word (Comando de Voz)** | Sim, "Vox" (100% offline via ONNX) | Depende de atalhos/nuvem |
 | **Privacidade** | Áudio processado via API direta, sem intermediários | Processamento em nuvem proprietária |
-| **Transcrição de Mídias (YouTube/Arquivos)** | Sim (com exportação em SRT, VTT, TXT, MD, JSON) | Focado apenas em ditado |
 | **Plataformas** | Windows (.exe), macOS (.dmg) e Linux (.AppImage) | Mac, Windows, iOS |
 | **Encerramento Automático (VAD)** | Sim, encerra e cola automaticamente ao silenciar | Sim |
 
@@ -61,13 +60,12 @@ O **Wispr Flow** é uma solução comercial proprietária que oferece um plano g
 * **100% Gratuito e Open-Source**: Sem mensalidades recorrentes, código totalmente auditável e transparente.
 * **Uso Praticamente Ilimitado e Gratuito**: Ao utilizar provedores como a Groq API (que disponibilizam um plano gratuito generoso com milhares de requisições por dia), você utiliza o Vox no dia a dia sem travas ou cotas semanais de palavras, ao contrário do limite de 2.000 palavras do Wispr Flow.
 * **Wake Word Offline ("Vox")**: Detecção da palavra de ativação processada 100% localmente no PC via ONNX Runtime (< 1% CPU).
-* **Ferramenta de Mídia Integrada**: Baixa e transcreve mídias do YouTube, TikTok, Instagram e arquivos locais com exportação de legendas (.srt, .vtt).
 * **Privacidade de Dados**: O seu áudio é enviado diretamente para a API do seu provedor de preferência, sem intermediários ou retendo dados para treinamento.
 
 #### Desvantagens do Vox
 
 * **Necessita de Chave de API**: Exige que o usuário insira sua própria API Key nas configurações (ex: obtida gratuitamente na Groq).
-* **Modelos STT/LLM Fixos**: O provedor de API deve obrigatoriamente disponibilizar os modelos `whisper-large-v3-turbo` e `openai/gpt-oss-20b`.
+* **Modelos STT/LLM Fixos**: O provedor de API deve disponibilizar os modelos `whisper-large-v3-turbo` e `openai/gpt-oss-20b`.
 * **Dispositivos Móveis**: Atualmente focado em sistemas de desktop (Windows, macOS e Linux), sem aplicativo dedicado para iOS/Android.
 
 
@@ -77,9 +75,7 @@ O **Wispr Flow** é uma solução comercial proprietária que oferece um plano g
 
 | Caso de uso | Descrição |
 |---|---|
-| **Ditado por voz** | Fale *"Vox"* ou use atalhos para digitar em qualquer aplicação Windows |
-| **Transcrição de mídia** | Transcreva vídeos do YouTube, TikTok, Instagram ou arquivos locais |
-| **Exportação de legendas** | Exporte transcrições em `.srt`, `.vtt`, `.txt`, `.md`, `.json` |
+| **Ditado por voz** | Fale *"Vox"* ou use atalhos para digitar em qualquer aplicação |
 | **Produtividade** | Escreva emails, código, documentos sem tocar no teclado |
 
 ---
@@ -90,16 +86,13 @@ O **Wispr Flow** é uma solução comercial proprietária que oferece um plano g
 ◆  Ditado em tempo real via comando de voz ("Vox"), F9 (Push-to-Talk) ou F10 (Toggle)
 ◆  Detecção de palavra de ativação ("Vox") 100% offline via ONNX Runtime (< 1% CPU)
 ◆  Encerramento automático de gravação ao parar de falar com injeção direta no cursor
-◆  Injeção de texto no cursor ativo de qualquer janela Windows
+◆  Injeção de texto no cursor ativo de qualquer janela ativa
 ◆  Transcrição via Whisper Large V3 Turbo (Groq ou qualquer provedor compatível)
 ◆  Correção automática de pontuação e ortografia via LLM (openai/gpt-oss-20b)
-◆  Dock flutuante com visualizador de energia de voz (VAD)
-◆  Download e transcrição de vídeos do YouTube, TikTok, Instagram
-◆  Suporte a arquivos locais (MP4, MP3, WAV, MKV, MOV, M4A...)
-◆  Exportação em SRT, VTT, TXT, MD, JSON
-◆  Inicia automaticamente com o Windows
+◆  Dock flutuante com visualizador de energia de voz (VAD) e animações suaves
+◆  Inicia automaticamente com o sistema (toggle configurável pelo usuário)
 ◆  Vive na bandeja do sistema, atalhos e comando de voz funcionam mesmo com app "fechado"
-◆  Configurações persistidas em SQLite local
+◆  Configurações persistidas em SQLite local com encriptação safeStorage a nível de SO para as chaves de API
 ◆  Design premium com glassmorphism, beams animados e micro-animações
 ```
 
@@ -119,10 +112,10 @@ O Vox segue a arquitetura padrão do Electron com separação clara entre **proc
 |  | (VAD/WAV)|  |  (Groq)  |  |  (LLM)   |  |(PowerShell)|    |
 |  +----------+  +----------+  +----------+  +------------+    |
 |                                                                |
-|  +----------+  +----------+  +--------------------------+    |
-|  |Downloader|  |    DB    |  |  GlobalShortcut (F9/F10)  |    |
-|  | (yt-dlp) |  | (SQLite) |  |  + SystemTray             |    |
-|  +----------+  +----------+  +--------------------------+    |
+|  +----------+  +--------------------------------------------+    |
+|  |    DB    |  |  GlobalShortcut (F9/F10)                   |    |
+|  | (SQLite) |  |  + SystemTray                              |    |
+|  +----------+  +--------------------------------------------+    |
 |                                                                |
 |                    IPC (ipcMain / ipcRenderer)                 |
 +----------------------------+-----------------------------------+
@@ -141,9 +134,8 @@ O Vox segue a arquitetura padrão do Electron com separação clara entre **proc
 |  |  (React + Framer Motion)   |  |  (Floating HUD, always-   | |
 |  |                            |  |   on-top, showInactive)    | |
 |  |  Tab: Ditado por voz       |  |  Visualizador de energia   | |
-|  |  Tab: Transcricao midia    |  |  de voz em tempo real      | |
-|  |  Modal: Configuracoes      |  +---------------------------+ |
-|  +---------------------------+                                 |
+|  |  Modal: Configuracoes      |  |  de voz em tempo real      | |
+|  +---------------------------+  +---------------------------+ |
 |                     Zustand (estado global)                     |
 +---------------------------------------------------------------+
 ```
@@ -157,12 +149,12 @@ Ponto de entrada do processo principal. Gerencia:
 - Criação e ciclo de vida das janelas (`MainWindow`, `DockWindow`)
 - Registro dos atalhos globais (`F9`, `F10`)
 - Tray icon para manter o processo vivo mesmo com janelas fechadas
-- Registro no startup do Windows (`app.setLoginItemSettings`)
+- Registro no startup do sistema (`app.setLoginItemSettings`)
 - Captura do HWND da janela ativa antes de iniciar a gravação
 - Todos os handlers IPC (`ipcMain.handle`)
 
 ### `electron/modules/recorder.ts`, Gravador de Áudio
-`AudioRecorder` estende `EventEmitter`. Recebe chunks PCM 16kHz mono do renderer via IPC, calcula energia RMS (Voice Activity Detection) e monta o buffer WAV completo com header RIFF ao parar a gravação.
+`AudioRecorder` estende `EventEmitter`. Recebe chunks PCM 16kHz mono do renderer via IPC, calcula energia RMS (Voice Activity Detection) e monta o buffer WAV completo com header RIFF ao parar a gravação de forma otimizada.
 
 ```
 PCM chunks (IPC) → RMS VAD → Buffer WAV (header + dados)
@@ -183,11 +175,11 @@ texto bruto → LLM (system prompt estrito) → texto revisado
 ```
 
 ### `electron/modules/injector.ts`, Injetor de Texto
-Injeta o texto no cursor ativo de qualquer aplicação Windows:
+Injeta o texto no cursor ativo de qualquer aplicação:
 
 1. Copia o texto para a área de transferência (`clipboard.writeText`)
 2. Aguarda 100ms
-3. Restaura o foco para a janela original via `SetForegroundWindow(hwnd)` (Win32 API via PowerShell inline C#)
+3. Restaura o foco para a janela original via `SetForegroundWindow(hwnd)`
 4. Simula `Ctrl+V` com `System.Windows.Forms.SendKeys::SendWait`
 
 O HWND é capturado no momento exato em que `F9`/`F10` é pressionado, antes de qualquer mudança de foco.
@@ -196,25 +188,14 @@ O HWND é capturado no momento exato em que `F9`/`F10` é pressionado, antes de 
 clipboard → SetForegroundWindow(hwnd) → SendWait('^v') → texto no cursor
 ```
 
-### `electron/modules/downloader.ts`, Downloader de Mídia
-Usa `yt-dlp` (binário bundled) para baixar áudio de URLs do YouTube, TikTok e Instagram. Suporta autenticação via cookies do browser (Chrome, Edge, Firefox, Brave). Emite progresso em tempo real via IPC.
-
-```
-URL → yt-dlp → arquivo de áudio local → transcrição
-```
-
 ### `electron/modules/db.ts`, Persistência
-Banco de dados SQLite via `better-sqlite3`. Armazena configurações do usuário (`apiKey`, modelos, atalhos, cookies). Possui fallback para JSON caso o módulo nativo não carregue.
-
-```
-Configurações → SQLite (userData) | fallback JSON
-```
+Banco de dados SQLite via `better-sqlite3`. Armazena configurações do usuário (`apiKey`, modelos, atalhos). Utiliza encriptação nativa do sistema operacional (`safeStorage`) para a API Key e possui fallback para JSON caso o módulo nativo do sqlite falhe em carregar.
 
 ---
 
 ## ◈ Interface, Design System
 
-O Vox usa um design system proprietário construído em React + CSS puro com inspiração em glassmorphism e interfaces de alta tecnologia.
+O Vox usa um design system proprietário construído em React + CSS puro com inspiração em layouts com glassmorphism e interfaces elegantes em modo escuro.
 
 ### Paleta
 
@@ -232,62 +213,24 @@ Destaque de fala:      verde (#22c55e) durante gravação
 | Componente | Descrição |
 |---|---|
 | `Beams` | Animação de feixes de luz no background (WebGL/Canvas) |
-| `KineticGrid` | Grade cinética interativa com partículas |
 | `LiquidGlassCard` | Card com efeito glassmorphism e blur |
 | `SpecularButton` | Botão com reflexo especular e micro-animações |
-| `SpotlightNavbar` | Navbar com efeito spotlight no hover |
 | `SmoothInput` | Input com transições suaves e estados visuais |
 | `ShortcutInput` | Captura de atalhos de teclado |
 | `AnimatedContent` | Wrapper de animações de entrada via Framer Motion |
-| `ProgressBar` | Barra de progresso animada |
-| `Drawer` | Painel lateral com slide-in |
 | `Badge` | Badge de status |
-| `Tooltip` | Tooltip acessível |
-| `Combobox` | Seletor com busca |
+| `NoiseTexture` | Overlay de ruído dinâmico com máscaras radiais |
 
 ### Janelas
 
 **MainWindow** (1040×820px, não redimensionável)
-- Navbar com tabs: **Ditado por Voz** · **Transcrição de Mídia**
-- Tab de ditado: exibe o último transcript, controles de gravação, nível de energia
-- Tab de mídia: input de URL, drag-and-drop de arquivo, progresso de download, exportação
-- Modal de configurações: API Key, modelos STT/LLM, atalhos, browser para cookies
+- Ditado por Voz: exibe o último transcript, histórico de ditados e botão de configurações.
+- Painel de configurações: Chave de API, atalhos de gravação, sensibilidade da Wake Word e toggle de iniciar com o sistema.
 
 **DockWindow** (220×70px, `alwaysOnTop: screen-saver`)
-- HUD flutuante no centro-inferior da tela
-- Aparece apenas durante a gravação
-- Exibe visualizador de energia de voz em tempo real
-- `showInactive()`, não rouba o foco de nenhuma janela
-
----
-
-## ◈ Fluxo de Ditado por Voz
-
-```
-1. F9 pressionado
-   ├── captureActiveWindow() → HWND da janela em foco (ex: VS Code = 12345)
-   ├── showDock() com showInactive() → sem roubar foco
-   └── IPC → renderer inicia captura de áudio (Web Audio API)
-
-2. Durante gravação
-   ├── Chunks PCM → IPC → recorder.processAudioChunk()
-   ├── RMS energy → IPC → DockWindow visualiza nível de voz
-   └── F9 mantido pressionado (Push-to-Talk)
-
-3. F9 solto (180ms debounce)
-   ├── hideDock()
-   └── IPC → renderer envia buffer de áudio
-
-4. Processamento no main process
-   ├── transcribeAudio(buffer) → Groq Whisper → texto bruto
-   ├── correctTranscription(texto) → Groq LLM → texto revisado
-   └── injectText(texto, hwnd=12345)
-          ├── clipboard.writeText(texto)
-          ├── SetForegroundWindow(12345) → VS Code volta ao foco
-          └── SendKeys('^v') → texto aparece no cursor do VS Code
-
-5. IPC → MainWindow exibe o transcript
-```
+- HUD flutuante no centro-inferior da tela.
+- Aparece apenas durante a gravação com animações suaves de entrada/saída.
+- Exibe visualizador de energia de voz em tempo real.
 
 ---
 
@@ -308,53 +251,14 @@ Os atalhos funcionam **mesmo com todas as janelas fechadas**, pois o processo pe
 Runtime:         Electron 33 (Chromium + Node.js)
 UI:              React 18 + TypeScript 5.7
 Bundler:         electron-vite (Vite 5 para renderer)
-Animações:       Framer Motion 12, GSAP 3, Three.js, @react-three/fiber
+Animações:       Framer Motion 12, GSAP 3
 Estado:          Zustand 5
 Banco de dados:  better-sqlite3 (SQLite nativo)
 Wake Word:       openWakeWord ONNX (onnxruntime-node)
 STT:             Whisper Large V3 Turbo (via provedor de API)
 LLM:             openai/gpt-oss-20b (via provedor de API)
-Download:        yt-dlp (binário bundled)
 Injeção:         PowerShell + Win32 API (SetForegroundWindow, SendKeys)
 Build:           electron-builder (Windows .exe, macOS .dmg, Linux .AppImage)
-```
-
----
-
-## ◈ Estrutura do Projeto
-
-```
-vox/
-├── electron/                  # Processo principal (Node.js)
-│   ├── main.ts               # Orquestrador, janelas, IPC, tray, shortcuts
-│   ├── preload.ts            # Bridge IPC segura (contextBridge)
-│   └── modules/
-│       ├── recorder.ts       # Gravador PCM + VAD Auto-Stop + WAV builder
-│       ├── stt.ts            # Speech-to-Text via API (Whisper)
-│       ├── corrector.ts      # Correção de texto via API (LLM)
-│       ├── injector.ts       # Injeção de texto no cursor ativo
-│       ├── downloader.ts     # Download de mídia via yt-dlp
-│       ├── db.ts             # Persistência SQLite / JSON
-│       └── wakeword.ts       # Detecção da palavra de ativação "Vox" via ONNX
-│
-├── src/                       # Processo renderer (React)
-│   ├── windows/
-│   │   ├── MainWindow/        # Janela principal (ditado + mídia + config)
-│   │   └── DockWindow/        # HUD flutuante de gravação
-│   ├── components/            # Design system
-│   ├── stores/
-│   │   └── useVoxStore.ts     # Estado global (Zustand)
-│   ├── assets/                # Imagens e ícones
-│   └── index.css              # Estilos globais
-│
-├── resources/
-│   ├── binaries/              # yt-dlp e outros binários bundled
-│   └── models/                # Modelos locais ONNX de Wake Word
-│
-├── docs/                      # Imagens e assets de documentação
-├── electron-builder.yml       # Config de build e empacotamento
-├── electron-vite.config.ts    # Config do bundler
-└── package.json
 ```
 
 ---
@@ -399,26 +303,14 @@ GROQ_API_KEY=gsk_...          # Chave de API do provedor (deve disponibilizar os
 
 | Configuração | Padrão | Descrição |
 |---|---|---|
-| API Key | N/A | Chave de API (não é obrigatório ser da Groq, desde que o provedor disponibilize os modelos do projeto) |
+| API Key | N/A | Chave de API (salva de forma segura utilizando o safeStorage do sistema operacional) |
 | Wake Word | `Ativado ("Vox")` | Acionamento por comando de voz "Vox" hands-free em background |
 | Sensibilidade | `50%` | Sensibilidade de detecção da palavra "Vox" |
 | Atalho Toggle | `F10` | Ativar/desativar gravação manualmente |
 | Atalho Push-to-Talk | `F9` | Gravar enquanto segurar a tecla |
-| Cookies do Browser | `chrome` | Permite optar entre navegadores (Chrome, Edge, Firefox, Brave ou Nenhum) para extração de cookies e download de mídias privadas |
+| Iniciar com o Sistema | `Ativado` | Executar o Vox automaticamente após login no sistema |
 | Modelo STT | `whisper-large-v3-turbo` | Modelo fixo de transcrição (deve ser disponibilizado pelo provedor de API) |
 | Modelo LLM | `openai/gpt-oss-20b` | Modelo fixo de correção (deve ser disponibilizado pelo provedor de API) |
-
----
-
-## ◈ Formatos de Exportação (Transcrição de Mídia)
-
-| Formato | Extensão | Uso |
-|---|---|---|
-| Texto plano | `.txt` | Leitura simples |
-| Markdown | `.md` | Documentação |
-| SubRip | `.srt` | Legendas em players de vídeo |
-| WebVTT | `.vtt` | Legendas na web (HTML5) |
-| JSON | `.json` | Integração com outras ferramentas |
 
 ---
 

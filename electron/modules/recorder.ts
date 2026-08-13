@@ -8,10 +8,12 @@ export class AudioRecorder extends EventEmitter {
   private hasSpoken = false
   private silenceTimer: NodeJS.Timeout | null = null
   private silenceDurationMs = 1300 // 1.3s de silêncio para encerramento automático
+  private totalLength = 0
 
   public startRecording(options?: { autoStopOnSilence?: boolean }) {
     this.isRecording = true
     this.chunks = []
+    this.totalLength = 0
     this.autoStopOnSilence = options?.autoStopOnSilence ?? false
     this.hasSpoken = false
     if (this.silenceTimer) {
@@ -26,6 +28,7 @@ export class AudioRecorder extends EventEmitter {
     if (!this.isRecording) return { energy: 0, isSpeech: false }
     
     this.chunks.push(chunk)
+    this.totalLength += chunk.length
     const energy = this.calculateRmsEnergy(chunk)
     const isSpeech = energy > this.vadThreshold
 
@@ -59,7 +62,7 @@ export class AudioRecorder extends EventEmitter {
     console.log('[Recorder] Parando gravação...')
     this.emit('stop')
 
-    const pcmData = Buffer.concat(this.chunks)
+    const pcmData = Buffer.concat(this.chunks, this.totalLength)
     this.chunks = []
 
     if (pcmData.length === 0) {

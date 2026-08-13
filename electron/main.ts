@@ -9,7 +9,6 @@ import { injectText, WindowRef } from './modules/injector'
 
 import { initDatabase, getAllSettings, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, Session } from './modules/db'
 import wakewordDetector from './modules/wakeword'
-import fs from 'fs'
 import { execFileSync } from 'child_process'
 import crypto from 'crypto'
 
@@ -18,6 +17,7 @@ let dockWindow: BrowserWindowType | null = null
 let tray: InstanceType<typeof Tray> | null = null
 let targetWindowRef: WindowRef | null = null
 let isQuitting = false
+let isDockHiding = false
 
 function captureActiveWindow(): WindowRef | null {
   try {
@@ -68,7 +68,7 @@ function createMainWindow() {
     backgroundColor: '#0D0D0F',
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -116,7 +116,7 @@ function createDockWindow() {
     hasShadow: false,
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -134,6 +134,7 @@ function createDockWindow() {
 
 function showDock() {
   if (!dockWindow) return
+  isDockHiding = false
   if (dockWindow.isVisible()) return
   positionDockWindow()
   if (dockWindow.isMinimized()) dockWindow.restore()
@@ -149,14 +150,56 @@ function showDock() {
 
 function hideDock() {
   if (!dockWindow) return
-  if (!dockWindow.isVisible()) return
+  if (!dockWindow.isVisible() || isDockHiding) return
+  isDockHiding = true
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('vox:dock-hide')
   }
   if (dockWindow && !dockWindow.isDestroyed()) {
     dockWindow.webContents.send('vox:dock-hide')
   }
-  setTimeout(() => { dockWindow?.hide() }, 280)
+  setTimeout(() => {
+    dockWindow?.hide()
+    isDockHiding = false
+  }, 280)
+}
+
+async function processTranscriptionResult(buffer: Buffer): Promise<{ text: string; rawText?: string }> {
+  if (!buffer || buffer.length === 0) return { text: '' }
+
+  const result = await transcribeAudio(buffer)
+  console.log('[Main] Transcrição bruta:', result.text)
+
+  if (result.text && !result.text.startsWith('[Erro')) {
+    result.text = await correctTranscription(result.text)
+    console.log('[Main] Transcrição corrigida:', result.text)
+  }
+
+  if (result.text) {
+    const sessionData: Session = {
+      id: crypto.randomUUID(),
+      type: 'dictation',
+      title: result.text.slice(0, 60),
+      text: result.text,
+      rawText: result.rawText || result.text,
+      createdAt: new Date().toISOString()
+    }
+    saveSession(sessionData)
+
+    const injectRes = await injectText(result.text, targetWindowRef || undefined)
+    if (!injectRes.success) {
+      if (injectRes.error === 'accessibility-required') {
+        mainWindow?.webContents.send('vox:accessibility-required')
+      } else if (injectRes.error === 'xdotool-missing' || injectRes.error === 'wtype-missing') {
+        mainWindow?.webContents.send('vox:xdotool-missing', { isWayland: process.env.WAYLAND_DISPLAY !== undefined })
+      }
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('vox:transcript-result', result.text)
+    }
+  }
+
+  return result
 }
 
 function setupIpcHandlers() {
@@ -188,43 +231,7 @@ function setupIpcHandlers() {
       buffer = recorder.stopRecording()
     }
 
-    if (!buffer || buffer.length === 0) {
-      return { text: '' }
-    }
-
-    const result = await transcribeAudio(buffer)
-    console.log('[Main] Transcrição bruta:', result.text)
-
-    if (result.text && !result.text.startsWith('[Erro')) {
-      result.text = await correctTranscription(result.text)
-      console.log('[Main] Transcrição corrigida:', result.text)
-    }
-
-    if (result.text) {
-      const sessionData: Session = {
-        id: crypto.randomUUID(),
-        type: 'dictation',
-        title: result.text.slice(0, 60),
-        text: result.text,
-        rawText: result.rawText || result.text,
-        createdAt: new Date().toISOString()
-      }
-      saveSession(sessionData)
-
-      const injectRes = await injectText(result.text, targetWindowRef || undefined)
-      if (!injectRes.success) {
-        if (injectRes.error === 'accessibility-required') {
-          mainWindow?.webContents.send('vox:accessibility-required')
-        } else if (injectRes.error === 'xdotool-missing' || injectRes.error === 'wtype-missing') {
-          mainWindow?.webContents.send('vox:xdotool-missing', { isWayland: process.env.WAYLAND_DISPLAY !== undefined })
-        }
-      }
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('vox:transcript-result', result.text)
-      }
-    }
-
-    return result
+    return processTranscriptionResult(buffer)
   })
 
   ipcMain.on('vox:audio-level', (_event: unknown, energy: number) => {
@@ -286,9 +293,6 @@ function setupIpcHandlers() {
     return true
   })
 
-  // Vox Media Handlers
-
-
   // Settings & Database Handlers
   ipcMain.handle('vox:get-settings', async () => {
     try {
@@ -319,6 +323,18 @@ function setupIpcHandlers() {
           }
         } else if (settings.wakeWordEnabled === 'false') {
           wakewordDetector.stop()
+        }
+
+        if (settings.autoStartEnabled) {
+          const autoStart = settings.autoStartEnabled === 'true'
+          try {
+            app.setLoginItemSettings({
+              openAtLogin: autoStart,
+              path: process.execPath
+            })
+          } catch (err) {
+            console.warn('[Main] Erro ao salvar configuração de autostart:', err)
+          }
         }
       }
       return { success: true }
@@ -483,53 +499,21 @@ app.whenReady().then(async () => {
 
     const buffer = recorder.stopRecording()
     wakewordDetector.resume()
-    if (!buffer || buffer.length === 0) return
-
-    const result = await transcribeAudio(buffer)
-    console.log('[Main] Transcrição bruta:', result.text)
-
-    if (result.text && !result.text.startsWith('[Erro')) {
-      result.text = await correctTranscription(result.text)
-      console.log('[Main] Transcrição corrigida:', result.text)
-    }
-
-    if (result.text) {
-      const sessionData: Session = {
-        id: crypto.randomUUID(),
-        type: 'dictation',
-        title: result.text.slice(0, 60),
-        text: result.text,
-        rawText: result.rawText || result.text,
-        createdAt: new Date().toISOString()
-      }
-      saveSession(sessionData)
-
-      console.log('[Main] Injetando texto no cursor da janela ativa:', targetWindowRef, ')...')
-      const injectRes = await injectText(result.text, targetWindowRef || undefined)
-      if (!injectRes.success) {
-        if (injectRes.error === 'accessibility-required') {
-          mainWindow?.webContents.send('vox:accessibility-required')
-        } else if (injectRes.error === 'xdotool-missing' || injectRes.error === 'wtype-missing') {
-          mainWindow?.webContents.send('vox:xdotool-missing', { isWayland: process.env.WAYLAND_DISPLAY !== undefined })
-        }
-      }
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('vox:transcript-result', result.text)
-      }
-    }
+    await processTranscriptionResult(buffer)
   })
 
   if (settings.wakeWordEnabled !== 'false') {
     wakewordDetector.start()
   }
 
+  const autoStart = settings.autoStartEnabled !== 'false'
   try {
     app.setLoginItemSettings({
-      openAtLogin: true,
+      openAtLogin: autoStart,
       path: process.execPath
     })
   } catch (err) {
-    console.warn('[Main] Erro ao configurar autostart no Windows:', err)
+    console.warn('[Main] Erro ao configurar autostart:', err)
   }
 
   // F10: Toggle | F9: Push to Talk (Segurar F9 para falar)

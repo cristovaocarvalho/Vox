@@ -53,7 +53,7 @@ export async function transcribeAudio(
   })
 
   try {
-    const file = new File([Uint8Array.from(audioBuffer)], fileName, { type: mimeType })
+    const file = new File([new Uint8Array(audioBuffer)], fileName, { type: mimeType })
     const formData = new FormData()
     formData.append('file', file)
     formData.append('model', model)
@@ -126,11 +126,4 @@ export async function transcribeAudio(
       duration: 0
     }
   }
-}
-
-export const transcribeWithNvidia = transcribeAudio
-
-export default {
-  transcribeAudio,
-  transcribeWithNvidia
 }

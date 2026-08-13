@@ -1,10 +1,9 @@
 import React, { useState } from 'react'
-import { useVoxStore, type AppLocale } from '../../stores/useVoxStore'
+import { useVoxStore, type AppLocale, type VoxState } from '../../stores/useVoxStore'
 import { useI18n } from '../../i18n'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Badge,
-  ProgressBar,
   Beams,
   LiquidGlassCard,
   SpecularButton,
@@ -12,14 +11,7 @@ import {
   SmoothInput,
   ShortcutInput,
   IconCheck,
-  IconClock,
-  IconDownload,
   IconMic,
-  IconFile,
-  IconFolder,
-  IconGlobe,
-  IconFilm,
-  IconUpload,
   IconTrash,
   IconChevronDown,
   IconAlert,
@@ -53,34 +45,31 @@ export const MainWindow: React.FC = () => {
     setShortcutToggle,
     shortcutPushToTalk,
     setShortcutPushToTalk,
-    browserCookies,
-    setBrowserCookies,
     wakeWordEnabled,
     setWakeWordEnabled,
     wakeWordSensitivity,
     setWakeWordSensitivity,
     language,
-    setLanguage
+    setLanguage,
+    autoStartEnabled,
+    setAutoStartEnabled,
+    updateSettings
   } = useVoxStore()
 
-  const [urlInput, setUrlInput] = useState('')
-  const [selectedFormats, setSelectedFormats] = useState<string[]>(['srt', 'txt', 'md'])
-  const [transcribeProgress, setTranscribeProgress] = useState<number | null>(null)
-  const [transcribeStatus, setTranscribeStatus] = useState<string>('')
-  const [isTranscribing, setIsTranscribing] = useState(false)
   const [partialTranscript, setPartialTranscript] = useState('')
   const [isCopied, setIsCopied] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [settingsLoaded, setSettingsLoaded] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
 
   // Local drafts for Settings modal (so Cancel reverts changes)
   const [draftApiKey, setDraftApiKey] = useState(apiKey)
   const [draftShortcutToggle, setDraftShortcutToggle] = useState(shortcutToggle)
   const [draftShortcutPushToTalk, setDraftShortcutPushToTalk] = useState(shortcutPushToTalk)
-  const [draftBrowserCookies, setDraftBrowserCookies] = useState(browserCookies)
   const [draftWakeWordEnabled, setDraftWakeWordEnabled] = useState(wakeWordEnabled)
   const [draftWakeWordSensitivity, setDraftWakeWordSensitivity] = useState(wakeWordSensitivity)
   const [draftLanguage, setDraftLanguage] = useState<AppLocale>(language)
+  const [draftAutoStartEnabled, setDraftAutoStartEnabled] = useState(autoStartEnabled)
 
   const [wakeWordModelMissing, setWakeWordModelMissing] = useState(false)
   const [wakeWordError, setWakeWordError] = useState<string | null>(null)
@@ -97,16 +86,32 @@ export const MainWindow: React.FC = () => {
     document.documentElement.lang = language === 'en' ? 'en' : 'pt-BR'
   }, [language])
 
+  const fetchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const fetchHistory = React.useCallback(async () => {
-    if (window.vox?.listSessions) {
-      try {
-        const dictations = await window.vox.listSessions(10, 'dictation')
-        setDictationHistory(dictations || [])
-      } catch (err) {
-        console.error('Erro ao carregar histórico de sessões:', err)
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current)
+    }
+    fetchTimeoutRef.current = setTimeout(async () => {
+      if (window.vox?.listSessions) {
+        try {
+          const dictations = await window.vox.listSessions(10, 'dictation')
+          setDictationHistory(dictations || [])
+        } catch (err) {
+          console.error('Erro ao carregar histórico de sessões:', err)
+        }
+      }
+    }, 150)
+  }, [])
+
+  React.useEffect(() => {
+    fetchHistory()
+    return () => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current)
       }
     }
-  }, [])
+  }, [fetchHistory])
 
   const handleClearHistory = async () => {
     if (window.confirm(t('settings.clearConfirm'))) {
@@ -129,22 +134,24 @@ export const MainWindow: React.FC = () => {
     setDraftApiKey(apiKey)
     setDraftShortcutToggle(shortcutToggle)
     setDraftShortcutPushToTalk(shortcutPushToTalk)
-    setDraftBrowserCookies(browserCookies)
     setDraftWakeWordEnabled(wakeWordEnabled)
     setDraftWakeWordSensitivity(wakeWordSensitivity)
     setDraftLanguage(language)
+    setDraftAutoStartEnabled(autoStartEnabled)
     setIsSettingsOpen(true)
   }
 
   const handleSaveSettings = () => {
     const trimmedKey = draftApiKey.trim()
-    setApiKey(trimmedKey)
-    setShortcutToggle(draftShortcutToggle)
-    setShortcutPushToTalk(draftShortcutPushToTalk)
-    setBrowserCookies(draftBrowserCookies)
-    setWakeWordEnabled(draftWakeWordEnabled)
-    setWakeWordSensitivity(draftWakeWordSensitivity)
-    setLanguage(draftLanguage)
+    updateSettings({
+      apiKey: trimmedKey,
+      shortcutToggle: draftShortcutToggle,
+      shortcutPushToTalk: draftShortcutPushToTalk,
+      wakeWordEnabled: draftWakeWordEnabled,
+      wakeWordSensitivity: draftWakeWordSensitivity,
+      language: draftLanguage,
+      autoStartEnabled: draftAutoStartEnabled
+    })
     setIsSettingsOpen(false)
 
     if (window.vox?.saveSettings) {
@@ -154,10 +161,10 @@ export const MainWindow: React.FC = () => {
         llmModel,
         shortcutToggle: draftShortcutToggle,
         shortcutPushToTalk: draftShortcutPushToTalk,
-        browserCookies: draftBrowserCookies,
         wakeWordEnabled: String(draftWakeWordEnabled),
         wakeWordSensitivity: String(draftWakeWordSensitivity),
-        language: draftLanguage
+        language: draftLanguage,
+        autoStartEnabled: String(draftAutoStartEnabled)
       }).catch(console.error)
     }
 
@@ -173,28 +180,34 @@ export const MainWindow: React.FC = () => {
   React.useEffect(() => {
     if (window.vox?.getSettings) {
       window.vox.getSettings().then((saved: Record<string, string>) => {
-        if (saved && typeof saved === 'object') {
-          if (saved.apiKey) setApiKey(saved.apiKey)
-          if (saved.sttModel) setSttModel(saved.sttModel)
-          if (saved.llmModel) setLlmModel(saved.llmModel)
-          if (saved.shortcutToggle) setShortcutToggle(saved.shortcutToggle)
-          if (saved.shortcutPushToTalk) setShortcutPushToTalk(saved.shortcutPushToTalk)
-          if (saved.browserCookies) setBrowserCookies(saved.browserCookies as any)
-          if (saved.wakeWordEnabled !== undefined) setWakeWordEnabled(saved.wakeWordEnabled === 'true')
-          if (saved.wakeWordSensitivity) setWakeWordSensitivity(parseFloat(saved.wakeWordSensitivity))
-          let initialLang: AppLocale = 'pt-BR'
-          const systemLang = (navigator.language || '').toLowerCase()
-          const isSystemEn = systemLang.startsWith('en')
-
-          if (isSystemEn) {
-            initialLang = 'en'
-          } else if (saved.language === 'en' || saved.language === 'pt-BR') {
-            initialLang = saved.language
-          }
-
-          setLanguage(initialLang)
-          setDraftLanguage(initialLang)
+        const settingsToUpdate: Partial<VoxState> = {}
+        if (saved.apiKey) settingsToUpdate.apiKey = saved.apiKey
+        if (saved.sttModel) settingsToUpdate.sttModel = saved.sttModel
+        if (saved.llmModel) settingsToUpdate.llmModel = saved.llmModel
+        if (saved.shortcutToggle) settingsToUpdate.shortcutToggle = saved.shortcutToggle
+        if (saved.shortcutPushToTalk) settingsToUpdate.shortcutPushToTalk = saved.shortcutPushToTalk
+        if (saved.wakeWordEnabled !== undefined) settingsToUpdate.wakeWordEnabled = saved.wakeWordEnabled === 'true'
+        if (saved.wakeWordSensitivity) settingsToUpdate.wakeWordSensitivity = parseFloat(saved.wakeWordSensitivity)
+        if (saved.autoStartEnabled !== undefined) {
+          const hasAutoStart = saved.autoStartEnabled === 'true'
+          settingsToUpdate.autoStartEnabled = hasAutoStart
+          setDraftAutoStartEnabled(hasAutoStart)
         }
+
+        let initialLang: AppLocale = 'pt-BR'
+        const systemLang = (navigator.language || '').toLowerCase()
+        const isSystemEn = systemLang.startsWith('en')
+
+        if (isSystemEn) {
+          initialLang = 'en'
+        } else if (saved.language === 'en' || saved.language === 'pt-BR') {
+          initialLang = saved.language
+        }
+
+        settingsToUpdate.language = initialLang
+        setDraftLanguage(initialLang)
+
+        updateSettings(settingsToUpdate)
         setSettingsLoaded(true)
       }).catch(() => {
         setSettingsLoaded(true)
@@ -226,7 +239,7 @@ export const MainWindow: React.FC = () => {
       unsubAccess?.()
       unsubXdo?.()
     }
-  }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setBrowserCookies, setWakeWordEnabled, setWakeWordSensitivity, setLanguage])
+  }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setWakeWordEnabled, setWakeWordSensitivity, setLanguage])
 
   const mediaStreamRef = React.useRef<MediaStream | null>(null)
   const audioContextRef = React.useRef<AudioContext | null>(null)
@@ -433,6 +446,7 @@ export const MainWindow: React.FC = () => {
       unsubscribeTranscript = window.vox.onTranscriptResult((text: string) => {
         setLastTranscript(text)
         setIsCopied(false)
+        fetchHistory()
       })
     }
 
@@ -443,32 +457,26 @@ export const MainWindow: React.FC = () => {
       })
     }
 
+    const sfxCtx = new AudioContext()
+    const sfxGain = sfxCtx.createGain()
+    sfxGain.gain.value = 2.0
+    sfxGain.connect(sfxCtx.destination)
+
+    const playSound = (url: string) => {
+      const audio = new Audio(url)
+      const src = sfxCtx.createMediaElementSource(audio)
+      src.connect(sfxGain)
+      audio.play().catch(console.error)
+    }
+
     let unsubscribeDockShow: (() => void) | undefined
     if (window.vox?.onDockShow) {
-      unsubscribeDockShow = window.vox.onDockShow(() => {
-        const audio = new Audio(onSound)
-        const ctx = new AudioContext()
-        const src = ctx.createMediaElementSource(audio)
-        const gain = ctx.createGain()
-        gain.gain.value = 2.0
-        src.connect(gain)
-        gain.connect(ctx.destination)
-        audio.play().catch(console.error)
-      })
+      unsubscribeDockShow = window.vox.onDockShow(() => playSound(onSound))
     }
 
     let unsubscribeDockHide: (() => void) | undefined
     if (window.vox?.onDockHide) {
-      unsubscribeDockHide = window.vox.onDockHide(() => {
-        const audio = new Audio(offSound)
-        const ctx = new AudioContext()
-        const src = ctx.createMediaElementSource(audio)
-        const gain = ctx.createGain()
-        gain.gain.value = 2.0
-        src.connect(gain)
-        gain.connect(ctx.destination)
-        audio.play().catch(console.error)
-      })
+      unsubscribeDockHide = window.vox.onDockHide(() => playSound(offSound))
     }
 
     return () => {
@@ -481,12 +489,6 @@ export const MainWindow: React.FC = () => {
       unsubscribeDockHide?.()
     }
   }, [setIsRecording, setLastTranscript, isRecording])
-
-  const toggleFormat = (fmt: string) => {
-    setSelectedFormats((prev) =>
-      prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt]
-    )
-  }
 
 
 
@@ -810,6 +812,29 @@ export const MainWindow: React.FC = () => {
                           {opt.label}
                         </button>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Auto Start (Iniciar com o sistema) */}
+                  <div className="p-4 bg-background/50 border border-border/60 rounded-xl">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <span className="text-xs font-semibold text-text-primary block leading-relaxed">{t('settings.autoStart')}</span>
+                        <span className="text-[11px] text-text-secondary leading-relaxed">{t('settings.autoStartHint')}</span>
+                      </div>
+                      <div className="switch-button">
+                        <label className="switch-outer">
+                          <input
+                            type="checkbox"
+                            checked={draftAutoStartEnabled}
+                            onChange={(e) => setDraftAutoStartEnabled(e.target.checked)}
+                          />
+                          <div className="button">
+                            <div className="button-toggle"></div>
+                            <div className="button-indicator"></div>
+                          </div>
+                        </label>
+                      </div>
                     </div>
                   </div>
 

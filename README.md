@@ -52,7 +52,6 @@
 | **Free Plan / Cost** | 100% Free daily usage (via Groq API Free Tier) | Free limited to 2,000 words/week (Pro: $9 to $29+/mo) |
 | **Wake Word (Voice Trigger)** | Yes, "Vox" (100% offline via ONNX) | Depends on shortcuts/cloud |
 | **Privacy** | Audio processed via direct API, no middleman | Proprietary cloud processing |
-| **Media Transcription (YouTube/Files)** | Yes (with export to SRT, VTT, TXT, MD, JSON) | Dictation focused only |
 | **Platforms** | Windows (.exe), macOS (.dmg), and Linux (.AppImage) | Mac, Windows, iOS |
 | **Auto-Stop on Silence (VAD)** | Yes, auto-stops and pastes on silence | Yes |
 
@@ -61,7 +60,6 @@
 * **100% Free and Open-Source**: No recurring subscriptions, fully transparent and auditable codebase.
 * **Virtually Unlimited & Free Daily Use**: By using providers like Groq API (which offer a generous free tier with thousands of requests per day), you can use Vox daily without word caps or weekly resets, unlike Wispr Flow's 2,000-word limit.
 * **Offline Wake Word ("Vox")**: Activation keyword detection processed 100% locally on your PC via ONNX Runtime (< 1% CPU).
-* **Integrated Media Tool**: Download and transcribe media from YouTube, TikTok, Instagram, and local files with subtitle export (.srt, .vtt).
 * **Data Privacy**: Audio is sent directly to your preferred API provider without third-party retention for AI training.
 
 #### Vox Disadvantages
@@ -78,8 +76,6 @@
 | Use Case | Description |
 |---|---|
 | **Voice Dictation** | Say *"Vox"* or use shortcuts to type into any application |
-| **Media Transcription** | Transcribe videos from YouTube, TikTok, Instagram, or local files |
-| **Subtitle Export** | Export transcriptions as `.srt`, `.vtt`, `.txt`, `.md`, `.json` |
 | **Productivity** | Write emails, code, and documents hands-free |
 
 ---
@@ -93,13 +89,10 @@
 ◆  Text injection into the active cursor of any window
 ◆  Transcription via Whisper Large V3 Turbo (Groq or any compatible provider)
 ◆  Automatic punctuation and spelling correction via LLM (openai/gpt-oss-20b)
-◆  Floating Dock HUD with real-time Voice Activity Detection (VAD) visualizer
-◆  Download and transcription of YouTube, TikTok, and Instagram videos
-◆  Support for local media files (MP4, MP3, WAV, MKV, MOV, M4A...)
-◆  Export in SRT, VTT, TXT, MD, JSON
-◆  Autostart with OS
+◆  Floating Dock HUD with real-time Voice Activity Detection (VAD) visualizer and animation
+◆  Autostart with OS (user-configurable toggle)
 ◆  System Tray background process (shortcuts and wake word work even when window is closed)
-◆  Settings persisted in local SQLite
+◆  Settings persisted in local SQLite with OS-level safeStorage encryption for API keys
 ◆  Premium UI design with glassmorphism, animated beams, and micro-interactions
 ```
 
@@ -119,10 +112,10 @@ Vox follows standard Electron architecture separating **Main Process** (Node.js)
 |  | (VAD/WAV)|  | (Whisper)|  |  (LLM)   |  |(PowerShell)|    |
 |  +----------+  +----------+  +----------+  +------------+    |
 |                                                                |
-|  +----------+  +----------+  +--------------------------+    |
-|  |Downloader|  |    DB    |  |  GlobalShortcut (F9/F10)  |    |
-|  | (yt-dlp) |  | (SQLite) |  |  + SystemTray             |    |
-|  +----------+  +----------+  +--------------------------+    |
+|  +----------+  +--------------------------------------------+    |
+|  |    DB    |  |  GlobalShortcut (F9/F10)                   |    |
+|  | (SQLite) |  |  + SystemTray                              |    |
+|  +----------+  +--------------------------------------------+    |
 |                                                                |
 |                    IPC (ipcMain / ipcRenderer)                 |
 +----------------------------+-----------------------------------+
@@ -141,9 +134,8 @@ Vox follows standard Electron architecture separating **Main Process** (Node.js)
 |  |  (React + Framer Motion)   |  |  (Floating HUD, always-   | |
 |  |                            |  |   on-top, showInactive)    | |
 |  |  Tab: Voice Dictation      |  |  Real-time voice energy    | |
-|  |  Tab: Media Transcription  |  |  visualizer                | |
-|  |  Modal: Settings           |  +---------------------------+ |
-|  +---------------------------+                                 |
+|  |  Modal: Settings           |  |  visualizer                | |
+|  +---------------------------+  +---------------------------+ |
 |                     Zustand (Global State)                     |
 +---------------------------------------------------------------+
 ```
@@ -162,7 +154,7 @@ Main process entry point. Manages:
 - All IPC handlers (`ipcMain.handle`)
 
 ### `electron/modules/recorder.ts`, Audio Recorder
-`AudioRecorder` extends `EventEmitter`. Receives PCM 16kHz mono chunks from renderer via IPC, calculates RMS energy for Voice Activity Detection (VAD Auto-Stop), and builds RIFF WAV buffers upon stopping.
+`AudioRecorder` extends `EventEmitter`. Receives PCM 16kHz mono chunks from renderer via IPC, calculates RMS energy for Voice Activity Detection (VAD Auto-Stop), and builds RIFF WAV buffers upon stopping with size pre-calculation.
 
 ```
 PCM chunks (IPC) → RMS VAD → Buffer WAV (header + data)
@@ -194,21 +186,14 @@ Injects text into active cursor of any application:
 clipboard → SetForegroundWindow(hwnd) → SendWait('^v') → text at cursor
 ```
 
-### `electron/modules/downloader.ts`, Media Downloader
-Uses bundled `yt-dlp` binary to download audio from YouTube, TikTok, and Instagram URLs. Supports browser cookies (Chrome, Edge, Firefox, Brave).
-
-```
-URL → yt-dlp → local audio file → transcription
-```
-
 ### `electron/modules/db.ts`, Persistence
-SQLite database via `better-sqlite3`. Stores user settings (`apiKey`, shortcuts, cookies, wake word). Fallback to JSON if native module fails to load.
+SQLite database via `better-sqlite3`. Stores user settings (`apiKey`, shortcuts, wake word). Leverages OS-level `safeStorage` credential encryption for API keys, falling back to JSON if native sqlite module fails.
 
 ---
 
 ## ◈ UI & Design System
 
-Vox features a custom design system built with React + Vanilla CSS inspired by glassmorphism and high-tech interfaces.
+Vox features a custom design system built with React + Vanilla CSS inspired by glassmorphic layouts and premium dark mode interfaces.
 
 ### Palette
 
@@ -220,6 +205,29 @@ Primary Accent:       Pure White (#FFFFFF)
 Secondary Text:       rgba(255,255,255,0.5)
 Recording Highlight:  Emerald Green (#22c55e)
 ```
+
+### Components
+
+| Component | Description |
+|---|---|
+| `Beams` | Animation of light beams on the background (WebGL/Canvas) |
+| `LiquidGlassCard` | Card with glassmorphism and blur effects |
+| `SpecularButton` | Button with specular reflection and micro-animations |
+| `SmoothInput` | Input with smooth transitions and status animations |
+| `ShortcutInput` | Capture global keyboard shortcuts |
+| `AnimatedContent` | Content entry animations using Framer Motion |
+| `Badge` | Status indicators |
+| `NoiseTexture` | High-tech noise overlay with radial masks |
+
+### Windows
+
+**MainWindow** (1040×820px, non-resizable)
+- Tab: **Voice Dictation** (last transcript, history log, settings toggle)
+- Settings panel: API Key, shortcuts, Wake Word sensitivity, autostart toggle
+
+**DockWindow** (220×70px, `alwaysOnTop: screen-saver`)
+- Floating overlay HUD appearing only when recording is in progress
+- Renders real-time VAD voice energy visualizer and spring entry/exit animations
 
 ---
 
@@ -240,13 +248,12 @@ Shortcuts and wake word detection work even when all windows are closed because 
 Runtime:         Electron 33 (Chromium + Node.js)
 UI:              React 18 + TypeScript 5.7
 Bundler:         electron-vite (Vite 5 for renderer)
-Animations:      Framer Motion 12, GSAP 3, Three.js, @react-three/fiber
+Animations:      Framer Motion 12, GSAP 3
 State:           Zustand 5
 Database:        better-sqlite3 (Native SQLite)
 Wake Word:       openWakeWord ONNX (onnxruntime-node)
 STT:             Whisper Large V3 Turbo (via API provider)
 LLM:             openai/gpt-oss-20b (via API provider)
-Download:        yt-dlp (bundled binary)
 Injection:       PowerShell + Win32 API (SetForegroundWindow, SendKeys)
 Build:           electron-builder (Windows .exe, macOS .dmg, Linux .AppImage)
 ```
@@ -293,26 +300,14 @@ GROQ_API_KEY=gsk_...          # API Key (provider must offer whisper-large-v3-tu
 
 | Setting | Default | Description |
 |---|---|---|
-| API Key | N/A | Provider API Key (does not have to be Groq, as long as provider offers required models) |
+| API Key | N/A | Provider API Key (saved securely via OS-level safeStorage) |
 | Wake Word | `Enabled ("Vox")` | Hands-free background voice activation for "Vox" |
 | Sensitivity | `50%` | Detection sensitivity for "Vox" wake word |
 | Toggle Shortcut | `F10` | Manually start/stop recording |
 | Push-to-Talk | `F9` | Record while holding key |
-| Browser Cookies | `chrome` | Choose browser (Chrome, Edge, Firefox, Brave, or None) for private media cookie extraction |
+| Start with System | `Enabled` | Automatically launch Vox when logging in |
 | STT Model | `whisper-large-v3-turbo` | Default STT model (must be supported by provider) |
 | LLM Model | `openai/gpt-oss-20b` | Default LLM correction model (must be supported by provider) |
-
----
-
-## ◈ Export Formats (Media Transcription)
-
-| Format | Extension | Usage |
-|---|---|---|
-| Plain Text | `.txt` | Simple reading |
-| Markdown | `.md` | Documentation |
-| SubRip | `.srt` | Video player subtitles |
-| WebVTT | `.vtt` | Web HTML5 subtitles |
-| JSON | `.json` | Tool integrations |
 
 ---
 

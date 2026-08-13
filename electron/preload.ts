@@ -14,17 +14,55 @@ export const voxApi = {
 
   // Configurações & Banco de Dados
   getSettings: () => ipcRenderer.invoke('vox:get-settings'),
-  saveSettings: (settings: Record<string, string>) => ipcRenderer.invoke('vox:save-settings', settings),
-  setWakeWordEnabled: (enabled: boolean) => ipcRenderer.invoke('vox:set-wakeword-enabled', enabled),
-  setWakeWordSensitivity: (sensitivity: number) => ipcRenderer.invoke('vox:set-wakeword-sensitivity', sensitivity),
+  saveSettings: (settings: Record<string, string>) => {
+    if (!settings || typeof settings !== 'object') {
+      return Promise.reject(new TypeError('settings deve ser um objeto'))
+    }
+    return ipcRenderer.invoke('vox:save-settings', settings)
+  },
+  setWakeWordEnabled: (enabled: boolean) => {
+    if (typeof enabled !== 'boolean') {
+      return Promise.reject(new TypeError('enabled deve ser um boolean'))
+    }
+    return ipcRenderer.invoke('vox:set-wakeword-enabled', enabled)
+  },
+  setWakeWordSensitivity: (sensitivity: number) => {
+    if (typeof sensitivity !== 'number') {
+      return Promise.reject(new TypeError('sensitivity deve ser um number'))
+    }
+    return ipcRenderer.invoke('vox:set-wakeword-sensitivity', sensitivity)
+  },
   openAccessibilityPreferences: () => ipcRenderer.invoke('vox:open-accessibility-preferences'),
 
   // Histórico de Transcrições (Sessions)
-  listSessions: (limit?: number, type?: string) => ipcRenderer.invoke('vox:list-sessions', limit, type),
-  getSession: (id: string) => ipcRenderer.invoke('vox:get-session', id),
-  deleteSession: (id: string) => ipcRenderer.invoke('vox:delete-session', id),
+  listSessions: (limit?: number, type?: string) => {
+    if (limit !== undefined && typeof limit !== 'number') {
+      return Promise.reject(new TypeError('limit deve ser um number'))
+    }
+    if (type !== undefined && typeof type !== 'string') {
+      return Promise.reject(new TypeError('type deve ser um string'))
+    }
+    return ipcRenderer.invoke('vox:list-sessions', limit, type)
+  },
+  getSession: (id: string) => {
+    if (typeof id !== 'string') {
+      return Promise.reject(new TypeError('id deve ser um string'))
+    }
+    return ipcRenderer.invoke('vox:get-session', id)
+  },
+  deleteSession: (id: string) => {
+    if (typeof id !== 'string') {
+      return Promise.reject(new TypeError('id deve ser um string'))
+    }
+    return ipcRenderer.invoke('vox:delete-session', id)
+  },
   clearAllSessions: () => ipcRenderer.invoke('vox:clear-all-sessions'),
-  searchSessions: (query: string) => ipcRenderer.invoke('vox:search-sessions', query),
+  searchSessions: (query: string) => {
+    if (typeof query !== 'string') {
+      return Promise.reject(new TypeError('query deve ser um string'))
+    }
+    return ipcRenderer.invoke('vox:search-sessions', query)
+  },
 
   // Event Listeners
   onDockTextUpdate: (callback: (text: string) => void) => {
