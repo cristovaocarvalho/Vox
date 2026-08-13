@@ -5,9 +5,6 @@ directories:
 files:
   - "out/**/*"
 extraResources:
-  - from: resources/binaries/
-    to: binaries/
-    filter: ["**/*"]
   - from: resources/models/
     to: models/
     filter: ["**/*"]

@@ -184,8 +184,7 @@ const APP_CONTEXT_RULES: { category: string; keywords: string[] }[] = [
   { category: 'an email message', keywords: ['outlook', 'gmail', 'thunderbird', 'mail', 'proton', 'postbox'] },
   { category: 'a text document', keywords: ['word', 'winword', 'docs', 'writer', 'libreoffice', 'pages', 'notion', 'onenote', 'obsidian', 'typora', 'scrivener'] },
   { category: 'a chat or messaging app', keywords: ['slack', 'teams', 'discord', 'whatsapp', 'telegram', 'messenger', 'signal', 'skype', 'zoom'] },
-  { category: 'a terminal or shell', keywords: ['terminal', 'cmd', 'powershell', 'iterm', 'konsole', 'bash', 'zsh', 'alacritty', 'kitty', 'windows terminal', 'wezterm'] },
-  { category: 'a web page or browser form', keywords: ['chrome', 'chromium', 'firefox', 'edge', 'safari', 'brave', 'opera', 'arc', 'vivaldi'] }
+  { category: 'a terminal or shell', keywords: ['terminal', 'cmd', 'powershell', 'iterm', 'konsole', 'bash', 'zsh', 'alacritty', 'kitty', 'windows terminal', 'wezterm'] }
 ]
 
 function buildContextHint(ref: WindowRef | null): string {

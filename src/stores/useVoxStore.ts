@@ -3,8 +3,6 @@ import { create } from 'zustand'
 export type AppLocale = 'en' | 'pt-BR'
 
 export interface VoxState {
-  activeTab: 'type' | 'media'
-  setActiveTab: (tab: 'type' | 'media') => void
   isRecording: boolean
   setIsRecording: (recording: boolean) => void
   lastTranscript: string
@@ -27,7 +25,7 @@ export interface VoxState {
   setLanguage: (language: AppLocale) => void
   autoStartEnabled: boolean
   setAutoStartEnabled: (enabled: boolean) => void
-  updateSettings: (settings: Partial<Omit<VoxState, 'activeTab' | 'setActiveTab' | 'isRecording' | 'setIsRecording' | 'lastTranscript' | 'setLastTranscript' | 'updateSettings'>>) => void
+  updateSettings: (settings: Partial<Omit<VoxState, 'isRecording' | 'setIsRecording' | 'lastTranscript' | 'setLastTranscript' | 'updateSettings'>>) => void
 }
 
 const getInitialLanguage = (): AppLocale => {
@@ -40,8 +38,6 @@ const getInitialLanguage = (): AppLocale => {
 }
 
 export const useVoxStore = create<VoxState>((set) => ({
-  activeTab: 'type',
-  setActiveTab: (tab) => set({ activeTab: tab }),
   isRecording: false,
   setIsRecording: (recording) => set({ isRecording: recording }),
   lastTranscript: '',

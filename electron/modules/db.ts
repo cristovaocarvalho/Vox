@@ -14,7 +14,7 @@ try {
 
 export interface Session {
   id: string
-  type: 'dictation' | 'media'
+  type: 'dictation'
   title?: string
   source?: string
   platform?: string

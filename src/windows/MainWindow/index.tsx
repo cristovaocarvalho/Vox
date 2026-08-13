@@ -35,8 +35,6 @@ const prettyModelName = (id: string): string => {
 export const MainWindow: React.FC = () => {
   const { t, localeTag } = useI18n()
   const {
-    activeTab,
-    setActiveTab,
     isRecording,
     setIsRecording,
     lastTranscript,
@@ -634,7 +632,7 @@ export const MainWindow: React.FC = () => {
             <div className="w-full max-w-3xl space-y-5">
 
               {/* Main action card */}
-              <AnimatedContent key={`type-card-1-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.05} ease="power3.out">
+              <AnimatedContent key="type-card-1" distance={30} direction="vertical" duration={1.1} delay={0.05} ease="power3.out">
                 <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-8 flex flex-col items-center text-center">
                   {/* Mic button */}
                   <button
@@ -679,7 +677,7 @@ export const MainWindow: React.FC = () => {
               </AnimatedContent>
 
               {/* Transcript output */}
-              <AnimatedContent key={`type-card-2-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.15} ease="power3.out">
+              <AnimatedContent key="type-card-2" distance={30} direction="vertical" duration={1.1} delay={0.15} ease="power3.out">
                 <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-6">
                   <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-3 mb-4">
                     <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide">{t('type.lastTranscript')}</span>
@@ -720,7 +718,7 @@ export const MainWindow: React.FC = () => {
               </AnimatedContent>
 
               {/* Histórico de Ditado */}
-              <AnimatedContent key={`type-history-${activeTab}`} distance={30} direction="vertical" duration={1.1} delay={0.25} ease="power3.out">
+              <AnimatedContent key="type-history" distance={30} direction="vertical" duration={1.1} delay={0.25} ease="power3.out">
                 <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-6">
                   <button
                     type="button"
