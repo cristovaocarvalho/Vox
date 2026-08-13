@@ -24,6 +24,7 @@ import logoImg from '../../assets/logo.png'
 import configImg from '../../assets/config.png'
 import onSound from '../../assets/On.mp3'
 import offSound from '../../assets/Off.mp3'
+import { CommandsTab } from './tabs/CommandsTab'
 
 const prettyModelName = (id: string): string => {
   const base = id.split('/').pop() || id
@@ -101,7 +102,7 @@ export const MainWindow: React.FC = () => {
   const [partialTranscript, setPartialTranscript] = useState('')
   const [isCopied, setIsCopied] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [settingsPage, setSettingsPage] = useState<'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences' | 'privacy' | 'vocabulary'>('provider')
+  const [settingsPage, setSettingsPage] = useState<'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences' | 'privacy' | 'vocabulary' | 'commands'>('provider')
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
 
@@ -316,13 +317,14 @@ export const MainWindow: React.FC = () => {
     }
   }
 
-  const settingsNavItems: { id: 'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences' | 'privacy' | 'vocabulary'; label: string }[] = [
+  const settingsNavItems: { id: 'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences' | 'privacy' | 'vocabulary' | 'commands'; label: string }[] = [
     { id: 'provider', label: t('settings.provider') },
     { id: 'models', label: t('settings.models') },
     { id: 'shortcuts', label: t('settings.shortcuts') },
     { id: 'voice', label: t('settings.voice') },
     { id: 'preferences', label: t('settings.preferences') },
     { id: 'vocabulary', label: t('settings.vocabulary') },
+    { id: 'commands', label: t('settings.commands') },
     { id: 'privacy', label: t('settings.privacy') }
   ]
 
@@ -1422,6 +1424,10 @@ export const MainWindow: React.FC = () => {
                           </>
                         )}
                       </div>
+                    )}
+
+                    {settingsPage === 'commands' && (
+                      <CommandsTab />
                     )}
                   </div>
                 </div>

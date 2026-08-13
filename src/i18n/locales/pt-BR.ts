@@ -46,6 +46,7 @@ const ptBR: TranslationKeys = {
     vocabularyPlaceholder: 'ex.: Anami, Cebraspe, Supabase...',
     vocabularyEmpty: 'Nenhum termo adicionado ainda.',
     vocabularyClear: 'Limpar Tudo',
+    commands: 'Comandos',
     privacy: 'Privacidade',
     privacyHint: 'Toda chamada de API feita pelo Vox é registrada localmente. Este relatório auditável mostra qual API foi chamada, quantos bytes de áudio ou texto foram enviados e para qual endpoint. Seus dados nunca saem do seu dispositivo, exceto para o provedor que você configurar.',
     privacyTotalCalls: 'Total de chamadas',
@@ -78,6 +79,30 @@ const ptBR: TranslationKeys = {
     langPt: 'Português (BR)',
     autoStart: 'Iniciar com o Sistema',
     autoStartHint: 'Inicia o Vox automaticamente ao fazer login'
+  },
+  commands: {
+    title: 'Comandos de Voz',
+    new: 'Novo Comando',
+    edit: 'Editar Comando',
+    empty: 'Nenhum comando.',
+    label: 'Rótulo',
+    description: 'Descrição',
+    category: 'Categoria',
+    matchMode: 'Modo de correspondência',
+    triggersPt: 'Gatilhos (PT) — um por linha',
+    triggersEn: 'Gatilhos (EN) — um por linha',
+    action: 'Ação',
+    parameter: 'Parâmetro'
+  },
+  snippets: {
+    title: 'Snippets',
+    new: 'Novo Snippet',
+    edit: 'Editar Snippet',
+    name: 'Nome',
+    triggerPt: 'Gatilho (PT)',
+    triggerEn: 'Gatilho (EN)',
+    content: 'Conteúdo',
+    empty: 'Nenhum snippet.'
   },
   common: {
     settings: 'Configurações'

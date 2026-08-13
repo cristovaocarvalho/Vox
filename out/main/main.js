@@ -129,6 +129,8 @@ let fallbackFileSessions = null;
 let fallbackFileApiLogs = null;
 let fallbackFileCorrections = null;
 let fallbackFileVocabulary = null;
+let fallbackFileCommands = null;
+let fallbackFileSnippets = null;
 const stmtCache = /* @__PURE__ */ new Map();
 function encryptValue(plainText) {
   try {
@@ -180,6 +182,8 @@ function initDatabase() {
     fallbackFileApiLogs = path.join(userDataPath, "vox_api_logs.json");
     fallbackFileCorrections = path.join(userDataPath, "vox_corrections.json");
     fallbackFileVocabulary = path.join(userDataPath, "vox_vocabulary.json");
+    fallbackFileCommands = path.join(userDataPath, "vox_commands.json");
+    fallbackFileSnippets = path.join(userDataPath, "vox_snippets.json");
     if (Database) {
       dbInstance = new Database(dbPath);
       dbInstance.exec(`
@@ -225,6 +229,30 @@ function initDatabase() {
         CREATE TABLE IF NOT EXISTS vocabulary (
           term      TEXT PRIMARY KEY,
           createdAt TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS commands (
+          id          TEXT PRIMARY KEY,
+          isDefault   INTEGER DEFAULT 0,
+          isEnabled   INTEGER DEFAULT 1,
+          category    TEXT,
+          label       TEXT,
+          description TEXT,
+          triggers    TEXT,
+          action      TEXT,
+          matchMode   TEXT,
+          createdAt   TEXT,
+          updatedAt   TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS snippets (
+          id         TEXT PRIMARY KEY,
+          name       TEXT,
+          triggerPt  TEXT,
+          triggerEn  TEXT,
+          content    TEXT,
+          createdAt  TEXT,
+          updatedAt  TEXT
         );
       `);
       console.log("[DB] Banco de dados SQLite pronto em:", dbPath);
@@ -792,6 +820,241 @@ function clearVocabulary() {
     console.error("[DB] Erro ao limpar vocabulário:", err);
   }
 }
+function serializeCommand(cmd) {
+  return {
+    id: cmd.id,
+    isDefault: cmd.isDefault ? 1 : 0,
+    isEnabled: cmd.isEnabled ? 1 : 0,
+    category: cmd.category,
+    label: cmd.label,
+    description: cmd.description,
+    triggers: JSON.stringify(cmd.triggers),
+    action: JSON.stringify(cmd.action),
+    matchMode: cmd.matchMode,
+    createdAt: cmd.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+    updatedAt: cmd.updatedAt || (/* @__PURE__ */ new Date()).toISOString()
+  };
+}
+function parseCommandRow(row) {
+  let triggers = { pt: [], en: [] };
+  let action = { type: "keystroke", parameter: "" };
+  try {
+    triggers = JSON.parse(row.triggers || '{"pt":[],"en":[]}');
+  } catch {
+  }
+  try {
+    action = JSON.parse(row.action || "{}");
+  } catch {
+  }
+  return {
+    id: row.id,
+    isDefault: !!row.isDefault,
+    isEnabled: !!row.isEnabled,
+    category: row.category || "custom",
+    label: row.label || "",
+    description: row.description || "",
+    triggers,
+    action,
+    matchMode: row.matchMode === "inline" ? "inline" : "isolated",
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  };
+}
+function seedCommands(defaults) {
+  try {
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    for (const cmd of defaults) {
+      const record = serializeCommand({ ...cmd, createdAt: cmd.createdAt || now, updatedAt: cmd.updatedAt || now });
+      if (dbInstance) {
+        dbInstance.prepare(`
+          INSERT OR IGNORE INTO commands (id, isDefault, isEnabled, category, label, description, triggers, action, matchMode, createdAt, updatedAt)
+          VALUES (@id, @isDefault, @isEnabled, @category, @label, @description, @triggers, @action, @matchMode, @createdAt, @updatedAt)
+        `).run(record);
+      } else if (fallbackFileCommands) {
+        let commands = [];
+        if (fs.existsSync(fallbackFileCommands)) {
+          try {
+            commands = JSON.parse(fs.readFileSync(fallbackFileCommands, "utf-8"));
+          } catch {
+            commands = [];
+          }
+        }
+        if (!commands.some((c) => c.id === cmd.id)) {
+          commands.push(parseCommandRow(record));
+          fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands, null, 2), "utf-8");
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao semear comandos padrão:", err);
+  }
+}
+function listCommands() {
+  try {
+    if (dbInstance) {
+      const rows = dbInstance.prepare("SELECT * FROM commands").all();
+      return rows.map(parseCommandRow);
+    }
+    if (fallbackFileCommands && fs.existsSync(fallbackFileCommands)) {
+      return JSON.parse(fs.readFileSync(fallbackFileCommands, "utf-8"));
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao listar comandos:", err);
+  }
+  return [];
+}
+function saveCommand(cmd) {
+  try {
+    const record = serializeCommand(cmd);
+    if (dbInstance) {
+      dbInstance.prepare(`
+        INSERT INTO commands (id, isDefault, isEnabled, category, label, description, triggers, action, matchMode, createdAt, updatedAt)
+        VALUES (@id, @isDefault, @isEnabled, @category, @label, @description, @triggers, @action, @matchMode, @createdAt, @updatedAt)
+        ON CONFLICT(id) DO UPDATE SET
+          isDefault = excluded.isDefault,
+          isEnabled = excluded.isEnabled,
+          category = excluded.category,
+          label = excluded.label,
+          description = excluded.description,
+          triggers = excluded.triggers,
+          action = excluded.action,
+          matchMode = excluded.matchMode,
+          updatedAt = excluded.updatedAt
+      `).run(record);
+      return;
+    }
+    if (fallbackFileCommands) {
+      let commands = [];
+      if (fs.existsSync(fallbackFileCommands)) {
+        try {
+          commands = JSON.parse(fs.readFileSync(fallbackFileCommands, "utf-8"));
+        } catch {
+          commands = [];
+        }
+      }
+      const idx = commands.findIndex((c) => c.id === cmd.id);
+      const parsed = parseCommandRow(record);
+      if (idx >= 0) commands[idx] = parsed;
+      else commands.push(parsed);
+      fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands, null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao salvar comando:", err);
+  }
+}
+function deleteCommand(id) {
+  try {
+    if (dbInstance) {
+      dbInstance.prepare("DELETE FROM commands WHERE id = ?").run(id);
+      return;
+    }
+    if (fallbackFileCommands && fs.existsSync(fallbackFileCommands)) {
+      const commands = JSON.parse(fs.readFileSync(fallbackFileCommands, "utf-8"));
+      fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands.filter((c) => c.id !== id), null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao excluir comando:", err);
+  }
+}
+function setCommandEnabled(id, enabled) {
+  try {
+    if (dbInstance) {
+      dbInstance.prepare("UPDATE commands SET isEnabled = ? WHERE id = ?").run(enabled ? 1 : 0, id);
+      return;
+    }
+    if (fallbackFileCommands && fs.existsSync(fallbackFileCommands)) {
+      const commands = JSON.parse(fs.readFileSync(fallbackFileCommands, "utf-8"));
+      const cmd = commands.find((c) => c.id === id);
+      if (cmd) {
+        cmd.isEnabled = enabled;
+        fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands, null, 2), "utf-8");
+      }
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao alternar comando:", err);
+  }
+}
+function parseSnippetRow(row) {
+  return {
+    id: row.id,
+    name: row.name || "",
+    triggerPt: row.triggerPt || "",
+    triggerEn: row.triggerEn || "",
+    content: row.content || "",
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  };
+}
+function listSnippets() {
+  try {
+    if (dbInstance) {
+      const rows = dbInstance.prepare("SELECT * FROM snippets ORDER BY datetime(createdAt) ASC").all();
+      return rows.map(parseSnippetRow);
+    }
+    if (fallbackFileSnippets && fs.existsSync(fallbackFileSnippets)) {
+      return JSON.parse(fs.readFileSync(fallbackFileSnippets, "utf-8"));
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao listar snippets:", err);
+  }
+  return [];
+}
+function saveSnippet(snippet) {
+  try {
+    const record = {
+      id: snippet.id,
+      name: snippet.name,
+      triggerPt: snippet.triggerPt,
+      triggerEn: snippet.triggerEn,
+      content: snippet.content,
+      createdAt: snippet.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+      updatedAt: snippet.updatedAt || (/* @__PURE__ */ new Date()).toISOString()
+    };
+    if (dbInstance) {
+      dbInstance.prepare(`
+        INSERT INTO snippets (id, name, triggerPt, triggerEn, content, createdAt, updatedAt)
+        VALUES (@id, @name, @triggerPt, @triggerEn, @content, @createdAt, @updatedAt)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          triggerPt = excluded.triggerPt,
+          triggerEn = excluded.triggerEn,
+          content = excluded.content,
+          updatedAt = excluded.updatedAt
+      `).run(record);
+      return;
+    }
+    if (fallbackFileSnippets) {
+      let snippets = [];
+      if (fs.existsSync(fallbackFileSnippets)) {
+        try {
+          snippets = JSON.parse(fs.readFileSync(fallbackFileSnippets, "utf-8"));
+        } catch {
+          snippets = [];
+        }
+      }
+      const idx = snippets.findIndex((s) => s.id === snippet.id);
+      if (idx >= 0) snippets[idx] = parseSnippetRow(record);
+      else snippets.push(parseSnippetRow(record));
+      fs.writeFileSync(fallbackFileSnippets, JSON.stringify(snippets, null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao salvar snippet:", err);
+  }
+}
+function deleteSnippet(id) {
+  try {
+    if (dbInstance) {
+      dbInstance.prepare("DELETE FROM snippets WHERE id = ?").run(id);
+      return;
+    }
+    if (fallbackFileSnippets && fs.existsSync(fallbackFileSnippets)) {
+      const snippets = JSON.parse(fs.readFileSync(fallbackFileSnippets, "utf-8"));
+      fs.writeFileSync(fallbackFileSnippets, JSON.stringify(snippets.filter((s) => s.id !== id), null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao excluir snippet:", err);
+  }
+}
 const PROVIDER_PRESETS = [
   { id: "groq", label: "Groq", baseUrl: "https://api.groq.com/openai/v1", requiresApiKey: true, isAzure: false, defaultApiVersion: "" },
   { id: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", requiresApiKey: true, isAzure: false, defaultApiVersion: "" },
@@ -1040,6 +1303,250 @@ async function injectText(text, windowRef, _delayMs = 150, legacyHwnd) {
       }
     });
   });
+}
+function normalize(text) {
+  return text.toLowerCase().replace(/\s+/g, " ").trim();
+}
+function getTriggers(cmd, language) {
+  const lang = language === "en" ? "en" : "pt";
+  const list = cmd.triggers[lang] && cmd.triggers[lang].length > 0 ? cmd.triggers[lang] : cmd.triggers.en;
+  return list || [];
+}
+function matchWhole(text, pattern) {
+  try {
+    return new RegExp(`^(?:${pattern})$`, "i").test(text);
+  } catch {
+    return false;
+  }
+}
+function parseCommandText(rawText, commands, language = "pt-BR") {
+  const normalized = normalize(rawText);
+  if (!normalized) {
+    return { segments: [], hasCommands: false, hasContent: false, isMixed: false };
+  }
+  for (const cmd of commands) {
+    if (!cmd.isEnabled || cmd.matchMode !== "isolated") continue;
+    for (const pattern of getTriggers(cmd, language)) {
+      if (matchWhole(normalized, pattern)) {
+        return {
+          segments: [{ type: "command", value: cmd.id, command: cmd }],
+          hasCommands: true,
+          hasContent: false,
+          isMixed: false
+        };
+      }
+    }
+  }
+  const spans = [];
+  for (const cmd of commands) {
+    if (!cmd.isEnabled || cmd.matchMode !== "inline") continue;
+    for (const pattern of getTriggers(cmd, language)) {
+      try {
+        const regex = new RegExp(pattern, "gi");
+        let m;
+        while ((m = regex.exec(normalized)) !== null) {
+          if (m[0].length === 0) {
+            regex.lastIndex++;
+            continue;
+          }
+          spans.push({ start: m.index, end: m.index + m[0].length, cmd });
+        }
+      } catch {
+      }
+    }
+  }
+  if (spans.length === 0) {
+    return {
+      segments: [{ type: "content", value: rawText, contentText: rawText }],
+      hasCommands: false,
+      hasContent: true,
+      isMixed: false
+    };
+  }
+  spans.sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start));
+  const kept = [];
+  let lastEnd = -1;
+  for (const s of spans) {
+    if (s.start < lastEnd) continue;
+    kept.push(s);
+    lastEnd = s.end;
+  }
+  const segments = [];
+  let cursor = 0;
+  for (const s of kept) {
+    if (s.start > cursor) {
+      const contentText = normalized.slice(cursor, s.start).trim();
+      if (contentText) segments.push({ type: "content", value: contentText, contentText });
+    }
+    segments.push({ type: "command", value: s.cmd.id, command: s.cmd });
+    cursor = s.end;
+  }
+  if (cursor < normalized.length) {
+    const contentText = normalized.slice(cursor).trim();
+    if (contentText) segments.push({ type: "content", value: contentText, contentText });
+  }
+  const hasCommands = segments.some((s) => s.type === "command");
+  const hasContent = segments.some((s) => s.type === "content");
+  return { segments, hasCommands, hasContent, isMixed: hasCommands && hasContent };
+}
+const { shell } = require("electron");
+function runPowerShell(command) {
+  return new Promise((resolve, reject) => {
+    child_process.execFile("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", command], (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+const SEND_KEYS_MAP = {
+  Enter: "{ENTER}",
+  Backspace: "{BACKSPACE}",
+  Tab: "{TAB}",
+  Delete: "{DELETE}",
+  Escape: "{ESC}",
+  Esc: "{ESC}",
+  Home: "{HOME}",
+  End: "{END}",
+  PageUp: "{PGUP}",
+  PageDown: "{PGDN}",
+  Insert: "{INSERT}",
+  Up: "{UP}",
+  Down: "{DOWN}",
+  Left: "{LEFT}",
+  Right: "{RIGHT}",
+  Space: " ",
+  F1: "{F1}",
+  F2: "{F2}",
+  F3: "{F3}",
+  F4: "{F4}",
+  F5: "{F5}",
+  F6: "{F6}",
+  F7: "{F7}",
+  F8: "{F8}",
+  F9: "{F9}",
+  F10: "{F10}",
+  F11: "{F11}",
+  F12: "{F12}"
+};
+function toSendKeys(combo) {
+  const parts = combo.split("+").map((s) => s.trim()).filter(Boolean);
+  if (parts.length === 0) return "";
+  const key = parts[parts.length - 1];
+  const mods = parts.slice(0, -1);
+  const keyStr = SEND_KEYS_MAP[key] || (key.length === 1 ? key.toLowerCase() : `{${key.toUpperCase()}}`);
+  const prefix = mods.map((m) => m === "Ctrl" ? "^" : m === "Alt" ? "%" : m === "Shift" ? "+" : "").join("");
+  return prefix + keyStr;
+}
+async function sendKeys(combos) {
+  const keys = combos.map(toSendKeys).join("");
+  if (!keys) return;
+  await runPowerShell(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${keys}')`);
+}
+async function sendKeySequence(steps) {
+  if (!steps || steps.length === 0) return;
+  const body = steps.map((s) => {
+    const key = toSendKeys(s.key);
+    const delay = Math.max(0, s.delayAfter || 0);
+    return `[System.Windows.Forms.SendKeys]::SendWait('${key}'); Start-Sleep -Milliseconds ${delay}`;
+  }).join("; ");
+  await runPowerShell(`Add-Type -AssemblyName System.Windows.Forms; ${body}`);
+}
+function dynamicValue(kind) {
+  const now = /* @__PURE__ */ new Date();
+  switch (kind) {
+    case "date":
+      return now.toLocaleDateString();
+    case "time":
+      return now.toLocaleTimeString();
+    case "datetime":
+      return now.toLocaleString();
+    default:
+      return "";
+  }
+}
+async function executeCommand(command, ctx = {}) {
+  const action = command.action;
+  if (!action) return;
+  try {
+    switch (action.type) {
+      case "keystroke":
+        await sendKeys([String(action.parameter)]);
+        break;
+      case "keystroke_sequence": {
+        const steps = action.keySequence || (Array.isArray(action.parameter) ? action.parameter.map((k) => ({ key: String(k) })) : []);
+        await sendKeySequence(steps);
+        break;
+      }
+      case "inject_text":
+        await injectText(String(action.parameter), ctx.windowRef || void 0);
+        break;
+      case "inject_snippet": {
+        const snippet = (ctx.snippets || []).find((s) => s.name === action.parameter);
+        if (snippet) await injectText(snippet.content, ctx.windowRef || void 0);
+        break;
+      }
+      case "insert_dynamic":
+        await injectText(dynamicValue(String(action.parameter)), ctx.windowRef || void 0);
+        break;
+      case "vox_control":
+        ctx.onVoxControl?.(String(action.parameter));
+        break;
+      case "open_url":
+        await shell.openExternal(String(action.parameter));
+        break;
+      case "open_app":
+        await shell.openPath(String(action.parameter));
+        break;
+      case "run_script":
+        await new Promise((resolve) => {
+          child_process.execFile("powershell", ["-NoProfile", "-Command", String(action.parameter)], () => resolve());
+        });
+        break;
+      case "change_profile":
+        console.warn("[CommandExecutor] change_profile ainda não implementado:", action.parameter);
+        break;
+      default:
+        console.warn("[CommandExecutor] Tipo de ação desconhecido:", action.type);
+    }
+  } catch (err) {
+    console.error("[CommandExecutor] Falha ao executar comando:", err);
+  }
+}
+const DEFAULT_COMMANDS = [
+  // ---- Punctuation (inline) ----
+  { id: "cmd-comma", isDefault: true, isEnabled: true, category: "punctuation", label: "Comma", description: "Inserts a comma", triggers: { pt: ["\\bvírgula\\b"], en: ["\\bcomma\\b"] }, action: { type: "inject_text", parameter: "," }, matchMode: "inline" },
+  { id: "cmd-period", isDefault: true, isEnabled: true, category: "punctuation", label: "Period", description: "Inserts a period", triggers: { pt: ["\\bponto\\b"], en: ["\\bperiod\\b"] }, action: { type: "inject_text", parameter: "." }, matchMode: "inline" },
+  { id: "cmd-question", isDefault: true, isEnabled: true, category: "punctuation", label: "Question mark", description: "Inserts a question mark", triggers: { pt: ["\\bponto de interrogação\\b", "\\binterrogação\\b"], en: ["\\bquestion mark\\b"] }, action: { type: "inject_text", parameter: "?" }, matchMode: "inline" },
+  { id: "cmd-exclamation", isDefault: true, isEnabled: true, category: "punctuation", label: "Exclamation mark", description: "Inserts an exclamation mark", triggers: { pt: ["\\bponto de exclamação\\b", "\\bexclamação\\b"], en: ["\\bexclamation mark\\b"] }, action: { type: "inject_text", parameter: "!" }, matchMode: "inline" },
+  { id: "cmd-colon", isDefault: true, isEnabled: true, category: "punctuation", label: "Colon", description: "Inserts a colon", triggers: { pt: ["\\bdois pontos\\b"], en: ["\\bcolon\\b"] }, action: { type: "inject_text", parameter: ":" }, matchMode: "inline" },
+  { id: "cmd-semicolon", isDefault: true, isEnabled: true, category: "punctuation", label: "Semicolon", description: "Inserts a semicolon", triggers: { pt: ["\\bponto e vírgula\\b"], en: ["\\bsemicolon\\b"] }, action: { type: "inject_text", parameter: ";" }, matchMode: "inline" },
+  { id: "cmd-newline", isDefault: true, isEnabled: true, category: "punctuation", label: "New line", description: "Inserts a line break", triggers: { pt: ["\\bnova linha\\b"], en: ["\\bnew line\\b"] }, action: { type: "keystroke", parameter: "Enter" }, matchMode: "inline" },
+  { id: "cmd-paragraph", isDefault: true, isEnabled: true, category: "punctuation", label: "New paragraph", description: "Inserts a paragraph break", triggers: { pt: ["\\bnovo parágrafo\\b"], en: ["\\bnew paragraph\\b"] }, action: { type: "keystroke_sequence", parameter: [], keySequence: [{ key: "Enter" }, { key: "Enter" }] }, matchMode: "inline" },
+  { id: "cmd-space", isDefault: true, isEnabled: true, category: "punctuation", label: "Space", description: "Inserts a space", triggers: { pt: ["\\bespaço\\b"], en: ["\\bspace\\b"] }, action: { type: "inject_text", parameter: " " }, matchMode: "inline" },
+  // ---- Navigation (isolated) ----
+  { id: "cmd-delete", isDefault: true, isEnabled: true, category: "navigation", label: "Delete", description: "Presses Backspace", triggers: { pt: ["apagar", "apague"], en: ["delete"] }, action: { type: "keystroke", parameter: "Backspace" }, matchMode: "isolated" },
+  { id: "cmd-delete-word", isDefault: true, isEnabled: true, category: "navigation", label: "Delete word", description: "Deletes the previous word", triggers: { pt: ["apagar palavra"], en: ["delete word"] }, action: { type: "keystroke", parameter: "Ctrl+Backspace" }, matchMode: "isolated" },
+  { id: "cmd-tab", isDefault: true, isEnabled: true, category: "navigation", label: "Tab", description: "Presses Tab", triggers: { pt: ["tab"], en: ["tab"] }, action: { type: "keystroke", parameter: "Tab" }, matchMode: "isolated" },
+  // ---- Editing (isolated) ----
+  { id: "cmd-select-all", isDefault: true, isEnabled: true, category: "editing", label: "Select all", description: "Selects all text", triggers: { pt: ["selecionar tudo"], en: ["select all"] }, action: { type: "keystroke", parameter: "Ctrl+A" }, matchMode: "isolated" },
+  { id: "cmd-copy", isDefault: true, isEnabled: true, category: "editing", label: "Copy", description: "Copies selection", triggers: { pt: ["copiar"], en: ["copy"] }, action: { type: "keystroke", parameter: "Ctrl+C" }, matchMode: "isolated" },
+  { id: "cmd-paste", isDefault: true, isEnabled: true, category: "editing", label: "Paste", description: "Pastes from clipboard", triggers: { pt: ["colar"], en: ["paste"] }, action: { type: "keystroke", parameter: "Ctrl+V" }, matchMode: "isolated" },
+  { id: "cmd-undo", isDefault: true, isEnabled: true, category: "editing", label: "Undo", description: "Undoes last action", triggers: { pt: ["desfazer"], en: ["undo"] }, action: { type: "keystroke", parameter: "Ctrl+Z" }, matchMode: "isolated" },
+  { id: "cmd-redo", isDefault: true, isEnabled: true, category: "editing", label: "Redo", description: "Redoes last action", triggers: { pt: ["refazer"], en: ["redo"] }, action: { type: "keystroke", parameter: "Ctrl+Y" }, matchMode: "isolated" },
+  // ---- Vox control (isolated) ----
+  { id: "cmd-stop", isDefault: true, isEnabled: true, category: "vox_control", label: "Stop", description: "Stops dictation and finalizes", triggers: { pt: ["parar"], en: ["stop"] }, action: { type: "vox_control", parameter: "stop" }, matchMode: "isolated" },
+  { id: "cmd-cancel", isDefault: true, isEnabled: true, category: "vox_control", label: "Cancel", description: "Cancels dictation without injecting", triggers: { pt: ["cancelar"], en: ["cancel"] }, action: { type: "vox_control", parameter: "cancel" }, matchMode: "isolated" },
+  { id: "cmd-clear", isDefault: true, isEnabled: true, category: "vox_control", label: "Clear", description: "Clears the current transcription", triggers: { pt: ["limpar"], en: ["clear"] }, action: { type: "vox_control", parameter: "clear" }, matchMode: "isolated" },
+  { id: "cmd-repeat", isDefault: true, isEnabled: true, category: "vox_control", label: "Repeat", description: "Re-injects the last transcription", triggers: { pt: ["repetir"], en: ["repeat"] }, action: { type: "vox_control", parameter: "repeat" }, matchMode: "isolated" },
+  // ---- Dynamic (inline) ----
+  { id: "cmd-date", isDefault: true, isEnabled: true, category: "system", label: "Insert date", description: "Inserts today's date", triggers: { pt: ["\\bdata de hoje\\b"], en: ["\\btoday's date\\b"] }, action: { type: "insert_dynamic", parameter: "date" }, matchMode: "inline" },
+  { id: "cmd-time", isDefault: true, isEnabled: true, category: "system", label: "Insert time", description: "Inserts the current time", triggers: { pt: ["\\bhora atual\\b"], en: ["\\bcurrent time\\b"] }, action: { type: "insert_dynamic", parameter: "time" }, matchMode: "inline" }
+];
+function getEnabledCommands() {
+  return listCommands().filter((c) => c.isEnabled);
+}
+function getSnippets() {
+  return listSnippets();
 }
 const SAMPLE_RATE = 16e3;
 const MAX_BUFFER_SECONDS = 3;
@@ -1461,12 +1968,82 @@ function buildContextHint(ref) {
   }
   return `the "${name}" application`;
 }
+let lastInjectedText = "";
+function handleVoxControl(action) {
+  switch (action) {
+    case "stop":
+      hideDock();
+      break;
+    case "cancel":
+      break;
+    case "clear":
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("vox:transcript-result", "");
+      }
+      break;
+    case "repeat":
+      if (lastInjectedText) {
+        void injectText(lastInjectedText, targetWindowRef || void 0);
+      }
+      break;
+    default:
+      console.warn("[Main] Ação vox_control desconhecida:", action);
+  }
+}
+async function processCommandSegments(parseResult) {
+  const snippets = getSnippets();
+  let cancelled = false;
+  for (const seg of parseResult.segments) {
+    if (cancelled) break;
+    if (seg.type === "command" && seg.command) {
+      if (seg.command.action.type === "vox_control" && seg.command.action.parameter === "cancel") {
+        cancelled = true;
+        break;
+      }
+      await executeCommand(seg.command, {
+        windowRef: targetWindowRef,
+        snippets,
+        onVoxControl: handleVoxControl
+      });
+    } else if (seg.type === "content" && seg.contentText) {
+      const corrected = await correctTranscription(seg.contentText, buildContextHint(targetWindowRef));
+      if (corrected) {
+        recordCorrections(seg.contentText, corrected);
+        await injectText(corrected, targetWindowRef || void 0);
+        lastInjectedText = corrected;
+      }
+    }
+  }
+  return cancelled;
+}
 async function processTranscriptionResult(buffer) {
   if (!buffer || buffer.length === 0) return { text: "" };
   const result = await transcribeAudio(buffer);
   const rawText = result.text;
   console.log("[Main] Transcrição bruta:", result.text);
   if (result.text && !result.text.startsWith("[Erro")) {
+    const language = getSetting("language", "pt-BR");
+    const commands = getEnabledCommands();
+    const parseResult = parseCommandText(result.text, commands, language);
+    if (parseResult.hasCommands) {
+      const cancelled = await processCommandSegments(parseResult);
+      result.text = cancelled ? "" : rawText;
+      if (!cancelled && rawText) {
+        const sessionData = {
+          id: crypto.randomUUID(),
+          type: "dictation",
+          title: rawText.slice(0, 60),
+          text: rawText,
+          rawText,
+          createdAt: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        saveSession(sessionData);
+      }
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("vox:transcript-result", result.text);
+      }
+      return result;
+    }
     result.text = await correctTranscription(result.text, buildContextHint(targetWindowRef));
     console.log("[Main] Transcrição corrigida:", result.text);
     if (rawText && result.text && rawText !== result.text) {
@@ -1487,6 +2064,7 @@ async function processTranscriptionResult(buffer) {
     if (!injectRes.success) {
       console.warn("[Main] Falha ao injetar texto:", injectRes.error);
     }
+    lastInjectedText = result.text;
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("vox:transcript-result", result.text);
     }
@@ -1735,6 +2313,36 @@ function setupIpcHandlers() {
     hideClipboardHistory();
     return { success: true };
   });
+  ipcMain.handle("vox:list-commands", () => {
+    return listCommands();
+  });
+  ipcMain.handle("vox:save-command", (_event, cmd) => {
+    if (cmd && typeof cmd === "object" && cmd.id) {
+      saveCommand(cmd);
+    }
+    return { success: true };
+  });
+  ipcMain.handle("vox:delete-command", (_event, id) => {
+    if (typeof id === "string") deleteCommand(id);
+    return { success: true };
+  });
+  ipcMain.handle("vox:set-command-enabled", (_event, id, enabled) => {
+    if (typeof id === "string") setCommandEnabled(id, !!enabled);
+    return { success: true };
+  });
+  ipcMain.handle("vox:list-snippets", () => {
+    return listSnippets();
+  });
+  ipcMain.handle("vox:save-snippet", (_event, snippet) => {
+    if (snippet && typeof snippet === "object" && snippet.id) {
+      saveSnippet(snippet);
+    }
+    return { success: true };
+  });
+  ipcMain.handle("vox:delete-snippet", (_event, id) => {
+    if (typeof id === "string") deleteSnippet(id);
+    return { success: true };
+  });
 }
 let lastToggleTime = 0;
 function toggleDockWindow() {
@@ -1825,6 +2433,7 @@ function registerShortcuts() {
 }
 app.whenReady().then(async () => {
   initDatabase();
+  seedCommands(DEFAULT_COMMANDS);
   createMainWindow();
   createDockWindow();
   createClipboardWindow();

@@ -73,6 +73,13 @@ export const voxApi = {
   clearVocabulary: () => ipcRenderer.invoke('vox:clear-vocabulary'),
   insertClipboardItem: (text: string) => ipcRenderer.invoke('vox:insert-clipboard-item', text),
   hideClipboard: () => ipcRenderer.invoke('vox:hide-clipboard'),
+  listCommands: () => ipcRenderer.invoke('vox:list-commands'),
+  saveCommand: (cmd: any) => ipcRenderer.invoke('vox:save-command', cmd),
+  deleteCommand: (id: string) => ipcRenderer.invoke('vox:delete-command', id),
+  setCommandEnabled: (id: string, enabled: boolean) => ipcRenderer.invoke('vox:set-command-enabled', id, enabled),
+  listSnippets: () => ipcRenderer.invoke('vox:list-snippets'),
+  saveSnippet: (snippet: any) => ipcRenderer.invoke('vox:save-snippet', snippet),
+  deleteSnippet: (id: string) => ipcRenderer.invoke('vox:delete-snippet', id),
 
   // Event Listeners
   onDockTextUpdate: (callback: (text: string) => void) => {

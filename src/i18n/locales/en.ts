@@ -44,6 +44,7 @@ const en = {
     vocabularyPlaceholder: 'e.g. Anami, Cebraspe, Supabase...',
     vocabularyEmpty: 'No terms added yet.',
     vocabularyClear: 'Clear All',
+    commands: 'Commands',
     privacy: 'Privacy',
     privacyHint: 'Every API call Vox makes is recorded locally. This auditable report shows which API was called, how much audio or text was sent, and to which endpoint. Your data never leaves your device except to the provider you configure.',
     privacyTotalCalls: 'Total requests',
@@ -76,6 +77,30 @@ const en = {
     langPt: 'Português (BR)',
     autoStart: 'Start with System',
     autoStartHint: 'Automatically launch Vox when you log in'
+  },
+  commands: {
+    title: 'Voice Commands',
+    new: 'New Command',
+    edit: 'Edit Command',
+    empty: 'No commands.',
+    label: 'Label',
+    description: 'Description',
+    category: 'Category',
+    matchMode: 'Match mode',
+    triggersPt: 'Triggers (PT) — one per line',
+    triggersEn: 'Triggers (EN) — one per line',
+    action: 'Action',
+    parameter: 'Parameter'
+  },
+  snippets: {
+    title: 'Snippets',
+    new: 'New Snippet',
+    edit: 'Edit Snippet',
+    name: 'Name',
+    triggerPt: 'Trigger (PT)',
+    triggerEn: 'Trigger (EN)',
+    content: 'Content',
+    empty: 'No snippets.'
   },
   common: {
     settings: 'Settings'

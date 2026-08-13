@@ -7,7 +7,12 @@ import { transcribeAudio } from './modules/stt'
 import { correctTranscription } from './modules/corrector'
 import { injectText, WindowRef } from './modules/injector'
 
-import { initDatabase, getAllSettings, getSetting, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, listApiLogs, clearApiLogs, recordCorrections, addVocabularyTerm, listVocabulary, removeVocabularyTerm, clearVocabulary, Session } from './modules/db'
+import { initDatabase, getAllSettings, getSetting, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, listApiLogs, clearApiLogs, recordCorrections, addVocabularyTerm, listVocabulary, removeVocabularyTerm, clearVocabulary, seedCommands, listCommands, saveCommand, deleteCommand, setCommandEnabled, listSnippets, saveSnippet, deleteSnippet, Session } from './modules/db'
+import { parseCommandText } from './modules/commandParser'
+import { executeCommand } from './modules/commandExecutor'
+import { DEFAULT_COMMANDS, getEnabledCommands } from './modules/commandRegistry'
+import { getSnippets } from './modules/snippetManager'
+import type { ParseResult } from '../src/types/commands'
 import wakewordDetector from './modules/wakeword'
 import { resolveProvider, getModelsEndpoint, getAuthHeaders, PROVIDER_PRESETS } from './modules/providers'
 import { execFile } from 'child_process'
@@ -288,6 +293,61 @@ function buildContextHint(ref: WindowRef | null): string {
   return `the "${name}" application`
 }
 
+let lastInjectedText = ''
+
+function handleVoxControl(action: string) {
+  switch (action) {
+    case 'stop':
+      hideDock()
+      break
+    case 'cancel':
+      // handled by the caller (skip injection/session)
+      break
+    case 'clear':
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('vox:transcript-result', '')
+      }
+      break
+    case 'repeat':
+      if (lastInjectedText) {
+        void injectText(lastInjectedText, targetWindowRef || undefined)
+      }
+      break
+    default:
+      console.warn('[Main] Ação vox_control desconhecida:', action)
+  }
+}
+
+async function processCommandSegments(parseResult: ParseResult): Promise<boolean> {
+  const snippets = getSnippets()
+  let cancelled = false
+
+  for (const seg of parseResult.segments) {
+    if (cancelled) break
+
+    if (seg.type === 'command' && seg.command) {
+      if (seg.command.action.type === 'vox_control' && seg.command.action.parameter === 'cancel') {
+        cancelled = true
+        break
+      }
+      await executeCommand(seg.command, {
+        windowRef: targetWindowRef,
+        snippets,
+        onVoxControl: handleVoxControl
+      })
+    } else if (seg.type === 'content' && seg.contentText) {
+      const corrected = await correctTranscription(seg.contentText, buildContextHint(targetWindowRef))
+      if (corrected) {
+        recordCorrections(seg.contentText, corrected)
+        await injectText(corrected, targetWindowRef || undefined)
+        lastInjectedText = corrected
+      }
+    }
+  }
+
+  return cancelled
+}
+
 async function processTranscriptionResult(buffer: Buffer): Promise<{ text: string; rawText?: string }> {
   if (!buffer || buffer.length === 0) return { text: '' }
 
@@ -296,6 +356,32 @@ async function processTranscriptionResult(buffer: Buffer): Promise<{ text: strin
   console.log('[Main] Transcrição bruta:', result.text)
 
   if (result.text && !result.text.startsWith('[Erro')) {
+    const language = getSetting('language', 'pt-BR')
+    const commands = getEnabledCommands()
+    const parseResult = parseCommandText(result.text, commands, language)
+
+    if (parseResult.hasCommands) {
+      const cancelled = await processCommandSegments(parseResult)
+
+      if (!cancelled && rawText) {
+        const sessionData: Session = {
+          id: crypto.randomUUID(),
+          type: 'dictation',
+          title: rawText.slice(0, 60),
+          text: rawText,
+          rawText,
+          createdAt: new Date().toISOString()
+        }
+        saveSession(sessionData)
+      }
+
+      result.text = ''
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('vox:transcript-result', '')
+      }
+      return result
+    }
+
     result.text = await correctTranscription(result.text, buildContextHint(targetWindowRef))
     console.log('[Main] Transcrição corrigida:', result.text)
 
@@ -319,6 +405,7 @@ async function processTranscriptionResult(buffer: Buffer): Promise<{ text: strin
     if (!injectRes.success) {
       console.warn('[Main] Falha ao injetar texto:', injectRes.error)
     }
+    lastInjectedText = result.text
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('vox:transcript-result', result.text)
     }
@@ -618,6 +705,45 @@ function setupIpcHandlers() {
     hideClipboardHistory()
     return { success: true }
   })
+
+  // Voice Commands Handlers
+  ipcMain.handle('vox:list-commands', () => {
+    return listCommands()
+  })
+
+  ipcMain.handle('vox:save-command', (_event: unknown, cmd: any) => {
+    if (cmd && typeof cmd === 'object' && cmd.id) {
+      saveCommand(cmd)
+    }
+    return { success: true }
+  })
+
+  ipcMain.handle('vox:delete-command', (_event: unknown, id: string) => {
+    if (typeof id === 'string') deleteCommand(id)
+    return { success: true }
+  })
+
+  ipcMain.handle('vox:set-command-enabled', (_event: unknown, id: string, enabled: boolean) => {
+    if (typeof id === 'string') setCommandEnabled(id, !!enabled)
+    return { success: true }
+  })
+
+  // Snippets Handlers
+  ipcMain.handle('vox:list-snippets', () => {
+    return listSnippets()
+  })
+
+  ipcMain.handle('vox:save-snippet', (_event: unknown, snippet: any) => {
+    if (snippet && typeof snippet === 'object' && snippet.id) {
+      saveSnippet(snippet)
+    }
+    return { success: true }
+  })
+
+  ipcMain.handle('vox:delete-snippet', (_event: unknown, id: string) => {
+    if (typeof id === 'string') deleteSnippet(id)
+    return { success: true }
+  })
 }
 
 let lastToggleTime = 0
@@ -728,6 +854,7 @@ function registerShortcuts() {
 
 app.whenReady().then(async () => {
   initDatabase()
+  seedCommands(DEFAULT_COMMANDS)
   createMainWindow()
   createDockWindow()
   createClipboardWindow()

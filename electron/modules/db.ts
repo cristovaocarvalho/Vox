@@ -1,6 +1,7 @@
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
+import type { VoiceCommand, UserSnippet } from '../../src/types/commands'
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { app, safeStorage } = require('electron')
@@ -52,6 +53,8 @@ let fallbackFileSessions: string | null = null
 let fallbackFileApiLogs: string | null = null
 let fallbackFileCorrections: string | null = null
 let fallbackFileVocabulary: string | null = null
+let fallbackFileCommands: string | null = null
+let fallbackFileSnippets: string | null = null
 const stmtCache = new Map<string, any>()
 
 function encryptValue(plainText: string): string {
@@ -108,6 +111,8 @@ export function initDatabase() {
     fallbackFileApiLogs = path.join(userDataPath, 'vox_api_logs.json')
     fallbackFileCorrections = path.join(userDataPath, 'vox_corrections.json')
     fallbackFileVocabulary = path.join(userDataPath, 'vox_vocabulary.json')
+    fallbackFileCommands = path.join(userDataPath, 'vox_commands.json')
+    fallbackFileSnippets = path.join(userDataPath, 'vox_snippets.json')
 
     if (Database) {
       dbInstance = new Database(dbPath)
@@ -154,6 +159,30 @@ export function initDatabase() {
         CREATE TABLE IF NOT EXISTS vocabulary (
           term      TEXT PRIMARY KEY,
           createdAt TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS commands (
+          id          TEXT PRIMARY KEY,
+          isDefault   INTEGER DEFAULT 0,
+          isEnabled   INTEGER DEFAULT 1,
+          category    TEXT,
+          label       TEXT,
+          description TEXT,
+          triggers    TEXT,
+          action      TEXT,
+          matchMode   TEXT,
+          createdAt   TEXT,
+          updatedAt   TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS snippets (
+          id         TEXT PRIMARY KEY,
+          name       TEXT,
+          triggerPt  TEXT,
+          triggerEn  TEXT,
+          content    TEXT,
+          createdAt  TEXT,
+          updatedAt  TEXT
         );
       `)
       console.log('[DB] Banco de dados SQLite pronto em:', dbPath)
@@ -790,6 +819,242 @@ export function clearVocabulary(): void {
   }
 }
 
+// ================= Voice Commands =================
+
+function serializeCommand(cmd: VoiceCommand): Record<string, any> {
+  return {
+    id: cmd.id,
+    isDefault: cmd.isDefault ? 1 : 0,
+    isEnabled: cmd.isEnabled ? 1 : 0,
+    category: cmd.category,
+    label: cmd.label,
+    description: cmd.description,
+    triggers: JSON.stringify(cmd.triggers),
+    action: JSON.stringify(cmd.action),
+    matchMode: cmd.matchMode,
+    createdAt: cmd.createdAt || new Date().toISOString(),
+    updatedAt: cmd.updatedAt || new Date().toISOString()
+  }
+}
+
+function parseCommandRow(row: any): VoiceCommand {
+  let triggers = { pt: [] as string[], en: [] as string[] }
+  let action: any = { type: 'keystroke', parameter: '' }
+  try {
+    triggers = JSON.parse(row.triggers || '{"pt":[],"en":[]}')
+  } catch { /* ignore */ }
+  try {
+    action = JSON.parse(row.action || '{}')
+  } catch { /* ignore */ }
+  return {
+    id: row.id,
+    isDefault: !!row.isDefault,
+    isEnabled: !!row.isEnabled,
+    category: row.category || 'custom',
+    label: row.label || '',
+    description: row.description || '',
+    triggers,
+    action,
+    matchMode: row.matchMode === 'inline' ? 'inline' : 'isolated',
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  }
+}
+
+export function seedCommands(defaults: VoiceCommand[]): void {
+  try {
+    const now = new Date().toISOString()
+    for (const cmd of defaults) {
+      const record = serializeCommand({ ...cmd, createdAt: cmd.createdAt || now, updatedAt: cmd.updatedAt || now })
+      if (dbInstance) {
+        dbInstance.prepare(`
+          INSERT OR IGNORE INTO commands (id, isDefault, isEnabled, category, label, description, triggers, action, matchMode, createdAt, updatedAt)
+          VALUES (@id, @isDefault, @isEnabled, @category, @label, @description, @triggers, @action, @matchMode, @createdAt, @updatedAt)
+        `).run(record)
+      } else if (fallbackFileCommands) {
+        let commands: VoiceCommand[] = []
+        if (fs.existsSync(fallbackFileCommands)) {
+          try { commands = JSON.parse(fs.readFileSync(fallbackFileCommands, 'utf-8')) } catch { commands = [] }
+        }
+        if (!commands.some((c) => c.id === cmd.id)) {
+          commands.push(parseCommandRow(record))
+          fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands, null, 2), 'utf-8')
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao semear comandos padrão:', err)
+  }
+}
+
+export function listCommands(): VoiceCommand[] {
+  try {
+    if (dbInstance) {
+      const rows = dbInstance.prepare('SELECT * FROM commands').all()
+      return rows.map(parseCommandRow)
+    }
+    if (fallbackFileCommands && fs.existsSync(fallbackFileCommands)) {
+      return JSON.parse(fs.readFileSync(fallbackFileCommands, 'utf-8'))
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao listar comandos:', err)
+  }
+  return []
+}
+
+export function saveCommand(cmd: VoiceCommand): void {
+  try {
+    const record = serializeCommand(cmd)
+    if (dbInstance) {
+      dbInstance.prepare(`
+        INSERT INTO commands (id, isDefault, isEnabled, category, label, description, triggers, action, matchMode, createdAt, updatedAt)
+        VALUES (@id, @isDefault, @isEnabled, @category, @label, @description, @triggers, @action, @matchMode, @createdAt, @updatedAt)
+        ON CONFLICT(id) DO UPDATE SET
+          isDefault = excluded.isDefault,
+          isEnabled = excluded.isEnabled,
+          category = excluded.category,
+          label = excluded.label,
+          description = excluded.description,
+          triggers = excluded.triggers,
+          action = excluded.action,
+          matchMode = excluded.matchMode,
+          updatedAt = excluded.updatedAt
+      `).run(record)
+      return
+    }
+    if (fallbackFileCommands) {
+      let commands: VoiceCommand[] = []
+      if (fs.existsSync(fallbackFileCommands)) {
+        try { commands = JSON.parse(fs.readFileSync(fallbackFileCommands, 'utf-8')) } catch { commands = [] }
+      }
+      const idx = commands.findIndex((c) => c.id === cmd.id)
+      const parsed = parseCommandRow(record)
+      if (idx >= 0) commands[idx] = parsed
+      else commands.push(parsed)
+      fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands, null, 2), 'utf-8')
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao salvar comando:', err)
+  }
+}
+
+export function deleteCommand(id: string): void {
+  try {
+    if (dbInstance) {
+      dbInstance.prepare('DELETE FROM commands WHERE id = ?').run(id)
+      return
+    }
+    if (fallbackFileCommands && fs.existsSync(fallbackFileCommands)) {
+      const commands = JSON.parse(fs.readFileSync(fallbackFileCommands, 'utf-8'))
+      fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands.filter((c: VoiceCommand) => c.id !== id), null, 2), 'utf-8')
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao excluir comando:', err)
+  }
+}
+
+export function setCommandEnabled(id: string, enabled: boolean): void {
+  try {
+    if (dbInstance) {
+      dbInstance.prepare('UPDATE commands SET isEnabled = ? WHERE id = ?').run(enabled ? 1 : 0, id)
+      return
+    }
+    if (fallbackFileCommands && fs.existsSync(fallbackFileCommands)) {
+      const commands = JSON.parse(fs.readFileSync(fallbackFileCommands, 'utf-8'))
+      const cmd = commands.find((c: VoiceCommand) => c.id === id)
+      if (cmd) {
+        cmd.isEnabled = enabled
+        fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands, null, 2), 'utf-8')
+      }
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao alternar comando:', err)
+  }
+}
+
+// ================= Snippets =================
+
+function parseSnippetRow(row: any): UserSnippet {
+  return {
+    id: row.id,
+    name: row.name || '',
+    triggerPt: row.triggerPt || '',
+    triggerEn: row.triggerEn || '',
+    content: row.content || '',
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  }
+}
+
+export function listSnippets(): UserSnippet[] {
+  try {
+    if (dbInstance) {
+      const rows = dbInstance.prepare('SELECT * FROM snippets ORDER BY datetime(createdAt) ASC').all()
+      return rows.map(parseSnippetRow)
+    }
+    if (fallbackFileSnippets && fs.existsSync(fallbackFileSnippets)) {
+      return JSON.parse(fs.readFileSync(fallbackFileSnippets, 'utf-8'))
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao listar snippets:', err)
+  }
+  return []
+}
+
+export function saveSnippet(snippet: UserSnippet): void {
+  try {
+    const record = {
+      id: snippet.id,
+      name: snippet.name,
+      triggerPt: snippet.triggerPt,
+      triggerEn: snippet.triggerEn,
+      content: snippet.content,
+      createdAt: snippet.createdAt || new Date().toISOString(),
+      updatedAt: snippet.updatedAt || new Date().toISOString()
+    }
+    if (dbInstance) {
+      dbInstance.prepare(`
+        INSERT INTO snippets (id, name, triggerPt, triggerEn, content, createdAt, updatedAt)
+        VALUES (@id, @name, @triggerPt, @triggerEn, @content, @createdAt, @updatedAt)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          triggerPt = excluded.triggerPt,
+          triggerEn = excluded.triggerEn,
+          content = excluded.content,
+          updatedAt = excluded.updatedAt
+      `).run(record)
+      return
+    }
+    if (fallbackFileSnippets) {
+      let snippets: UserSnippet[] = []
+      if (fs.existsSync(fallbackFileSnippets)) {
+        try { snippets = JSON.parse(fs.readFileSync(fallbackFileSnippets, 'utf-8')) } catch { snippets = [] }
+      }
+      const idx = snippets.findIndex((s) => s.id === snippet.id)
+      if (idx >= 0) snippets[idx] = parseSnippetRow(record)
+      else snippets.push(parseSnippetRow(record))
+      fs.writeFileSync(fallbackFileSnippets, JSON.stringify(snippets, null, 2), 'utf-8')
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao salvar snippet:', err)
+  }
+}
+
+export function deleteSnippet(id: string): void {
+  try {
+    if (dbInstance) {
+      dbInstance.prepare('DELETE FROM snippets WHERE id = ?').run(id)
+      return
+    }
+    if (fallbackFileSnippets && fs.existsSync(fallbackFileSnippets)) {
+      const snippets = JSON.parse(fs.readFileSync(fallbackFileSnippets, 'utf-8'))
+      fs.writeFileSync(fallbackFileSnippets, JSON.stringify(snippets.filter((s: UserSnippet) => s.id !== id), null, 2), 'utf-8')
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao excluir snippet:', err)
+  }
+}
+
 export default {
   initDatabase,
   getSetting,
@@ -810,5 +1075,13 @@ export default {
   addVocabularyTerm,
   listVocabulary,
   removeVocabularyTerm,
-  clearVocabulary
+  clearVocabulary,
+  seedCommands,
+  listCommands,
+  saveCommand,
+  deleteCommand,
+  setCommandEnabled,
+  listSnippets,
+  saveSnippet,
+  deleteSnippet
 }
