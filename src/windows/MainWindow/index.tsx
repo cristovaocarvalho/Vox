@@ -79,7 +79,7 @@ export const MainWindow: React.FC = () => {
   const [xdotoolData, setXdotoolData] = useState<{ isWayland?: boolean } | null>(null)
 
   const [dictationHistory, setDictationHistory] = useState<any[]>([])
-  const [isDictationHistoryOpen, setIsDictationHistoryOpen] = useState(true)
+  const [isDictationHistoryOpen, setIsDictationHistoryOpen] = useState(false)
 
 
 
@@ -244,6 +244,10 @@ export const MainWindow: React.FC = () => {
   const animFrameRef = React.useRef<number | null>(null)
   const chunkIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
 
+  const wwAudioContextRef = React.useRef<AudioContext | null>(null)
+  const wwStreamRef = React.useRef<MediaStream | null>(null)
+  const wwScriptNodeRef = React.useRef<ScriptProcessorNode | null>(null)
+
   const stopAudioCapture = React.useCallback(async () => {
     if (chunkIntervalRef.current) {
       clearInterval(chunkIntervalRef.current)
@@ -404,6 +408,77 @@ export const MainWindow: React.FC = () => {
       stopAudioCapture()
     }
   }, [isRecording, startAudioCapture, stopAudioCapture])
+
+  const stopWakeWordCapture = React.useCallback(() => {
+    if (wwScriptNodeRef.current) {
+      try {
+        wwScriptNodeRef.current.disconnect()
+      } catch { }
+      wwScriptNodeRef.current = null
+    }
+    if (wwStreamRef.current) {
+      try {
+        wwStreamRef.current.getTracks().forEach((track) => track.stop())
+      } catch { }
+      wwStreamRef.current = null
+    }
+    if (wwAudioContextRef.current) {
+      try {
+        wwAudioContextRef.current.close().catch(() => {})
+      } catch { }
+      wwAudioContextRef.current = null
+    }
+  }, [])
+
+  const startWakeWordCapture = React.useCallback(async () => {
+    stopWakeWordCapture()
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      })
+      wwStreamRef.current = stream
+
+      const AudioCtxConstructor = window.AudioContext || (window as any).webkitAudioContext
+      const audioCtx = new AudioCtxConstructor({ sampleRate: 16000 })
+      wwAudioContextRef.current = audioCtx
+
+      const source = audioCtx.createMediaStreamSource(stream)
+      const scriptNode = audioCtx.createScriptProcessor(4096, 1, 1)
+      wwScriptNodeRef.current = scriptNode
+
+      scriptNode.onaudioprocess = (e) => {
+        const inputData = e.inputBuffer.getChannelData(0)
+        const pcmBuffer = new Int16Array(inputData.length)
+        for (let i = 0; i < inputData.length; i++) {
+          const s = Math.max(-1.0, Math.min(1.0, inputData[i]))
+          pcmBuffer[i] = s < 0 ? s * 0x8000 : s * 0x7FFF
+        }
+        if (window.vox?.sendWakeWordAudioChunk) {
+          window.vox.sendWakeWordAudioChunk(pcmBuffer.buffer)
+        }
+      }
+
+      source.connect(scriptNode)
+      scriptNode.connect(audioCtx.destination)
+    } catch (err) {
+      console.warn('[MainWindow] Erro ao iniciar captura de wake word:', err)
+    }
+  }, [stopWakeWordCapture])
+
+  React.useEffect(() => {
+    if (wakeWordEnabled && !isRecording && !isTranscribing) {
+      startWakeWordCapture()
+    } else {
+      stopWakeWordCapture()
+    }
+    return () => {
+      stopWakeWordCapture()
+    }
+  }, [wakeWordEnabled, isRecording, isTranscribing, startWakeWordCapture, stopWakeWordCapture])
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

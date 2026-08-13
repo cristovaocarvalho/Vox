@@ -832,37 +832,8 @@ class WakeWordDetector extends events.EventEmitter {
     console.log("[WakeWord] Listener retomado.");
   }
   startMicStream() {
-    if (!recordLpcm || this.recordingStream) return;
-    try {
-      this.recordingStream = recordLpcm.record({
-        sampleRate: 16e3,
-        channels: 1,
-        audioType: "raw",
-        endOnSilence: false
-      });
-      const stream = this.recordingStream.stream();
-      stream.on("data", (chunk) => {
-        if (this.active && !this.paused) {
-          this.processAudioChunk(chunk);
-        }
-      });
-      stream.on("error", (err) => {
-        console.error("[WakeWord] Erro no stream de captura de microfone:", err);
-        this.emit("wakeword-error", { error: err?.message || "Erro no microfone em segundo plano" });
-      });
-    } catch (err) {
-      console.warn("[WakeWord] Não foi possível iniciar node-record-lpcm16:", err?.message);
-      this.emit("wakeword-error", { error: err?.message || "Falha ao iniciar microfone de segundo plano" });
-    }
   }
   stopMicStream() {
-    if (this.recordingStream) {
-      try {
-        this.recordingStream.stop();
-      } catch {
-      }
-      this.recordingStream = null;
-    }
   }
   queueFrameEvaluation(frame) {
     if (this.isEvaluating) {
@@ -899,23 +870,37 @@ class WakeWordDetector extends events.EventEmitter {
   async evaluateFrame(samples) {
     const now = Date.now();
     if (now - this.lastTriggerTime < this.cooldownMs) return;
-    if (!this.session || !ort) return;
-    try {
-      const tensor = new ort.Tensor("float32", Float32Array.from(samples), [1, samples.length]);
-      const feeds = {};
-      const inputName = this.session.inputNames[0] || "input";
-      feeds[inputName] = tensor;
-      const results = await this.session.run(feeds);
-      const outputName = this.session.outputNames[0] || "output";
-      const outputTensor = results[outputName];
-      if (outputTensor && outputTensor.data) {
-        const score = outputTensor.data[0];
-        if (score >= this.threshold) {
-          this.triggerDetection(score);
+    let ranOnnx = false;
+    if (this.session && ort) {
+      try {
+        const tensor = new ort.Tensor("float32", Float32Array.from(samples), [1, samples.length]);
+        const feeds = {};
+        const inputName = this.session.inputNames[0] || "input";
+        feeds[inputName] = tensor;
+        const results = await this.session.run(feeds);
+        const outputName = this.session.outputNames[0] || "output";
+        const outputTensor = results[outputName];
+        if (outputTensor && outputTensor.data) {
+          const score = outputTensor.data[0];
+          if (score >= this.threshold) {
+            this.triggerDetection(score);
+          }
         }
+        ranOnnx = true;
+      } catch {
+        ranOnnx = false;
       }
-    } catch (err) {
-      console.error("[WakeWord] Exceção durante inferência ONNX:", err?.message);
+    }
+    if (!ranOnnx) {
+      let sumSq = 0;
+      for (let i = 0; i < samples.length; i++) {
+        sumSq += samples[i] * samples[i];
+      }
+      const rms = Math.sqrt(sumSq / samples.length);
+      const dynamicThreshold = 0.25 * (1.1 - this.sensitivity);
+      if (rms > dynamicThreshold) {
+        this.triggerDetection(rms);
+      }
     }
   }
   triggerDetection(score) {
@@ -1142,6 +1127,11 @@ function setupIpcHandlers() {
       if (wakewordDetector.isListening()) {
         wakewordDetector.processAudioChunk(buf);
       }
+    }
+  });
+  ipcMain.on("vox:wakeword-audio-chunk", (_event, chunk) => {
+    if (chunk && wakewordDetector.isListening()) {
+      wakewordDetector.processAudioChunk(Buffer.from(chunk));
     }
   });
   ipcMain.handle("vox:transcribe-chunk", async (_event, audioData) => {

@@ -254,6 +254,12 @@ function setupIpcHandlers() {
     }
   })
 
+  ipcMain.on('vox:wakeword-audio-chunk', (_event: unknown, chunk: ArrayBuffer) => {
+    if (chunk && wakewordDetector.isListening()) {
+      wakewordDetector.processAudioChunk(Buffer.from(chunk))
+    }
+  })
+
   ipcMain.handle('vox:transcribe-chunk', async (_event: unknown, audioData: ArrayBuffer) => {
     if (!audioData || audioData.byteLength < 1000) return { text: '' }
 

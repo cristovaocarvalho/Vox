@@ -6,6 +6,7 @@ const voxApi = {
   startRecording: () => ipcRenderer.invoke("vox:start-recording"),
   stopRecording: (audioData) => ipcRenderer.invoke("vox:stop-recording", audioData),
   sendAudioChunk: (chunk) => ipcRenderer.send("vox:audio-chunk", chunk),
+  sendWakeWordAudioChunk: (chunk) => ipcRenderer.send("vox:wakeword-audio-chunk", chunk),
   sendAudioLevel: (level) => ipcRenderer.send("vox:audio-level", level),
   transcribeChunk: (audioData) => ipcRenderer.invoke("vox:transcribe-chunk", audioData),
   showDock: () => ipcRenderer.invoke("vox:show-dock"),
