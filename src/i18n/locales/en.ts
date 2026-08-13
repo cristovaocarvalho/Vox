@@ -112,19 +112,6 @@ const en = {
     autoStart: 'Start with System',
     autoStartHint: 'Automatically launch Vox when you log in'
   },
-  accessibility: {
-    title: 'Accessibility Permission Required',
-    body: 'On macOS, Vox needs Accessibility permission to inject text automatically into the active application cursor.',
-    understood: 'Got it',
-    openPrefs: 'Open System Preferences'
-  },
-  linux: {
-    wtypeTitle: 'wtype Utility Required',
-    xdotoolTitle: 'xdotool Utility Required',
-    body: 'For automatic paste on Linux ({display}), install the {tool} utility on your system:',
-    clipboardNote: 'The text was copied to the Clipboard. Paste manually with Ctrl+V.',
-    understood: 'Got it'
-  },
   common: {
     settings: 'Settings'
   }

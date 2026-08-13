@@ -3,7 +3,7 @@ import { getSetting } from './db'
 const GROQ_CHAT_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
 const DEFAULT_LLM_MODEL = 'llama-3.1-8b-instant'
 
-export async function correctTranscription(text: string): Promise<string> {
+export async function correctTranscription(text: string, context?: string): Promise<string> {
   if (!text || text.trim().length === 0) return text
 
   const apiKey = getSetting('apiKey', '').trim()
@@ -19,6 +19,10 @@ export async function correctTranscription(text: string): Promise<string> {
 
   console.log(`[Corrector] Revisando texto via Groq (${resolvedModel})...`)
 
+  const contextLine = context
+    ? ` Contexto do ditado: o usuário está digitando em ${context}. Ajuste a formatação de acordo (ex.: código, e-mail, documento, chat).`
+    : ''
+
   try {
     const response = await fetch(GROQ_CHAT_ENDPOINT, {
       method: 'POST',
@@ -31,7 +35,7 @@ export async function correctTranscription(text: string): Promise<string> {
         messages: [
           {
             role: 'system',
-            content: 'Você é um revisor de transcrições de áudio. Sua ÚNICA função é ajustar pontuação, maiúsculas e ortografia do texto recebido. MANTENHA RIGOROSAMENTE O IDIOMA ORIGINAL DO TEXTO (se o texto estiver em inglês, mantenha em inglês; se estiver em português, mantenha em português). É ESTRITAMENTE PROIBIDO TRADUZIR O TEXTO. Retorne APENAS o texto revisado, sem apresentações ou explicações.'
+            content: `Você é um revisor de transcrições de áudio. Sua ÚNICA função é ajustar pontuação, maiúsculas e ortografia do texto recebido.${contextLine} MANTENHA RIGOROSAMENTE O IDIOMA ORIGINAL DO TEXTO (se o texto estiver em inglês, mantenha em inglês; se estiver em português, mantenha em português). É ESTRITAMENTE PROIBIDO TRADUZIR O TEXTO. Retorne APENAS o texto revisado, sem apresentações ou explicações.`
           },
           {
             role: 'user',

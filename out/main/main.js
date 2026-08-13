@@ -573,7 +573,7 @@ async function transcribeAudio(audioBuffer, language) {
 }
 const GROQ_CHAT_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 const DEFAULT_LLM_MODEL = "llama-3.1-8b-instant";
-async function correctTranscription(text) {
+async function correctTranscription(text, context) {
   if (!text || text.trim().length === 0) return text;
   const apiKey = getSetting("apiKey", "").trim();
   if (!apiKey) {
@@ -583,6 +583,7 @@ async function correctTranscription(text) {
   const model = (getSetting("llmModel") || process.env.LLM_MODEL || DEFAULT_LLM_MODEL).trim();
   const resolvedModel = model === "openai/gpt-oss-20b" || model === "openai/gpt-oss-120b" ? DEFAULT_LLM_MODEL : model;
   console.log(`[Corrector] Revisando texto via Groq (${resolvedModel})...`);
+  const contextLine = context ? ` Contexto do ditado: o usuário está digitando em ${context}. Ajuste a formatação de acordo (ex.: código, e-mail, documento, chat).` : "";
   try {
     const response = await fetch(GROQ_CHAT_ENDPOINT, {
       method: "POST",
@@ -595,7 +596,7 @@ async function correctTranscription(text) {
         messages: [
           {
             role: "system",
-            content: "Você é um revisor de transcrições de áudio. Sua ÚNICA função é ajustar pontuação, maiúsculas e ortografia do texto recebido. MANTENHA RIGOROSAMENTE O IDIOMA ORIGINAL DO TEXTO (se o texto estiver em inglês, mantenha em inglês; se estiver em português, mantenha em português). É ESTRITAMENTE PROIBIDO TRADUZIR O TEXTO. Retorne APENAS o texto revisado, sem apresentações ou explicações."
+            content: `Você é um revisor de transcrições de áudio. Sua ÚNICA função é ajustar pontuação, maiúsculas e ortografia do texto recebido.${contextLine} MANTENHA RIGOROSAMENTE O IDIOMA ORIGINAL DO TEXTO (se o texto estiver em inglês, mantenha em inglês; se estiver em português, mantenha em português). É ESTRITAMENTE PROIBIDO TRADUZIR O TEXTO. Retorne APENAS o texto revisado, sem apresentações ou explicações.`
           },
           {
             role: "user",
@@ -623,120 +624,35 @@ async function correctTranscription(text) {
     return text;
   }
 }
-const { clipboard, systemPreferences: systemPreferences$1 } = require("electron");
-function checkBinaryExists(binaryName) {
-  return new Promise((resolve) => {
-    child_process.execFile("which", [binaryName], (err) => {
-      resolve(!err);
-    });
-  });
-}
+const { clipboard } = require("electron");
 async function injectText(text, windowRef, _delayMs = 150, legacyHwnd) {
   if (!text || text.trim().length === 0) {
     return { success: false, method: "none", error: "Texto vazio" };
   }
   let ref = {};
-  if (typeof windowRef === "object" && windowRef !== null && ("hwnd" in windowRef || "appName" in windowRef || "windowId" in windowRef)) {
+  if (typeof windowRef === "object" && windowRef !== null && ("hwnd" in windowRef || "title" in windowRef || "processName" in windowRef)) {
     ref = windowRef;
   } else if (typeof windowRef === "string") {
     ref = { hwnd: windowRef };
   } else if (legacyHwnd) {
     ref = { hwnd: legacyHwnd };
   }
-  const platform = process.platform;
-  console.log(`[Injector] Injetando texto no cursor ativo (${text.length} chars, plataforma: ${platform})...`);
+  console.log(`[Injector] Injetando texto no cursor ativo (${text.length} chars)...`);
   clipboard.writeText(text);
   await new Promise((resolve) => setTimeout(resolve, 150));
-  if (platform === "win32") {
-    const targetHwnd = ref.hwnd;
-    const psCommand = targetHwnd && targetHwnd !== "0" && targetHwnd !== "null" ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${targetHwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait('^v')` : `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`;
-    return new Promise((resolve) => {
-      child_process.execFile("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", psCommand], (err) => {
-        if (err) {
-          console.error("[Injector] Erro ao colar texto via PowerShell (Windows):", err);
-          resolve({ success: false, method: "powershell-win32", error: err.message });
-        } else {
-          console.log("[Injector] Texto colado no cursor com sucesso (Windows)!");
-          resolve({ success: true, method: "powershell-win32" });
-        }
-      });
+  const targetHwnd = ref.hwnd;
+  const psCommand = targetHwnd && targetHwnd !== "0" && targetHwnd !== "null" ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${targetHwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait('^v')` : `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`;
+  return new Promise((resolve) => {
+    child_process.execFile("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", psCommand], (err) => {
+      if (err) {
+        console.error("[Injector] Erro ao colar texto via PowerShell (Windows):", err);
+        resolve({ success: false, method: "powershell-win32", error: err.message });
+      } else {
+        console.log("[Injector] Texto colado no cursor com sucesso (Windows)!");
+        resolve({ success: true, method: "powershell-win32" });
+      }
     });
-  }
-  if (platform === "darwin") {
-    const isTrusted = systemPreferences$1 ? systemPreferences$1.isTrustedAccessibilityClient(false) : true;
-    if (!isTrusted) {
-      console.warn("[Injector] Permissão de Acessibilidade não concedida no macOS.");
-      return {
-        success: false,
-        method: "applescript-macos",
-        error: "accessibility-required"
-      };
-    }
-    const appName = ref.appName;
-    const script = appName && appName !== "null" ? `tell application "${appName}" to activate
-delay 0.08
-tell application "System Events" to keystroke "v" using command down` : `tell application "System Events" to keystroke "v" using command down`;
-    return new Promise((resolve) => {
-      child_process.execFile("osascript", ["-e", script], (err) => {
-        if (err) {
-          console.error("[Injector] Erro ao colar texto via AppleScript (macOS):", err);
-          resolve({ success: false, method: "applescript-macos", error: err.message });
-        } else {
-          console.log("[Injector] Texto colado no cursor com sucesso (macOS)!");
-          resolve({ success: true, method: "applescript-macos" });
-        }
-      });
-    });
-  }
-  if (platform === "linux") {
-    const isWayland = process.env.WAYLAND_DISPLAY !== void 0;
-    const hasXdotool = await checkBinaryExists("xdotool");
-    const hasWtype = await checkBinaryExists("wtype");
-    if (!isWayland && hasXdotool) {
-      const windowId = ref.windowId;
-      return new Promise((resolve) => {
-        if (windowId && windowId !== "0" && windowId !== "null") {
-          child_process.execFile("xdotool", ["windowactivate", "--sync", String(windowId)], () => {
-            child_process.execFile("xdotool", ["key", "ctrl+v"], (err) => {
-              if (err) {
-                console.error("[Injector] Erro xdotool:", err);
-                resolve({ success: false, method: "xdotool-linux", error: err.message });
-              } else {
-                console.log("[Injector] Texto colado com xdotool (Linux)!");
-                resolve({ success: true, method: "xdotool-linux" });
-              }
-            });
-          });
-        } else {
-          child_process.execFile("xdotool", ["key", "ctrl+v"], (err) => {
-            if (err) {
-              resolve({ success: false, method: "xdotool-linux", error: err.message });
-            } else {
-              resolve({ success: true, method: "xdotool-linux" });
-            }
-          });
-        }
-      });
-    }
-    if (isWayland && hasWtype) {
-      return new Promise((resolve) => {
-        child_process.execFile("wtype", ["-M", "ctrl", "-k", "v"], (err) => {
-          if (err) {
-            resolve({ success: false, method: "wtype-wayland", error: err.message });
-          } else {
-            resolve({ success: true, method: "wtype-wayland" });
-          }
-        });
-      });
-    }
-    console.warn("[Injector] Auto-paste não disponível no Linux (xdotool/wtype ausentes).");
-    return {
-      success: false,
-      method: "clipboard-only-linux",
-      error: isWayland ? "wtype-missing" : "xdotool-missing"
-    };
-  }
-  return { success: true, method: "clipboard-only" };
+  });
 }
 const SAMPLE_RATE = 16e3;
 const MAX_BUFFER_SECONDS = 3;
@@ -920,7 +836,7 @@ class WakeWordDetector extends events.EventEmitter {
   }
 }
 const wakewordDetector = new WakeWordDetector();
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, dialog, Tray, Menu, nativeImage, shell, systemPreferences } = require("electron");
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage } = require("electron");
 const execFileAsync = util.promisify(child_process.execFile);
 let mainWindow = null;
 let dockWindow = null;
@@ -930,28 +846,34 @@ let isQuitting = false;
 let isDockHiding = false;
 async function captureActiveWindow() {
   try {
-    if (process.platform === "win32") {
-      const { stdout } = await execFileAsync("powershell", [
-        "-NoProfile",
-        "-WindowStyle",
-        "Hidden",
-        "-Command",
-        `(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();' -Name FGW -Namespace VOX -PassThru)::GetForegroundWindow()`
-      ], { timeout: 1500, encoding: "utf8" });
-      const hwnd = stdout.trim();
-      targetWindowRef = hwnd ? { hwnd } : null;
-    } else if (process.platform === "darwin") {
-      const { stdout } = await execFileAsync("osascript", [
-        "-e",
-        'tell application "System Events" to get name of first process whose frontmost is true'
-      ], { timeout: 1500, encoding: "utf8" });
-      const appName = stdout.trim();
-      targetWindowRef = appName ? { appName } : null;
-    } else if (process.platform === "linux") {
-      const { stdout } = await execFileAsync("xdotool", ["getactivewindow"], { timeout: 1500, encoding: "utf8" });
-      const windowId = stdout.trim();
-      targetWindowRef = windowId ? { windowId } : null;
-    }
+    const psScript = [
+      "$src = @'",
+      "using System;",
+      "using System.Text;",
+      "using System.Runtime.InteropServices;",
+      "public static class VOXWin {",
+      '  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();',
+      '  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);',
+      '  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);',
+      "}",
+      "'@",
+      "Add-Type -TypeDefinition $src",
+      "$h = [VOXWin]::GetForegroundWindow()",
+      'if ($h -eq [IntPtr]::Zero) { Write-Output "||"; exit }',
+      "$sb = New-Object System.Text.StringBuilder 512",
+      "[void][VOXWin]::GetWindowText($h, $sb, 512)",
+      "$pid2 = [uint32]0",
+      "[void][VOXWin]::GetWindowThreadProcessId($h, [ref]$pid2)",
+      "$p = Get-Process -Id $pid2 -ErrorAction SilentlyContinue",
+      'Write-Output ("{0}|{1}|{2}" -f $h, $sb.ToString(), $p.ProcessName)'
+    ].join("\n");
+    const encoded = Buffer.from(psScript, "utf16le").toString("base64");
+    const { stdout } = await execFileAsync("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-EncodedCommand", encoded], { timeout: 2500, encoding: "utf8" });
+    const parts = stdout.trim().split("|");
+    const hwnd = parts[0];
+    const processName = parts[parts.length - 1];
+    const title = parts.slice(1, -1).join("|");
+    targetWindowRef = hwnd && hwnd !== "0" ? { hwnd, title: title?.trim() || void 0, processName: processName?.trim() || void 0 } : null;
   } catch {
     targetWindowRef = null;
   }
@@ -1062,12 +984,32 @@ function hideDock() {
     isDockHiding = false;
   }, 280);
 }
+const APP_CONTEXT_RULES = [
+  { category: "a code editor or IDE", keywords: ["code", "visual studio", "vscode", "intellij", "pycharm", "webstorm", "phpstorm", "goland", "rider", "sublime", "notepad++", "vim", "neovim", "emacs", "atom", "eclipse", "android studio", "xcode", "cursor"] },
+  { category: "an email message", keywords: ["outlook", "gmail", "thunderbird", "mail", "proton", "postbox"] },
+  { category: "a text document", keywords: ["word", "winword", "docs", "writer", "libreoffice", "pages", "notion", "onenote", "obsidian", "typora", "scrivener"] },
+  { category: "a chat or messaging app", keywords: ["slack", "teams", "discord", "whatsapp", "telegram", "messenger", "signal", "skype", "zoom"] },
+  { category: "a terminal or shell", keywords: ["terminal", "cmd", "powershell", "iterm", "konsole", "bash", "zsh", "alacritty", "kitty", "windows terminal", "wezterm"] },
+  { category: "a web page or browser form", keywords: ["chrome", "chromium", "firefox", "edge", "safari", "brave", "opera", "arc", "vivaldi"] }
+];
+function buildContextHint(ref) {
+  const candidates = [ref?.processName, ref?.title].map((s) => (s || "").trim()).filter(Boolean);
+  if (candidates.length === 0) return "the active application";
+  const name = candidates[0];
+  const searchable = candidates.join(" ").toLowerCase();
+  for (const rule of APP_CONTEXT_RULES) {
+    if (rule.keywords.some((k) => searchable.includes(k))) {
+      return `${rule.category} (${name})`;
+    }
+  }
+  return `the "${name}" application`;
+}
 async function processTranscriptionResult(buffer) {
   if (!buffer || buffer.length === 0) return { text: "" };
   const result = await transcribeAudio(buffer);
   console.log("[Main] Transcrição bruta:", result.text);
   if (result.text && !result.text.startsWith("[Erro")) {
-    result.text = await correctTranscription(result.text);
+    result.text = await correctTranscription(result.text, buildContextHint(targetWindowRef));
     console.log("[Main] Transcrição corrigida:", result.text);
   }
   if (result.text) {
@@ -1082,11 +1024,7 @@ async function processTranscriptionResult(buffer) {
     saveSession(sessionData);
     const injectRes = await injectText(result.text, targetWindowRef || void 0);
     if (!injectRes.success) {
-      if (injectRes.error === "accessibility-required") {
-        mainWindow?.webContents.send("vox:accessibility-required");
-      } else if (injectRes.error === "xdotool-missing" || injectRes.error === "wtype-missing") {
-        mainWindow?.webContents.send("vox:xdotool-missing", { isWayland: process.env.WAYLAND_DISPLAY !== void 0 });
-      }
+      console.warn("[Main] Falha ao injetar texto:", injectRes.error);
     }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("vox:transcript-result", result.text);
@@ -1281,20 +1219,6 @@ function setupIpcHandlers() {
       return { stt: [], llm: [], error: "unknown" };
     }
   });
-  ipcMain.handle("vox:open-accessibility-preferences", () => {
-    if (process.platform === "darwin") {
-      try {
-        if (systemPreferences && systemPreferences.isTrustedAccessibilityClient) {
-          systemPreferences.isTrustedAccessibilityClient(true);
-        } else {
-          shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility");
-        }
-      } catch (err) {
-        console.error("[Main] Erro ao abrir Preferências de Acessibilidade:", err);
-      }
-    }
-    return { success: true };
-  });
   ipcMain.handle("vox:list-sessions", (_event, limit, type) => {
     return listSessions(limit || 50, type);
   });
@@ -1411,8 +1335,14 @@ app.whenReady().then(async () => {
   } catch (err) {
     console.warn("[Main] Erro ao configurar autostart:", err);
   }
-  globalShortcut.register("F10", toggleDockWindow);
-  globalShortcut.register("F9", startPushToTalk);
+  const toggleRegistered = globalShortcut.register("F10", toggleDockWindow);
+  if (!toggleRegistered) {
+    console.warn("[Main] Falha ao registrar o atalho F10 (pode estar em uso por outro app ou reservado pelo sistema).");
+  }
+  const pttRegistered = globalShortcut.register("F9", startPushToTalk);
+  if (!pttRegistered) {
+    console.warn("[Main] Falha ao registrar o atalho F9 (pode estar em uso por outro app ou reservado pelo sistema).");
+  }
   const iconPath = getAppIconPath();
   const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
   tray = new Tray(trayIcon);

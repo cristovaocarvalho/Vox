@@ -34,7 +34,6 @@ export const voxApi = {
     return ipcRenderer.invoke('vox:set-wakeword-sensitivity', sensitivity)
   },
   listModels: () => ipcRenderer.invoke('vox:list-models'),
-  openAccessibilityPreferences: () => ipcRenderer.invoke('vox:open-accessibility-preferences'),
 
   // Histórico de Transcrições (Sessions)
   listSessions: (limit?: number, type?: string) => {
@@ -106,16 +105,6 @@ export const voxApi = {
     const handler = (_event: unknown, data: any) => callback(data)
     ipcRenderer.on('vox:wakeword-error', handler)
     return () => ipcRenderer.removeListener('vox:wakeword-error', handler)
-  },
-  onAccessibilityRequired: (callback: () => void) => {
-    const handler = () => callback()
-    ipcRenderer.on('vox:accessibility-required', handler)
-    return () => ipcRenderer.removeListener('vox:accessibility-required', handler)
-  },
-  onXdotoolMissing: (callback: (data: { isWayland?: boolean }) => void) => {
-    const handler = (_event: unknown, data: { isWayland?: boolean }) => callback(data)
-    ipcRenderer.on('vox:xdotool-missing', handler)
-    return () => ipcRenderer.removeListener('vox:xdotool-missing', handler)
   },
   onDockShow: (callback: () => void) => {
     const handler = () => callback()

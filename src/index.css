@@ -35,7 +35,7 @@ body {
   margin: 0;
   background-color: transparent;
   color: var(--color-text-primary);
-  font-family: 'Inter', sans-serif;
+  font-family: 'IBM Plex Sans', sans-serif;
   font-feature-settings: "cv11", "ss01";
   letter-spacing: -0.008em;
 }
@@ -52,7 +52,7 @@ h4,
 h5,
 h6,
 .font-heading {
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Playfair Display', serif;
   letter-spacing: -0.02em;
   font-feature-settings: "ss01";
 }
@@ -358,7 +358,7 @@ button:focus-visible,
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-family: 'Space Grotesk', sans-serif;
+  font-family: 'Playfair Display', serif;
 }
 
 .radio-container-horizontal label:hover {

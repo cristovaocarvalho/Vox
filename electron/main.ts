@@ -1,6 +1,6 @@
 import type { BrowserWindow as BrowserWindowType } from 'electron'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, dialog, Tray, Menu, nativeImage, shell, systemPreferences } = require('electron')
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage } = require('electron')
 import path from 'path'
 import recorder from './modules/recorder'
 import { transcribeAudio } from './modules/stt'
@@ -24,24 +24,36 @@ let isDockHiding = false
 
 async function captureActiveWindow(): Promise<WindowRef | null> {
   try {
-    if (process.platform === 'win32') {
-      const { stdout } = await execFileAsync('powershell', [
-        '-NoProfile', '-WindowStyle', 'Hidden', '-Command',
-        `(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();' -Name FGW -Namespace VOX -PassThru)::GetForegroundWindow()`
-      ], { timeout: 1500, encoding: 'utf8' })
-      const hwnd = stdout.trim()
-      targetWindowRef = hwnd ? { hwnd } : null
-    } else if (process.platform === 'darwin') {
-      const { stdout } = await execFileAsync('osascript', [
-        '-e', 'tell application "System Events" to get name of first process whose frontmost is true'
-      ], { timeout: 1500, encoding: 'utf8' })
-      const appName = stdout.trim()
-      targetWindowRef = appName ? { appName } : null
-    } else if (process.platform === 'linux') {
-      const { stdout } = await execFileAsync('xdotool', ['getactivewindow'], { timeout: 1500, encoding: 'utf8' })
-      const windowId = stdout.trim()
-      targetWindowRef = windowId ? { windowId } : null
-    }
+    const psScript = [
+      '$src = @\'',
+      'using System;',
+      'using System.Text;',
+      'using System.Runtime.InteropServices;',
+      'public static class VOXWin {',
+      '  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();',
+      '  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);',
+      '  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);',
+      '}',
+      '\'@',
+      'Add-Type -TypeDefinition $src',
+      '$h = [VOXWin]::GetForegroundWindow()',
+      'if ($h -eq [IntPtr]::Zero) { Write-Output "||"; exit }',
+      '$sb = New-Object System.Text.StringBuilder 512',
+      '[void][VOXWin]::GetWindowText($h, $sb, 512)',
+      '$pid2 = [uint32]0',
+      '[void][VOXWin]::GetWindowThreadProcessId($h, [ref]$pid2)',
+      '$p = Get-Process -Id $pid2 -ErrorAction SilentlyContinue',
+      'Write-Output ("{0}|{1}|{2}" -f $h, $sb.ToString(), $p.ProcessName)'
+    ].join('\n')
+    const encoded = Buffer.from(psScript, 'utf16le').toString('base64')
+    const { stdout } = await execFileAsync('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', encoded], { timeout: 2500, encoding: 'utf8' })
+    const parts = stdout.trim().split('|')
+    const hwnd = parts[0]
+    const processName = parts[parts.length - 1]
+    const title = parts.slice(1, -1).join('|')
+    targetWindowRef = hwnd && hwnd !== '0'
+      ? { hwnd, title: title?.trim() || undefined, processName: processName?.trim() || undefined }
+      : null
   } catch {
     targetWindowRef = null
   }
@@ -167,6 +179,34 @@ function hideDock() {
   }, 280)
 }
 
+const APP_CONTEXT_RULES: { category: string; keywords: string[] }[] = [
+  { category: 'a code editor or IDE', keywords: ['code', 'visual studio', 'vscode', 'intellij', 'pycharm', 'webstorm', 'phpstorm', 'goland', 'rider', 'sublime', 'notepad++', 'vim', 'neovim', 'emacs', 'atom', 'eclipse', 'android studio', 'xcode', 'cursor'] },
+  { category: 'an email message', keywords: ['outlook', 'gmail', 'thunderbird', 'mail', 'proton', 'postbox'] },
+  { category: 'a text document', keywords: ['word', 'winword', 'docs', 'writer', 'libreoffice', 'pages', 'notion', 'onenote', 'obsidian', 'typora', 'scrivener'] },
+  { category: 'a chat or messaging app', keywords: ['slack', 'teams', 'discord', 'whatsapp', 'telegram', 'messenger', 'signal', 'skype', 'zoom'] },
+  { category: 'a terminal or shell', keywords: ['terminal', 'cmd', 'powershell', 'iterm', 'konsole', 'bash', 'zsh', 'alacritty', 'kitty', 'windows terminal', 'wezterm'] },
+  { category: 'a web page or browser form', keywords: ['chrome', 'chromium', 'firefox', 'edge', 'safari', 'brave', 'opera', 'arc', 'vivaldi'] }
+]
+
+function buildContextHint(ref: WindowRef | null): string {
+  const candidates = [ref?.processName, ref?.title]
+    .map((s) => (s || '').trim())
+    .filter(Boolean)
+
+  if (candidates.length === 0) return 'the active application'
+
+  const name = candidates[0]
+  const searchable = candidates.join(' ').toLowerCase()
+
+  for (const rule of APP_CONTEXT_RULES) {
+    if (rule.keywords.some((k) => searchable.includes(k))) {
+      return `${rule.category} (${name})`
+    }
+  }
+
+  return `the "${name}" application`
+}
+
 async function processTranscriptionResult(buffer: Buffer): Promise<{ text: string; rawText?: string }> {
   if (!buffer || buffer.length === 0) return { text: '' }
 
@@ -174,7 +214,7 @@ async function processTranscriptionResult(buffer: Buffer): Promise<{ text: strin
   console.log('[Main] Transcrição bruta:', result.text)
 
   if (result.text && !result.text.startsWith('[Erro')) {
-    result.text = await correctTranscription(result.text)
+    result.text = await correctTranscription(result.text, buildContextHint(targetWindowRef))
     console.log('[Main] Transcrição corrigida:', result.text)
   }
 
@@ -191,11 +231,7 @@ async function processTranscriptionResult(buffer: Buffer): Promise<{ text: strin
 
     const injectRes = await injectText(result.text, targetWindowRef || undefined)
     if (!injectRes.success) {
-      if (injectRes.error === 'accessibility-required') {
-        mainWindow?.webContents.send('vox:accessibility-required')
-      } else if (injectRes.error === 'xdotool-missing' || injectRes.error === 'wtype-missing') {
-        mainWindow?.webContents.send('vox:xdotool-missing', { isWayland: process.env.WAYLAND_DISPLAY !== undefined })
-      }
+      console.warn('[Main] Falha ao injetar texto:', injectRes.error)
     }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('vox:transcript-result', result.text)
@@ -424,21 +460,6 @@ function setupIpcHandlers() {
     }
   })
 
-  ipcMain.handle('vox:open-accessibility-preferences', () => {
-    if (process.platform === 'darwin') {
-      try {
-        if (systemPreferences && systemPreferences.isTrustedAccessibilityClient) {
-          systemPreferences.isTrustedAccessibilityClient(true)
-        } else {
-          shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility')
-        }
-      } catch (err) {
-        console.error('[Main] Erro ao abrir Preferências de Acessibilidade:', err)
-      }
-    }
-    return { success: true }
-  })
-
   // Transcriptions History Handlers
   ipcMain.handle('vox:list-sessions', (_event: unknown, limit?: number, type?: string) => {
     return listSessions(limit || 50, type)
@@ -585,8 +606,14 @@ app.whenReady().then(async () => {
   }
 
   // F10: Toggle | F9: Push to Talk (Segurar F9 para falar)
-  globalShortcut.register('F10', toggleDockWindow)
-  globalShortcut.register('F9', startPushToTalk)
+  const toggleRegistered = globalShortcut.register('F10', toggleDockWindow)
+  if (!toggleRegistered) {
+    console.warn('[Main] Falha ao registrar o atalho F10 (pode estar em uso por outro app ou reservado pelo sistema).')
+  }
+  const pttRegistered = globalShortcut.register('F9', startPushToTalk)
+  if (!pttRegistered) {
+    console.warn('[Main] Falha ao registrar o atalho F9 (pode estar em uso por outro app ou reservado pelo sistema).')
+  }
 
   // Tray icon para manter o app vivo quando a janela principal é fechada
   const iconPath = getAppIconPath()

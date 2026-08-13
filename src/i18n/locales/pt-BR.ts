@@ -114,19 +114,6 @@ const ptBR: TranslationKeys = {
     autoStart: 'Iniciar com o Sistema',
     autoStartHint: 'Inicia o Vox automaticamente ao fazer login'
   },
-  accessibility: {
-    title: 'Permissão de Acessibilidade Necessária',
-    body: 'No macOS, o Vox precisa de permissão em Acessibilidade para injetar texto automaticamente no cursor da aplicação ativa.',
-    understood: 'Entendi',
-    openPrefs: 'Abrir Preferências do Sistema'
-  },
-  linux: {
-    wtypeTitle: 'Utilitário wtype Necessário',
-    xdotoolTitle: 'Utilitário xdotool Necessário',
-    body: 'Para colagem automática no Linux ({display}), instale o utilitário {tool} no seu sistema:',
-    clipboardNote: 'O texto foi copiado para a Área de Transferência. Cole manualmente com Ctrl+V.',
-    understood: 'Entendi'
-  },
   common: {
     settings: 'Configurações'
   }

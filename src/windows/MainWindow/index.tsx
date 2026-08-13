@@ -18,8 +18,6 @@ import {
   IconAlert,
   IconX,
   IconCopy,
-  IconShield,
-  IconTerminal,
   IconGear
 } from '../../components'
 import logoImg from '../../assets/logo.png'
@@ -89,10 +87,7 @@ export const MainWindow: React.FC = () => {
 
   const [wakeWordModelMissing, setWakeWordModelMissing] = useState(false)
   const [wakeWordError, setWakeWordError] = useState<string | null>(null)
-  const [showAccessibilityModal, setShowAccessibilityModal] = useState(false)
-  const [showXdotoolModal, setShowXdotoolModal] = useState(false)
   const [showClearConfirmModal, setShowClearConfirmModal] = useState(false)
-  const [xdotoolData, setXdotoolData] = useState<{ isWayland?: boolean } | null>(null)
 
   const [dictationHistory, setDictationHistory] = useState<any[]>([])
   const [isDictationHistoryOpen, setIsDictationHistoryOpen] = useState(false)
@@ -289,20 +284,9 @@ export const MainWindow: React.FC = () => {
       setWakeWordError(data?.error || 'mic')
     })
 
-    const unsubAccess = window.vox?.onAccessibilityRequired?.(() => {
-      setShowAccessibilityModal(true)
-    })
-
-    const unsubXdo = window.vox?.onXdotoolMissing?.((data) => {
-      setXdotoolData(data)
-      setShowXdotoolModal(true)
-    })
-
     return () => {
       unsubMissing?.()
       unsubError?.()
-      unsubAccess?.()
-      unsubXdo?.()
     }
   }, [setApiKey, setSttModel, setLlmModel, setShortcutToggle, setShortcutPushToTalk, setWakeWordEnabled, setWakeWordSensitivity, setLanguage])
 
@@ -446,7 +430,7 @@ export const MainWindow: React.FC = () => {
 
       mediaRecorder.start(200)
 
-      // Transcrição incremental: a cada 3s, envia áudio acumulado para Whisper
+      // Transcrição incremental: a cada 2s, envia áudio acumulado para Whisper
       chunkIntervalRef.current = setInterval(async () => {
         if (audioChunksRef.current.length === 0) return
         try {
@@ -458,7 +442,7 @@ export const MainWindow: React.FC = () => {
         } catch {
           // ignore chunk errors
         }
-      }, 3000)
+      }, 2000)
     } catch (err) {
       console.error('[MainWindow] Erro ao acessar microfone:', err)
       setIsRecording(false)
@@ -720,10 +704,12 @@ export const MainWindow: React.FC = () => {
                     </SpecularButton>
                   </div>
                   <div className="p-4 bg-background/60 border border-border/50 rounded-xl text-sm leading-relaxed text-text-primary min-h-[96px] break-words">
-                    {isRecording ? (
-                      <span className="text-accent animate-pulse">{partialTranscript || t('type.recordingAudio')}</span>
-                    ) : isTranscribing ? (
-                      <span className="text-accent animate-pulse">{t('type.transcribing')}</span>
+                    {isRecording || isTranscribing ? (
+                      partialTranscript ? (
+                        <span>{partialTranscript}</span>
+                      ) : isRecording ? (
+                        <span className="text-accent animate-pulse">{t('type.recordingAudio')}</span>
+                      ) : null
                     ) : lastTranscript ? (
                       <span>{lastTranscript}</span>
                     ) : (
@@ -880,9 +866,6 @@ export const MainWindow: React.FC = () => {
                       onChange={(e) => setDraftApiKey(e.target.value)}
                       placeholder="gsk_..."
                     />
-                    <p className="text-[11px] text-text-muted mt-2 leading-relaxed">
-                      {t('settings.apiKeyHint')}
-                    </p>
                   </div>
 
                   {/* Models (Seleção de modelos ativos) */}
@@ -1116,86 +1099,6 @@ export const MainWindow: React.FC = () => {
                   }}
                 >
                   {t('settings.clearHistory')}
-                </SpecularButton>
-              </div>
-            </LiquidGlassCard>
-          </motion.div>
-        )}
-
-        {/* Modal de Permissão de Acessibilidade no macOS */}
-        {showAccessibilityModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md"
-          >
-            <LiquidGlassCard className="w-full max-w-md p-6 space-y-4 border border-border/60 shadow-2xl">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
-                  <IconShield className="w-4 h-4 text-text-primary" />
-                </div>
-                <h3 className="text-sm font-semibold font-heading tracking-tight text-text-primary">{t('accessibility.title')}</h3>
-              </div>
-              <p className="text-xs text-text-secondary leading-relaxed">
-                {t('accessibility.body')}
-              </p>
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAccessibilityModal(false)}
-                  className="px-3.5 py-1.5 text-xs text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer"
-                >
-                  {t('accessibility.understood')}
-                </button>
-                <SpecularButton
-                  size="sm"
-                  onClick={() => {
-                    window.vox?.openAccessibilityPreferences?.()
-                    setShowAccessibilityModal(false)
-                  }}
-                >
-                  {t('accessibility.openPrefs')}
-                </SpecularButton>
-              </div>
-            </LiquidGlassCard>
-          </motion.div>
-        )}
-
-        {/* Modal de Dependência Ausente no Linux (xdotool / wtype) */}
-        {showXdotoolModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md"
-          >
-            <LiquidGlassCard className="w-full max-w-md p-6 space-y-4 border border-border/60 shadow-2xl">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center shrink-0">
-                  <IconTerminal className="w-4 h-4 text-text-primary" />
-                </div>
-                <h3 className="text-sm font-semibold font-heading tracking-tight text-text-primary">
-                  {xdotoolData?.isWayland ? t('linux.wtypeTitle') : t('linux.xdotoolTitle')}
-                </h3>
-              </div>
-              <p className="text-xs text-text-secondary leading-relaxed">
-                {t('linux.body', { display: xdotoolData?.isWayland ? 'Wayland' : 'X11', tool: xdotoolData?.isWayland ? 'wtype' : 'xdotool' })}
-              </p>
-              <div className="p-3 bg-background/80 border border-border/60 rounded-lg font-mono text-[11px] text-accent select-all">
-                {xdotoolData?.isWayland ? 'sudo apt install wtype' : 'sudo apt install xdotool'}
-                <br />
-                <span className="text-text-muted">{xdotoolData?.isWayland ? (language === 'en' ? 'or sudo pacman -S wtype' : 'ou sudo pacman -S wtype') : (language === 'en' ? 'or sudo pacman -S xdotool' : 'ou sudo pacman -S xdotool')}</span>
-              </div>
-              <p className="text-[11px] text-text-muted">
-                {t('linux.clipboardNote')}
-              </p>
-              <div className="flex items-center justify-end pt-2">
-                <SpecularButton
-                  size="sm"
-                  onClick={() => setShowXdotoolModal(false)}
-                >
-                  {t('linux.understood')}
                 </SpecularButton>
               </div>
             </LiquidGlassCard>

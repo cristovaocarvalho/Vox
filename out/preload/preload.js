@@ -33,7 +33,6 @@ const voxApi = {
     return ipcRenderer.invoke("vox:set-wakeword-sensitivity", sensitivity);
   },
   listModels: () => ipcRenderer.invoke("vox:list-models"),
-  openAccessibilityPreferences: () => ipcRenderer.invoke("vox:open-accessibility-preferences"),
   // Histórico de Transcrições (Sessions)
   listSessions: (limit, type) => {
     if (limit !== void 0 && typeof limit !== "number") {
@@ -103,16 +102,6 @@ const voxApi = {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on("vox:wakeword-error", handler);
     return () => ipcRenderer.removeListener("vox:wakeword-error", handler);
-  },
-  onAccessibilityRequired: (callback) => {
-    const handler = () => callback();
-    ipcRenderer.on("vox:accessibility-required", handler);
-    return () => ipcRenderer.removeListener("vox:accessibility-required", handler);
-  },
-  onXdotoolMissing: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on("vox:xdotool-missing", handler);
-    return () => ipcRenderer.removeListener("vox:xdotool-missing", handler);
   },
   onDockShow: (callback) => {
     const handler = () => callback();
