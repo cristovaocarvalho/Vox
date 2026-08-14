@@ -15,6 +15,8 @@ export interface DictationTemplate {
   labelPt: string
   labelEn: string
   description: string
+  descriptionPt?: string
+  descriptionEn?: string
   icon: string
   voiceTriggerPt: string[]
   voiceTriggerEn: string[]

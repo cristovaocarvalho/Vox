@@ -22,8 +22,25 @@ export function displayPattern(pattern: string): string {
     .trim()
 }
 
-function actionBadge(action: VoiceCommand['action']): React.ReactNode {
-  const param = Array.isArray(action.parameter) ? action.parameter.length + ' keys' : String(action.parameter ?? '')
+const COMMAND_DESCRIPTIONS_PT: Record<string, string> = {
+  punct_comma: 'Insere uma vírgula seguida de espaço',
+  punct_period: 'Insere um ponto final seguido de espaço',
+  punct_semicolon: 'Insere um ponto e vírgula seguido de espaço',
+  punct_colon: 'Insere dois pontos seguidos de espaço',
+  punct_ellipsis: 'Insere reticências seguidas de espaço',
+  punct_exclamation: 'Insere um ponto de exclamação seguido de espaço',
+  punct_question: 'Insere um ponto de interrogação seguido de espaço',
+  nav_new_line: 'Pressiona Enter uma vez',
+  nav_new_paragraph: 'Pressiona Enter duas vezes',
+  edit_delete_last_sentence: 'Seleciona e apaga o texto até a pontuação anterior',
+  vox_cancel: 'Para a gravação e descarta a transcrição sem injetar',
+  vox_clear: 'Limpa o buffer de transcrição atual sem parar',
+  vox_repeat: 'Reinserir a última transcrição bem-sucedida'
+}
+
+function actionBadge(action: VoiceCommand['action'], isEn: boolean): React.ReactNode {
+  const keysLabel = isEn ? ' keys' : ' teclas'
+  const param = Array.isArray(action.parameter) ? action.parameter.length + keysLabel : String(action.parameter ?? '')
   switch (action.type) {
     case 'keystroke':
       return <span className="inline-flex items-center gap-1"><IconTerminal className="w-3 h-3" />{param || action.type}</span>
@@ -56,16 +73,22 @@ interface Props {
 }
 
 export const CommandCard: React.FC<Props> = ({ command, onToggle, onToggleMatchMode, onEdit, onDelete }) => {
-  const { t } = useI18n()
+  const { t, language } = useI18n()
+  const isEn = language === 'en'
+
+  const displayLabel = command.isDefault && command.label.includes(' / ')
+    ? (isEn ? command.label.split(' / ')[0] : command.label.split(' / ')[1])
+    : (isEn ? (command.labelEn || command.label) : (command.labelPt || command.label))
+
+  const displayDesc = isEn
+    ? (command.descriptionEn || command.description)
+    : (command.descriptionPt || COMMAND_DESCRIPTIONS_PT[command.id] || command.description)
 
   return (
     <div className="p-3 bg-background/40 border border-border/50 rounded-xl flex items-start gap-3">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-semibold text-text-primary">{command.label}</span>
-          {command.isDefault && (
-            <span className="text-[10px] text-text-muted" title={t('commands.default')}>🔒</span>
-          )}
+          <span className="text-xs font-semibold text-text-primary">{displayLabel}</span>
           <button
             type="button"
             onClick={() => onToggleMatchMode(command.id)}
@@ -76,8 +99,8 @@ export const CommandCard: React.FC<Props> = ({ command, onToggle, onToggleMatchM
           </button>
         </div>
 
-        {command.description && (
-          <p className="text-[11px] text-text-muted mt-0.5">{command.description}</p>
+        {displayDesc && (
+          <p className="text-[11px] text-text-muted mt-0.5">{displayDesc}</p>
         )}
 
         <div className="flex items-center gap-2 flex-wrap mt-1.5">
@@ -94,7 +117,7 @@ export const CommandCard: React.FC<Props> = ({ command, onToggle, onToggleMatchM
 
       <div className="flex items-center gap-2 shrink-0">
         <span className="text-[10px] px-2 py-1 rounded-lg bg-background/60 border border-border/40 text-text-secondary inline-flex items-center gap-1">
-          {actionBadge(command.action)}
+          {actionBadge(command.action, isEn)}
         </span>
         {!command.isDefault && (
           <button

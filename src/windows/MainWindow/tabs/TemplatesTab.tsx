@@ -5,6 +5,20 @@ import { useVoxStore } from '../../../stores/useVoxStore'
 import { TemplateEditor } from '../components/TemplateEditor'
 import { useI18n } from '../../../i18n'
 
+const TEMPLATE_DESCRIPTIONS_PT: Record<string, string> = {
+  none: 'Ditado padrão com correção apenas de gramática e pontuação',
+  email_formal: 'Formata o texto ditado como um e-mail formal completo com saudação, corpo e encerramento',
+  message_casual: 'Formata o texto como uma mensagem conversacional, preservando o tom informal',
+  bullet_points: 'Converte o texto ditado em uma lista estruturada de tópicos com marcadores',
+  numbered_list: 'Converte o texto ditado em uma lista ordenada numerada',
+  checklist: 'Converte os itens ditados em uma lista de tarefas (checklist) em markdown',
+  meeting_notes: 'Estrutura o conteúdo ditado em notas de reunião com participantes, pauta, decisões e ações',
+  code_comment: 'Formata o texto ditado como um comentário de código limpo (inline ou bloco JSDoc)',
+  git_commit: 'Formata o texto ditado como uma mensagem de commit no padrão Conventional Commits',
+  technical_report: 'Estrutura o conteúdo como um relatório técnico formal com seções estruturadas',
+  brain_dump: 'Captura pensamentos livres com limpeza leve, preservando o fluxo natural de ideias'
+}
+
 export const TemplatesTab: React.FC = () => {
   const { t, language } = useI18n()
   const {
@@ -42,27 +56,36 @@ export const TemplatesTab: React.FC = () => {
         <p className="text-[11px] text-text-secondary leading-relaxed flex-1 mr-4">
           {t('templates.hint')}
         </p>
-        <SpecularButton size="sm" radius={12} onClick={() => { setEditing(null); setEditorOpen(true) }} className="!px-4 shrink-0">
+        <SpecularButton size="sm" onClick={() => { setEditing(null); setEditorOpen(true) }} className="!px-4 shrink-0">
           {t('templates.new')}
         </SpecularButton>
       </div>
 
       <div className="space-y-2">
-        {templates.filter((tpl) => tpl.id !== 'none').map((tpl) => (
-          <div key={tpl.id} className="p-3 bg-background/40 border border-border/50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-text-primary">{isEn ? tpl.labelEn : tpl.labelPt}</span>
-                  <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-accent/10 text-accent border border-accent/20">{tpl.category}</span>
-                </div>
-                {tpl.description && <p className="text-[11px] text-text-muted truncate mt-0.5">{tpl.description}</p>}
-                <p className="text-[10px] text-text-muted font-mono mt-0.5">
-                  {isEn ? 'Say' : 'Diga'}: {(isEn ? tpl.voiceTriggerEn : tpl.voiceTriggerPt)[0] || '-'}
-                </p>
-              </div>
+        {templates.filter((tpl) => tpl.id !== 'none').map((tpl) => {
+          const desc = isEn
+            ? (tpl.descriptionEn || tpl.description)
+            : (tpl.descriptionPt || TEMPLATE_DESCRIPTIONS_PT[tpl.id] || tpl.description)
 
-              <button
+          return (
+            <div key={tpl.id} className="p-3 bg-background/40 border border-border/50 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-text-primary">{isEn ? tpl.labelEn : tpl.labelPt}</span>
+                    <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-accent/10 text-accent border border-accent/20">{tpl.category}</span>
+                  </div>
+                  {desc && (
+                    <p className="text-[11px] text-text-muted truncate mt-0.5">
+                      {desc}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-text-muted font-mono mt-0.5">
+                    {isEn ? 'Say' : 'Diga'}: {(isEn ? tpl.voiceTriggerEn : tpl.voiceTriggerPt)[0] || '-'}
+                  </p>
+                </div>
+
+                <button
                 type="button"
                 onClick={() => setExpanded((prev) => ({ ...prev, [tpl.id]: !prev[tpl.id] }))}
                 className="text-text-muted hover:text-text-primary p-1.5 rounded-lg transition-colors cursor-pointer shrink-0"
@@ -116,7 +139,8 @@ export const TemplatesTab: React.FC = () => {
               </div>
             )}
           </div>
-        ))}
+        )
+      })}
       </div>
 
       {editorOpen && (

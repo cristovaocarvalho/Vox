@@ -105,7 +105,7 @@ export const CommandsTab: React.FC = () => {
             </label>
           </div>
         </div>
-        <SpecularButton size="sm" radius={12} onClick={() => { setEditingCommand(null); setCommandEditorOpen(true) }} className="!px-4 shrink-0">
+        <SpecularButton size="sm" onClick={() => { setEditingCommand(null); setCommandEditorOpen(true) }} className="!px-4 shrink-0">
           {t('commands.new')}
         </SpecularButton>
       </div>
@@ -124,7 +124,7 @@ export const CommandsTab: React.FC = () => {
               >
                 <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide flex items-center gap-2">
                   <IconChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`} />
-                  {CATEGORY_LABELS[cat]}
+                  {t(`commands.categories.${cat}` as any) || CATEGORY_LABELS[cat]}
                 </span>
                 <span className="text-[11px] text-text-muted font-mono tnum">{enabled}/{items.length}</span>
               </button>
@@ -157,42 +157,53 @@ export const CommandsTab: React.FC = () => {
       </div>
 
       {/* Snippets */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
+      <div className="pt-6 mt-6 border-t border-border/40">
+        <div className="flex items-center justify-between mb-3.5">
           <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide">{t('snippets.title')} ({snippets.length})</span>
-          <SpecularButton size="sm" radius={12} onClick={() => { setEditingSnippet(null); setSnippetEditorOpen(true) }} className="!px-4">
+          <button
+            type="button"
+            onClick={() => { setEditingSnippet(null); setSnippetEditorOpen(true) }}
+            className="px-2.5 py-1 text-[11px] font-medium text-text-secondary hover:text-text-primary hover:bg-surface border border-border/60 hover:border-border rounded-lg transition-all duration-200 cursor-pointer inline-flex items-center gap-1 shrink-0"
+          >
+            <span className="text-xs leading-none">+</span>
             {t('snippets.new')}
-          </SpecularButton>
+          </button>
         </div>
         {snippets.length === 0 ? (
-          <p className="text-xs text-text-muted py-4 text-center">{t('snippets.empty')}</p>
+          <p className="text-xs text-text-muted py-6 text-center">{t('snippets.empty')}</p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {snippets.map((snip) => (
-              <div key={snip.id} className="p-3 bg-background/40 border border-border/50 rounded-xl flex items-center gap-3">
+              <div key={snip.id} className="p-3.5 bg-background/40 border border-border/50 rounded-xl flex items-center gap-4">
                 <div className="min-w-0 flex-1">
                   <span className="text-xs font-semibold text-text-primary block truncate">{snip.name}</span>
-                  <span className="text-[10px] text-text-muted font-mono">{snip.triggerPt} · {snip.triggerEn}</span>
-                  {snip.content ? (
-                    <span className="text-[10px] text-text-muted">{snip.content.length} chars</span>
-                  ) : (
-                    <span className="text-[10px] text-warning">{t('snippets.notConfigured')}</span>
-                  )}
+                  <div className="flex items-center gap-4 mt-1.5 flex-wrap">
+                    <span className="text-[10px] text-text-muted font-mono min-w-[280px]">{snip.triggerPt} · {snip.triggerEn}</span>
+                    {snip.content ? (
+                      <span className="text-[10px] text-text-muted">{t('templates.charCount', { n: snip.content.length })}</span>
+                    ) : (
+                      <span className="text-[10px] font-medium text-warning px-2 py-0.5 rounded-md bg-warning/10 border border-warning/20">
+                        {t('snippets.notConfigured')}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => { setEditingSnippet(snip); setSnippetEditorOpen(true) }}
-                  className="px-2.5 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-surface border border-border/50 hover:border-border rounded-lg transition-all duration-200 cursor-pointer shrink-0"
-                >
-                  {t('commands.edit')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteSnippet(snip.id)}
-                  className="p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded-lg transition-colors duration-200 cursor-pointer shrink-0"
-                >
-                  <IconTrash className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => { setEditingSnippet(snip); setSnippetEditorOpen(true) }}
+                    className="px-2.5 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-surface border border-border/50 hover:border-border rounded-lg transition-all duration-200 cursor-pointer"
+                  >
+                    {t('commands.edit')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteSnippet(snip.id)}
+                    className="p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded-lg transition-colors duration-200 cursor-pointer"
+                  >
+                    <IconTrash className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

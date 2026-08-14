@@ -21,6 +21,9 @@ export type { NoiseTextureProps } from './NoiseTexture'
 
 export { SmoothInput, Input } from './SmoothInput'
 
+export { CustomSelect } from './CustomSelect'
+export type { CustomSelectProps, SelectOption } from './CustomSelect'
+
 export { ShortcutInput } from './ShortcutInput'
 export type { ShortcutInputProps } from './ShortcutInput'
 

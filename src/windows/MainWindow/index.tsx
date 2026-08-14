@@ -401,13 +401,15 @@ export const MainWindow: React.FC = () => {
         }
 
         let initialLang: AppLocale = 'pt-BR'
-        const systemLang = (navigator.language || '').toLowerCase()
-        const isSystemEn = systemLang.startsWith('en')
-
-        if (isSystemEn) {
-          initialLang = 'en'
-        } else if (saved.language === 'en' || saved.language === 'pt-BR') {
+        if (saved.language === 'en' || saved.language === 'pt-BR') {
           initialLang = saved.language
+        } else if (saved.language === 'pt') {
+          initialLang = 'pt-BR'
+        } else {
+          const systemLang = (navigator.language || '').toLowerCase()
+          if (systemLang.startsWith('en')) {
+            initialLang = 'en'
+          }
         }
 
         settingsToUpdate.language = initialLang
@@ -967,13 +969,17 @@ export const MainWindow: React.FC = () => {
         <SpecularButton
           size="sm"
           radius={9999}
+          autoAnimate
+          speed={0.45}
+          followMouse
+          proximity={180}
           onClick={handleOpenSettings}
-          className="!w-9 !h-9 !p-0 flex items-center justify-center transition-all hover:scale-105 active:scale-95 group"
+          className="!w-10 !h-10 !p-0 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 group !rounded-full shadow-lg"
         >
           <img
             src={configImg}
             alt={t('common.settings')}
-            className="w-4 h-4 object-contain opacity-80 group-hover:opacity-100 transition-opacity filter drop-shadow-[0_0_6px_rgba(255,255,255,0.3)]"
+            className="w-4 h-4 object-contain opacity-80 group-hover:opacity-100 transition-all duration-350 ease-smooth group-hover:rotate-90 filter drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
           />
         </SpecularButton>
       </div>
@@ -994,13 +1000,24 @@ export const MainWindow: React.FC = () => {
             }}
           >
             <motion.div
+              layout
               initial={{ opacity: 0, y: 30, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              transition={{
+                duration: 0.35,
+                ease: [0.16, 1, 0.3, 1],
+                layout: { duration: 0.35, ease: [0.16, 1, 0.3, 1] }
+              }}
               className="w-full max-w-3xl"
             >
-              <LiquidGlassCard glowIntensity="md" blurIntensity="lg" className="flex flex-col border border-border/80 shadow-2xl">
+              <LiquidGlassCard
+                layout
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                glowIntensity="md"
+                blurIntensity="lg"
+                className="flex flex-col border border-border/80 shadow-2xl"
+              >
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border/40">
                   <div className="flex items-center gap-2.5">
@@ -1039,7 +1056,15 @@ export const MainWindow: React.FC = () => {
 
                   {/* Content */}
                   <div className="flex-1 min-w-0 p-6 max-h-[62vh] overflow-y-auto custom-scrollbar">
-                    {settingsPage === 'provider' && (
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={settingsPage}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                      >
+                        {settingsPage === 'provider' && (
                       <div className="space-y-5">
                         {/* Provider */}
                         <div>
@@ -1409,7 +1434,6 @@ export const MainWindow: React.FC = () => {
                           />
                           <SpecularButton
                             size="sm"
-                            radius={12}
                             onClick={handleAddVocabularyTerm}
                             disabled={!newTerm.trim()}
                             className="shrink-0 !px-4"
@@ -1458,9 +1482,11 @@ export const MainWindow: React.FC = () => {
                       <CommandsTab />
                     )}
 
-                    {settingsPage === 'templates' && (
-                      <TemplatesTab />
-                    )}
+                        {settingsPage === 'templates' && (
+                          <TemplatesTab />
+                        )}
+                      </motion.div>
+                    </AnimatePresence>
                   </div>
                 </div>
 
@@ -1475,7 +1501,6 @@ export const MainWindow: React.FC = () => {
                   </button>
                   <SpecularButton
                     size="sm"
-                    radius={12}
                     onClick={handleSaveSettings}
                     className="!px-6"
                   >

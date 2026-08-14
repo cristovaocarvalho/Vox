@@ -1,5 +1,5 @@
 .specular-button {
-  --sb-radius: 18px;
+  --sb-radius: 0px;
   --sb-tint: #ffffff;
   --sb-tint-opacity: 0;
   --sb-blur: 0px;
@@ -75,7 +75,6 @@
   inset: -20px;
   pointer-events: none;
   z-index: 1;
-  overflow: hidden;
 }
 
 .specular-button__fx canvas {

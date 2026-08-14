@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
-import { LiquidGlassCard, SpecularButton, SmoothInput, IconX } from '../../../components'
+import { LiquidGlassCard, SpecularButton, SmoothInput, CustomSelect, IconX } from '../../../components'
 import type { VoiceCommand, CommandAction, CommandActionType, CommandCategory } from '../../../types/commands'
 import { useI18n } from '../../../i18n'
 
@@ -73,6 +73,21 @@ export const CommandEditor: React.FC<Props> = ({ command, onSave, onClose }) => 
 
   const fieldClass = 'text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2'
 
+  const categoryOptions = CATEGORIES.map((c) => ({
+    value: c,
+    label: t(`commands.categories.${c}` as any) || c
+  }))
+
+  const matchModeOptions = [
+    { value: 'isolated', label: 'isolated' },
+    { value: 'inline', label: 'inline' }
+  ]
+
+  const actionTypeOptions = ACTION_TYPES.map((a) => ({
+    value: a,
+    label: a
+  }))
+
   return createPortal(
     <motion.div
       initial={{ opacity: 0 }}
@@ -98,7 +113,7 @@ export const CommandEditor: React.FC<Props> = ({ command, onSave, onClose }) => 
           </div>
 
           <div className="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
-            <div>
+            <div className="pt-2">
               <label className={fieldClass}>{t('commands.label')}</label>
               <SmoothInput type="text" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. New line" />
             </div>
@@ -111,16 +126,19 @@ export const CommandEditor: React.FC<Props> = ({ command, onSave, onClose }) => 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={fieldClass}>{t('commands.category')}</label>
-                <select value={category} onChange={(e) => setCategory(e.target.value as CommandCategory)} className="w-full bg-background/70 border border-border/60 rounded-xl px-3 py-2.5 text-xs font-medium text-text-primary outline-none focus:border-accent/80 cursor-pointer">
-                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <CustomSelect
+                  value={category}
+                  options={categoryOptions}
+                  onChange={(val) => setCategory(val as CommandCategory)}
+                />
               </div>
               <div>
                 <label className={fieldClass}>{t('commands.matchMode')}</label>
-                <select value={matchMode} onChange={(e) => setMatchMode(e.target.value as 'isolated' | 'inline')} className="w-full bg-background/70 border border-border/60 rounded-xl px-3 py-2.5 text-xs font-medium text-text-primary outline-none focus:border-accent/80 cursor-pointer">
-                  <option value="isolated">isolated</option>
-                  <option value="inline">inline</option>
-                </select>
+                <CustomSelect
+                  value={matchMode}
+                  options={matchModeOptions}
+                  onChange={(val) => setMatchMode(val as 'isolated' | 'inline')}
+                />
               </div>
             </div>
 
@@ -137,21 +155,27 @@ export const CommandEditor: React.FC<Props> = ({ command, onSave, onClose }) => 
 
             <div>
               <label className={fieldClass}>{t('commands.action')}</label>
-              <select value={actionType} onChange={(e) => setActionType(e.target.value as CommandActionType)} className="w-full bg-background/70 border border-border/60 rounded-xl px-3 py-2.5 text-xs font-medium text-text-primary outline-none focus:border-accent/80 cursor-pointer">
-                {ACTION_TYPES.map((a) => <option key={a} value={a}>{a}</option>)}
-              </select>
+              <CustomSelect
+                value={actionType}
+                options={actionTypeOptions}
+                onChange={(val) => setActionType(val as CommandActionType)}
+              />
             </div>
 
-            <div>
+            <div className="pb-3">
               <label className={fieldClass}>{t('commands.parameter')}</label>
               {actionType === 'insert_dynamic' ? (
-                <select value={parameter} onChange={(e) => setParameter(e.target.value)} className="w-full bg-background/70 border border-border/60 rounded-xl px-3 py-2.5 text-xs font-medium text-text-primary outline-none focus:border-accent/80 cursor-pointer">
-                  {DYNAMIC_VALUES.map((v) => <option key={v} value={v}>{v}</option>)}
-                </select>
+                <CustomSelect
+                  value={parameter}
+                  options={DYNAMIC_VALUES}
+                  onChange={setParameter}
+                />
               ) : actionType === 'vox_control' ? (
-                <select value={parameter} onChange={(e) => setParameter(e.target.value)} className="w-full bg-background/70 border border-border/60 rounded-xl px-3 py-2.5 text-xs font-medium text-text-primary outline-none focus:border-accent/80 cursor-pointer">
-                  {VOX_CONTROLS.map((v) => <option key={v} value={v}>{v}</option>)}
-                </select>
+                <CustomSelect
+                  value={parameter}
+                  options={VOX_CONTROLS}
+                  onChange={setParameter}
+                />
               ) : (
                 <SmoothInput type="text" value={parameter} onChange={(e) => setParameter(e.target.value)} placeholder={actionType === 'keystroke' ? 'Enter, Ctrl+Z, ...' : actionType === 'keystroke_sequence' ? 'Enter, Enter' : '...'} />
               )}
@@ -162,7 +186,7 @@ export const CommandEditor: React.FC<Props> = ({ command, onSave, onClose }) => 
             <button type="button" onClick={onClose} className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer">
               {t('settings.cancel')}
             </button>
-            <SpecularButton size="sm" radius={12} onClick={save} className="!px-6">
+            <SpecularButton size="sm" onClick={save} className="!px-6">
               {t('settings.save')}
             </SpecularButton>
           </div>

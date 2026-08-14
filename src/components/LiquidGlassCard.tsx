@@ -9,6 +9,8 @@ export interface LiquidGlassCardProps {
   blurIntensity?: 'none' | 'sm' | 'md' | 'lg'
   borderRadius?: string
   draggable?: boolean
+  layout?: boolean | 'position' | 'size'
+  transition?: any
   className?: string
   children?: React.ReactNode
   style?: React.CSSProperties
@@ -18,8 +20,10 @@ export const LiquidGlassCard: React.FC<LiquidGlassCardProps> = ({
   glowIntensity = 'sm',
   shadowIntensity = 'sm',
   blurIntensity = 'sm',
-  borderRadius = '16px',
+  borderRadius = '0px',
   draggable = false,
+  layout,
+  transition,
   className = '',
   children,
   style = {}
@@ -45,10 +49,11 @@ export const LiquidGlassCard: React.FC<LiquidGlassCardProps> = ({
     lg: 'border-white/25 hover:border-white/50'
   }
 
-  const Component = draggable ? motion.div : 'div'
+  const Component = (draggable || layout !== undefined) ? motion.div : 'div'
 
   return (
     <Component
+      {...((layout !== undefined) ? { layout, transition } : {})}
       {...(draggable ? { drag: true, dragConstraints: { left: -50, right: 50, top: -50, bottom: 50 } } : {})}
       className={cn(
         'relative overflow-hidden transition-[border-color,box-shadow,transform] duration-450 ease-glass',

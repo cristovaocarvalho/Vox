@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
-import { LiquidGlassCard, SpecularButton, SmoothInput, IconX } from '../../../components'
+import { LiquidGlassCard, SpecularButton, SmoothInput, CustomSelect, IconX } from '../../../components'
 import type { DictationTemplate, TemplateCategory } from '../../../types/templates'
 import { useI18n } from '../../../i18n'
 
@@ -73,7 +73,7 @@ export const TemplateEditor: React.FC<Props> = ({ template, onSave, onClose }) =
           </div>
 
           <div className="space-y-4 max-h-[62vh] overflow-y-auto custom-scrollbar pr-1">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 pt-2">
               <div>
                 <label className={fieldClass}>{t('templates.labelPt')}</label>
                 <SmoothInput type="text" value={labelPt} onChange={(e) => setLabelPt(e.target.value)} placeholder="Email Formal" />
@@ -92,9 +92,11 @@ export const TemplateEditor: React.FC<Props> = ({ template, onSave, onClose }) =
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={fieldClass}>{t('templates.category')}</label>
-                <select value={category} onChange={(e) => setCategory(e.target.value as TemplateCategory)} className="w-full bg-background/70 border border-border/60 rounded-xl px-3 py-2.5 text-xs font-medium text-text-primary outline-none focus:border-accent/80 cursor-pointer">
-                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <CustomSelect
+                  value={category}
+                  options={CATEGORIES}
+                  onChange={(val) => setCategory(val as TemplateCategory)}
+                />
               </div>
               <div>
                 <label className={fieldClass}>{t('templates.icon')}</label>
@@ -120,7 +122,7 @@ export const TemplateEditor: React.FC<Props> = ({ template, onSave, onClose }) =
               </div>
             </div>
 
-            <div>
+            <div className="pb-3">
               <label className={fieldClass}>{t('templates.outputPreview')}</label>
               <textarea value={outputPreview} onChange={(e) => setOutputPreview(e.target.value)} rows={4} className="w-full bg-background/70 border border-border/60 rounded-xl px-3 py-2 text-xs font-mono text-text-primary outline-none focus:border-accent/80 resize-none" />
             </div>
@@ -130,7 +132,7 @@ export const TemplateEditor: React.FC<Props> = ({ template, onSave, onClose }) =
             <button type="button" onClick={onClose} className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer">
               {t('settings.cancel')}
             </button>
-            <SpecularButton size="sm" radius={12} onClick={save} className="!px-6">
+            <SpecularButton size="sm" onClick={save} className="!px-6">
               {t('settings.save')}
             </SpecularButton>
           </div>

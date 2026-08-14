@@ -102,7 +102,16 @@ const ptBR: TranslationKeys = {
     inlineMode: 'Modo Inline',
     inlineModeHint: 'Quando ativado, comandos embutidos no texto ditado são reconhecidos e executados (ex.: "aprovado vírgula nova linha"). Desative se notar falsos positivos.',
     defaultNotice: 'O Vox inclui {n} comandos integrados em português e inglês. Você pode desativar qualquer um deles ou adicionar seus próprios comandos abaixo.',
-    customEmptyHint: 'Nenhum comando personalizado ainda. Crie seus próprios atalhos de voz para abrir apps, inserir texto, executar scripts e muito mais.'
+    customEmptyHint: 'Nenhum comando personalizado ainda. Crie seus próprios atalhos de voz para abrir apps, inserir texto, executar scripts e muito mais.',
+    categories: {
+      punctuation: 'Pontuação',
+      navigation: 'Navegação',
+      editing: 'Edição',
+      vox_control: 'Controle Vox',
+      snippets: 'Snippets',
+      system: 'Sistema',
+      custom: 'Personalizado'
+    }
   },
   snippets: {
     title: 'Snippets',

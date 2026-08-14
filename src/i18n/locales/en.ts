@@ -100,7 +100,16 @@ const en = {
     inlineMode: 'Inline Mode',
     inlineModeHint: 'When enabled, commands embedded in dictated text are recognized and executed (e.g. "approved comma new line"). Disable if you notice false positives.',
     defaultNotice: 'Vox includes {n} built-in commands in Portuguese and English. You can disable any of them or add your own custom commands below.',
-    customEmptyHint: 'No custom commands yet. Create your own voice shortcuts to open apps, insert text, run scripts, and more.'
+    customEmptyHint: 'No custom commands yet. Create your own voice shortcuts to open apps, insert text, run scripts, and more.',
+    categories: {
+      punctuation: 'Punctuation',
+      navigation: 'Navigation',
+      editing: 'Editing',
+      vox_control: 'Vox Control',
+      snippets: 'Snippets',
+      system: 'System',
+      custom: 'Custom'
+    }
   },
   snippets: {
     title: 'Snippets',

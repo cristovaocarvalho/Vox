@@ -57,7 +57,7 @@ export const SnippetEditor: React.FC<Props> = ({ snippet, onSave, onClose }) => 
           </div>
 
           <div className="space-y-4">
-            <div>
+            <div className="pt-2">
               <label className={fieldClass}>{t('snippets.name')}</label>
               <SmoothInput type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="my signature" />
             </div>
@@ -73,7 +73,7 @@ export const SnippetEditor: React.FC<Props> = ({ snippet, onSave, onClose }) => 
               </div>
             </div>
 
-            <div>
+            <div className="pb-3">
               <label className={fieldClass}>{t('snippets.content')}</label>
               <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={6} className="w-full bg-background/70 border border-border/60 rounded-xl px-3 py-2 text-xs text-text-primary outline-none focus:border-accent/80 resize-none" />
             </div>
@@ -83,7 +83,7 @@ export const SnippetEditor: React.FC<Props> = ({ snippet, onSave, onClose }) => 
             <button type="button" onClick={onClose} className="px-4 py-2 text-xs font-medium text-text-secondary hover:text-text-primary transition-colors duration-250 cursor-pointer">
               {t('settings.cancel')}
             </button>
-            <SpecularButton size="sm" radius={12} onClick={save} className="!px-6">
+            <SpecularButton size="sm" onClick={save} className="!px-6">
               {t('settings.save')}
             </SpecularButton>
           </div>

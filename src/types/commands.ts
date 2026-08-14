@@ -45,7 +45,11 @@ export interface VoiceCommand {
   isEnabled: boolean
   category: CommandCategory
   label: string
+  labelPt?: string
+  labelEn?: string
   description: string
+  descriptionPt?: string
+  descriptionEn?: string
   triggers: {
     pt: string[]
     en: string[]
