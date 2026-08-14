@@ -15,8 +15,7 @@
 [![Electron](https://img.shields.io/badge/Electron-33-black?style=flat-square&logo=electron&logoColor=white)](https://electronjs.org)
 [![React](https://img.shields.io/badge/React-18-black?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-black?style=flat-square&logo=typescript&logoColor=white)](https://typescriptlang.org)
-[![Groq](https://img.shields.io/badge/Groq-Whisper%20V3%20Turbo-black?style=flat-square)](https://groq.com)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-black?style=flat-square&logo=electron&logoColor=white)](https://electronjs.org)
+[![Platform](https://img.shields.io/badge/Platform-Windows-black?style=flat-square&logo=electron&logoColor=white)](https://electronjs.org)
 [![License](https://img.shields.io/badge/License-MIT-black?style=flat-square)](LICENSE)
 
 </div>
@@ -31,43 +30,46 @@
 
 ## ◈ What is Vox
 
-**Vox** is a cross-platform (Windows, macOS, Linux) AI-powered voice dictation assistant built with Electron. It stays silently in your system tray and, when triggered via global shortcut (`F9`/`F10`) or by saying the wake word (**"Vox"**), records your speech, automatically stops when silence is detected, transcribes via **Whisper Large V3 Turbo**, automatically fixes punctuation and spelling using LLM, and injects the text **directly into the active cursor** of any application, with no special application support required.
+**Vox** is a Windows AI-powered voice dictation assistant built with Electron. It lives silently in the system tray and, when triggered by a global shortcut (`F9`/`F10`), the voice clipboard (`F11`), or by saying the wake word (**"Vox"**), records your speech, auto-stops on silence, transcribes via **Whisper**, corrects punctuation and spelling with an LLM, and injects the text **directly into the active cursor** of any application.
 
-> Think of it as an OS-level voice dictation: whether you are in VS Code, Word, a web form, or Slack, just say *"Vox"*, speak your text, and as soon as you stop talking, the text appears right where your cursor was focused.
+> Think of it as OS-level voice dictation: whether you are in VS Code, Word, an email, or Slack — say *"Vox"*, speak, and as soon as you stop talking the text appears at your cursor.
 
-> **Vox is an open-source alternative to [Wispr Flow](https://wisprflow.ai)**, featuring AI voice dictation, global shortcuts, hands-free voice commands, LLM correction pipelines, and text injection via native APIs.
-
+> **Vox is an open-source alternative to [Wispr Flow](https://wisprflow.ai)** — AI voice dictation, global shortcuts, a hands-free **voice command system**, context-aware correction, structured templates, and text injection via native Win32 APIs.
 
 ---
 
 ## ◈ Comparison: Vox vs Wispr Flow
 
-**Wispr Flow** is a commercial proprietary app that offers a restricted free plan (capped at a hard limit of 2,000 words per week) and paid monthly subscriptions ($9/mo to $29+/mo). **Vox** was built as an open, cross-platform alternative that is 100% free for daily use with providers like Groq (which offers a generous free tier with thousands of requests per day), focusing on privacy and user control.
-
-### Comparison Table
-
 | Feature / Characteristic | **Vox** | **Wispr Flow** |
 |---|---|---|
 | **License Model** | 100% Open-Source (MIT), Free | Proprietary / Commercial |
-| **Free Plan / Cost** | 100% Free daily usage (via Groq API Free Tier) | Free limited to 2,000 words/week (Pro: $9 to $29+/mo) |
-| **Wake Word (Voice Trigger)** | Yes, "Vox" (100% offline via ONNX) | Depends on shortcuts/cloud |
-| **Privacy** | Audio processed via direct API, no middleman | Proprietary cloud processing |
-| **Platforms** | Windows (.exe), macOS (.dmg), and Linux (.AppImage) | Mac, Windows, iOS |
+| **Free Plan / Cost** | Free daily use (Groq/OpenAI/local models) | Free limited to 2,000 words/week (Pro: $9 to $29+/mo) |
+| **Voice trigger** | Wake word "Vox" + shortcuts + voice commands | Depends on shortcuts/cloud |
+| **Provider choice** | Groq, OpenAI, Azure OpenAI, Ollama, LM Studio | Proprietary cloud only |
+| **Privacy** | Direct API, no middleman; auditable privacy log | Proprietary cloud processing |
+| **Platforms** | Windows | Mac, Windows, iOS |
 | **Auto-Stop on Silence (VAD)** | Yes, auto-stops and pastes on silence | Yes |
+| **Context-aware correction** | Yes (code editor / email / document detection) | No |
+| **Structured dictation templates** | Yes (email, bullet points, meeting notes, commits…) | No |
+| **Voice commands** | Yes (punctuation, editing, system, custom) | No |
+| **Personal vocabulary** | Yes (user-defined terms fed to the corrector) | No |
+| **Voice clipboard history** | Yes (last 10 dictations, re-insertable) | No |
 
-#### Vox Advantages
+#### Advantages
 
-* **100% Free and Open-Source**: No recurring subscriptions, fully transparent and auditable codebase.
-* **Virtually Unlimited & Free Daily Use**: By using providers like Groq API (which offer a generous free tier with thousands of requests per day), you can use Vox daily without word caps or weekly resets, unlike Wispr Flow's 2,000-word limit.
-* **Offline Wake Word ("Vox")**: Activation keyword detection processed 100% locally on your PC via ONNX Runtime (< 1% CPU).
-* **Data Privacy**: Audio is sent directly to your preferred API provider without third-party retention for AI training.
+* **100% free and open-source** — no subscriptions, fully auditable codebase.
+* **Provider freedom** — use Groq, OpenAI, Azure OpenAI, or run fully locally with **Ollama**/**LM Studio** for zero cost and total privacy.
+* **Context-aware correction** — Vox detects the active app and tailors correction ("in a code editor" vs "in an email").
+* **Voice command system** — speak punctuation, navigation, editing, and system commands; create your own.
+* **Pattern history** — after 25 sessions Vox learns your recurring corrections automatically.
+* **Personal vocabulary** — add proper nouns, acronyms, and jargon so Whisper never mangles them.
+* **Privacy log** — every API call (endpoint, provider, bytes sent) is recorded locally and auditable.
+* **Structured templates** — dictate straight into formatted emails, lists, meeting notes, commit messages, and more.
 
-#### Vox Disadvantages
+#### Limitations
 
-* **Requires API Key**: Requires the user to enter their API Key in settings (e.g. obtained for free from Groq).
-* **Fixed STT/LLM Models**: The API provider must support the project's default models (`whisper-large-v3-turbo` and `openai/gpt-oss-20b`).
-* **Mobile Devices**: Currently focused on desktop operating systems (Windows, macOS, Linux), without a dedicated iOS/Android app.
-
+* **Requires a provider** — for cloud providers you enter your own API key; local providers run entirely on your machine.
+* **Windows-only** — macOS and Linux support were removed to focus on a stable Windows experience.
 
 ---
 
@@ -77,157 +79,109 @@
 |---|---|
 | **Voice Dictation** | Say *"Vox"* or use shortcuts to type into any application |
 | **Productivity** | Write emails, code, and documents hands-free |
+| **Voice Commands** | Speak punctuation and commands ("nova linha", "delete word", "undo") |
+| **Structured Output** | Dictate straight into templates (bullet points, meeting notes, commit messages) |
 
 ---
 
 ## ◈ Features
 
 ```
-◆  Real-time dictation via voice command ("Vox"), F9 (Push-to-Talk), or F10 (Toggle)
-◆  Offline wake word detection ("Vox") via ONNX Runtime (< 1% CPU)
-◆  Automatic recording stop when speech ends with instant active cursor injection
-◆  Text injection into the active cursor of any window
-◆  Transcription via Whisper Large V3 Turbo (Groq or any compatible provider)
-◆  Automatic punctuation and spelling correction via LLM (openai/gpt-oss-20b)
-◆  Floating Dock HUD with real-time Voice Activity Detection (VAD) visualizer and animation
-◆  Autostart with OS (user-configurable toggle)
-◆  System Tray background process (shortcuts and wake word work even when window is closed)
-◆  Settings persisted in local SQLite with OS-level safeStorage encryption for API keys
-◆  Premium UI design with glassmorphism, animated beams, and micro-interactions
+◆  Real-time dictation via wake word ("Vox"), F9 (Push-to-Talk), or F10 (Toggle)
+◆  Progressive (streaming) transcription preview while recording
+◆  Auto-stop on silence (configurable) with instant cursor injection
+◆  Multi-provider support: Groq, OpenAI, Azure OpenAI, Ollama, LM Studio
+◆  Model selection — pick your STT and LLM models from the provider
+◆  Context-aware LLM correction based on the active application
+◆  Personal vocabulary memory (proper nouns, acronyms, jargon)
+◆  Pattern-history correction — auto-learns recurring fixes after 25 sessions
+◆  Voice command system (punctuation, navigation, editing, vox control, system)
+◆  Custom voice commands and snippets
+◆  Structured dictation templates (email, lists, meeting notes, commits, …)
+◆  Voice clipboard history (F11) — re-insert any of the last 10 dictations
+◆  Auditable privacy log (endpoint, provider, bytes sent per API call)
+◆  Floating Dock HUD with real-time voice energy visualizer
+◆  System tray background process (shortcuts and wake word work when closed)
+◆  Autostart with Windows (user-configurable)
+◆  SQLite persistence with OS-level safeStorage encryption for API keys
+◆  Premium glassmorphism UI (Playfair Display + IBM Plex Sans)
 ```
 
 ---
 
 ## ◈ Architecture
 
-Vox follows standard Electron architecture separating **Main Process** (Node.js), **Renderer Process** (React), and **Preload** (secure IPC bridge).
+Vox follows standard Electron architecture separating the **Main Process** (Node.js), **Renderer Process** (React), and **Preload** (secure IPC bridge).
+
+The dictation pipeline is:
 
 ```
-+---------------------------------------------------------------+
-|                        MAIN PROCESS                           |
-|                       (electron/main.ts)                       |
-|                                                                |
-|  +----------+  +----------+  +----------+  +------------+    |
-|  | Recorder |  |   STT    |  |Corrector |  |  Injector  |    |
-|  | (VAD/WAV)|  | (Whisper)|  |  (LLM)   |  |(PowerShell)|    |
-|  +----------+  +----------+  +----------+  +------------+    |
-|                                                                |
-|  +----------+  +--------------------------------------------+    |
-|  |    DB    |  |  GlobalShortcut (F9/F10)                   |    |
-|  | (SQLite) |  |  + SystemTray                              |    |
-|  +----------+  +--------------------------------------------+    |
-|                                                                |
-|                    IPC (ipcMain / ipcRenderer)                 |
-+----------------------------+-----------------------------------+
-                             |
-                +------------+-----------+
-                |         PRELOAD         |
-                |     (preload.ts)         |
-                |  contextBridge / API     |
-                +------------+-----------+
-                             |
-+----------------------------+-----------------------------------+
-|                    RENDERER PROCESS                            |
-|                                                                |
-|  +---------------------------+  +---------------------------+ |
-|  |      MainWindow            |  |        DockWindow          | |
-|  |  (React + Framer Motion)   |  |  (Floating HUD, always-   | |
-|  |                            |  |   on-top, showInactive)    | |
-|  |  Tab: Voice Dictation      |  |  Real-time voice energy    | |
-|  |  Modal: Settings           |  |  visualizer                | |
-|  +---------------------------+  +---------------------------+ |
-|                     Zustand (Global State)                     |
-+---------------------------------------------------------------+
+STT → Command Parser → [ Voice Command Executor | LLM Corrector (+ template) ] → Injector
+```
+
+```
++---------------------------------------------------------------------+
+|                          MAIN PROCESS                                |
+|                         (electron/main.ts)                           |
+|                                                                      |
+|  +----------+  +----------+  +-----------+  +-------------------+   |
+|  | Recorder |  |   STT    |  | Corrector |  | Command Parser    |   |
+|  | (VAD/WAV)|  | (Whisper)|  |  (LLM)    |  | (tokenizer/matcher)|  |
+|  +----------+  +----------+  +-----------+  +-------------------+   |
+|                                                                      |
+|  +-------------+  +----------------+  +-------------------------+   |
+|  | Command     |  | Template       |  | Injector (PowerShell)   |   |
+|  | Executor    |  | Manager        |  | SetForegroundWindow +   |   |
+|  | (actions)   |  | (dictation)    |  | SendKeys                |   |
+|  +-------------+  +----------------+  +-------------------------+   |
+|                                                                      |
+|  +----------+  +-----------------------------------------------+    |
+|  |    DB    |  | GlobalShortcut (F9/F10/F11) + SystemTray       |    |
+|  | (SQLite) |  +-----------------------------------------------+    |
+|  +----------+                                                       |
+|                                                                      |
+|                    IPC (ipcMain / ipcRenderer)                       |
++------------------------------+---------------------------------------+
+                               |
+                 +-------------+-------------+
+                 |           PRELOAD          |
+                 |      contextBridge / API  |
+                 +-------------+-------------+
+                               |
++------------------------------+---------------------------------------+
+|                        RENDERER PROCESS                              |
+|  +---------------------------+  +---------------------------+       |
+|  |      MainWindow            |  |        DockWindow          |       |
+|  |  (React + Framer Motion)   |  |  (Floating HUD, always-   |       |
+|  |  Dictation + Settings      |  |   on-top, showInactive)    |       |
+|  +---------------------------+  +---------------------------+       |
+|  +---------------------------+                                      |
+|  |      ClipboardWindow      |                                      |
+|  |  (voice clipboard history) |                                      |
+|  +---------------------------+                                      |
+|                     Zustand (global state)                           |
++----------------------------------------------------------------------+
 ```
 
 ---
 
 ## ◈ Main Process Modules
 
-### `electron/main.ts`, Orchestrator
-Main process entry point. Manages:
-- Window creation and lifecycle (`MainWindow`, `DockWindow`)
-- Global shortcuts registration (`F9`, `F10`)
-- System tray icon to keep process active when main window is closed
-- OS startup registration (`app.setLoginItemSettings`)
-- Active window HWND capture prior to recording
-- All IPC handlers (`ipcMain.handle`)
-
-### `electron/modules/recorder.ts`, Audio Recorder
-`AudioRecorder` extends `EventEmitter`. Receives PCM 16kHz mono chunks from renderer via IPC, calculates RMS energy for Voice Activity Detection (VAD Auto-Stop), and builds RIFF WAV buffers upon stopping with size pre-calculation.
-
-```
-PCM chunks (IPC) → RMS VAD → Buffer WAV (header + data)
-```
-
-### `electron/modules/stt.ts`, Speech-to-Text
-Transcribes WAV buffers using the API provider (Groq API or compatible) with `whisper-large-v3-turbo`. Automatically detects WebM or WAV format and includes hallucination filtering.
-
-```
-Buffer WAV → FormData → API (Whisper V3 Turbo) → raw text
-```
-
-### `electron/modules/corrector.ts`, LLM Corrector
-Passes transcribed text through an LLM via provider Chat API to fix punctuation, capitalization, and spelling without altering original language. Default model: `openai/gpt-oss-20b`.
-
-```
-raw text → LLM (strict system prompt) → revised text
-```
-
-### `electron/modules/injector.ts`, Text Injector
-Injects text into active cursor of any application:
-
-1. Copies text to clipboard (`clipboard.writeText`)
-2. Waits 100ms
-3. Restores focus to target window via `SetForegroundWindow(hwnd)`
-4. Simulates `Ctrl+V` with `System.Windows.Forms.SendKeys::SendWait`
-
-```
-clipboard → SetForegroundWindow(hwnd) → SendWait('^v') → text at cursor
-```
-
-### `electron/modules/db.ts`, Persistence
-SQLite database via `better-sqlite3`. Stores user settings (`apiKey`, shortcuts, wake word). Leverages OS-level `safeStorage` credential encryption for API keys, falling back to JSON if native sqlite module fails.
-
----
-
-## ◈ UI & Design System
-
-Vox features a custom design system built with React + Vanilla CSS inspired by glassmorphic layouts and premium dark mode interfaces.
-
-### Palette
-
-```
-Primary Background:   #0D0D0F (deep dark)
-Surface:              rgba(255,255,255,0.04) with blur
-Border:               rgba(255,255,255,0.08)
-Primary Accent:       Pure White (#FFFFFF)
-Secondary Text:       rgba(255,255,255,0.5)
-Recording Highlight:  Emerald Green (#22c55e)
-```
-
-### Components
-
-| Component | Description |
+| Module | Purpose |
 |---|---|
-| `Beams` | Animation of light beams on the background (WebGL/Canvas) |
-| `LiquidGlassCard` | Card with glassmorphism and blur effects |
-| `SpecularButton` | Button with specular reflection and micro-animations |
-| `SmoothInput` | Input with smooth transitions and status animations |
-| `ShortcutInput` | Capture global keyboard shortcuts |
-| `AnimatedContent` | Content entry animations using Framer Motion |
-| `Badge` | Status indicators |
-| `NoiseTexture` | High-tech noise overlay with radial masks |
-
-### Windows
-
-**MainWindow** (1040×820px, non-resizable)
-- Tab: **Voice Dictation** (last transcript, history log, settings toggle)
-- Settings panel: API Key, shortcuts, Wake Word sensitivity, autostart toggle
-
-**DockWindow** (220×70px, `alwaysOnTop: screen-saver`)
-- Floating overlay HUD appearing only when recording is in progress
-- Renders real-time VAD voice energy visualizer and spring entry/exit animations
+| `main.ts` | Orchestrator — windows, shortcuts, tray, pipeline, IPC handlers |
+| `recorder.ts` | Audio recorder — VAD, auto-stop on silence, WAV buffer |
+| `stt.ts` | Speech-to-Text via the configured provider (Whisper) |
+| `corrector.ts` | LLM correction — context, vocabulary, pattern history, templates |
+| `commandParser.ts` | Tokenizer + classifier + matcher (isolated/inline commands) |
+| `commandExecutor.ts` | Dispatches command actions (keystrokes, injection, apps, scripts) |
+| `commandRegistry.ts` | Default commands (PT/EN) + user custom commands |
+| `snippetManager.ts` | Snippet CRUD |
+| `templateRegistry.ts` | Default dictation templates |
+| `templateManager.ts` | Template lifecycle + voice activation + corrector prompt building |
+| `providers.ts` | Multi-provider resolution (Groq, OpenAI, Azure, Ollama, LM Studio) |
+| `injector.ts` | Text injection via clipboard + `SetForegroundWindow` + `SendKeys` |
+| `db.ts` | SQLite persistence (settings, sessions, commands, snippets, templates, logs) |
 
 ---
 
@@ -237,25 +191,44 @@ Recording Highlight:  Emerald Green (#22c55e)
 |---|---|---|
 | `F9` | Push-to-Talk | Hold to record, release to transcribe |
 | `F10` | Toggle | Press once to start, press again to stop |
+| `F11` | Clipboard History | Open the last 10 dictations to re-insert one |
 
-Shortcuts and wake word detection work even when all windows are closed because Vox remains active in the System Tray.
+All shortcuts are **configurable** in Settings and work even when the window is closed (Vox stays in the system tray).
+
+---
+
+## ◈ Voice Commands
+
+Vox ships with ~56 built-in commands in Portuguese and English across punctuation, navigation, editing, Vox control, snippets, and system categories. Examples:
+
+| Speak (PT) | Speak (EN) | Action |
+|---|---|---|
+| "vírgula" | "comma" | injects `, ` |
+| "nova linha" | "new line" | presses Enter |
+| "novo parágrafo" | "new paragraph" | double Enter |
+| "apagar palavra" | "delete word" | Ctrl+Backspace |
+| "desfazer" | "undo" | Ctrl+Z |
+| "parar" | "stop" | stops dictation |
+| "inserir data" | "insert date" | inserts today's date |
+| "abrir terminal" | "open terminal" | opens the terminal |
+
+Inline mode (off by default) lets commands appear inside dictated text, e.g. *"approved comma new line send to client"*.
 
 ---
 
 ## ◈ Tech Stack
 
 ```
-Runtime:         Electron 33 (Chromium + Node.js)
-UI:              React 18 + TypeScript 5.7
-Bundler:         electron-vite (Vite 5 for renderer)
-Animations:      Framer Motion 12, GSAP 3
-State:           Zustand 5
-Database:        better-sqlite3 (Native SQLite)
-Wake Word:       openWakeWord ONNX (onnxruntime-node)
-STT:             Whisper Large V3 Turbo (via API provider)
-LLM:             openai/gpt-oss-20b (via API provider)
-Injection:       PowerShell + Win32 API (SetForegroundWindow, SendKeys)
-Build:           electron-builder (Windows .exe, macOS .dmg, Linux .AppImage)
+Runtime:        Electron 33 (Chromium + Node.js)
+UI:             React 18 + TypeScript 5.7
+Bundler:        electron-vite (Vite 5)
+Animations:     Framer Motion 12, GSAP 3
+State:          Zustand 5
+Database:       better-sqlite3 (native SQLite)
+STT:            Whisper via provider (Groq/OpenAI/Azure/local)
+LLM:            configurable (default llama-3.1-8b-instant)
+Injection:      PowerShell + Win32 API (SetForegroundWindow, SendKeys)
+Build:          electron-builder (Windows .exe)
 ```
 
 ---
@@ -263,9 +236,10 @@ Build:           electron-builder (Windows .exe, macOS .dmg, Linux .AppImage)
 ## ◈ Installation & Setup
 
 ### Prerequisites
+
 - **Node.js** 20+
 - **npm** 10+
-- **Operating System**: Windows 10/11, macOS, or Linux
+- **Operating System**: Windows 10/11
 
 ### Development
 
@@ -280,19 +254,20 @@ npm run dev
 ### Production Build
 
 ```bash
-# Compile project
+# Compile the project
 npm run build
 
-# Package executables (generates Windows .exe, macOS .dmg, and Linux .AppImage)
-npx electron-builder --win --mac --linux
+# Package the Windows installer / portable executable
+npx electron-builder --win
 # Output location: dist-build/
 ```
 
-### Environment Variables (`.env`)
+### Configuration
 
-```env
-GROQ_API_KEY=gsk_...          # API Key (provider must offer whisper-large-v3-turbo and openai/gpt-oss-20b)
-```
+1. Launch Vox and open **Settings**.
+2. Choose a **Provider** (Groq, OpenAI, Azure OpenAI, Ollama, or LM Studio).
+3. Enter your **API Key** (not required for local providers).
+4. Pick your **STT** and **LLM** models (or let Vox fetch the available ones).
 
 ---
 
@@ -300,14 +275,18 @@ GROQ_API_KEY=gsk_...          # API Key (provider must offer whisper-large-v3-tu
 
 | Setting | Default | Description |
 |---|---|---|
-| API Key | N/A | Provider API Key (saved securely via OS-level safeStorage) |
-| Wake Word | `Enabled ("Vox")` | Hands-free background voice activation for "Vox" |
-| Sensitivity | `50%` | Detection sensitivity for "Vox" wake word |
-| Toggle Shortcut | `F10` | Manually start/stop recording |
-| Push-to-Talk | `F9` | Record while holding key |
-| Start with System | `Enabled` | Automatically launch Vox when logging in |
-| STT Model | `whisper-large-v3-turbo` | Default STT model (must be supported by provider) |
-| LLM Model | `openai/gpt-oss-20b` | Default LLM correction model (must be supported by provider) |
+| Provider | `Groq` | Groq, OpenAI, Azure OpenAI, Ollama, LM Studio |
+| Base URL | (provider default) | Override the API endpoint |
+| API Key | N/A | Provider key (saved via OS-level safeStorage) |
+| STT Model | `whisper-large-v3-turbo` | Transcription model |
+| LLM Model | `llama-3.1-8b-instant` | Correction model |
+| Toggle Shortcut | `F10` | Start/stop recording |
+| Push-to-Talk | `F9` | Record while holding |
+| Clipboard Shortcut | `F11` | Voice clipboard history |
+| Wake Word | `Enabled ("Vox")` | Background voice activation |
+| Inline Command Mode | `Off` | Recognize commands inside dictated text |
+| Language | `Português (BR)` | UI + command language |
+| Start with System | `Enabled` | Launch on login |
 
 ---
 
