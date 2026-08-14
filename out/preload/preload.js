@@ -71,13 +71,23 @@ const voxApi = {
   clearVocabulary: () => ipcRenderer.invoke("vox:clear-vocabulary"),
   insertClipboardItem: (text) => ipcRenderer.invoke("vox:insert-clipboard-item", text),
   hideClipboard: () => ipcRenderer.invoke("vox:hide-clipboard"),
-  listCommands: () => ipcRenderer.invoke("vox:list-commands"),
-  saveCommand: (cmd) => ipcRenderer.invoke("vox:save-command", cmd),
-  deleteCommand: (id) => ipcRenderer.invoke("vox:delete-command", id),
-  setCommandEnabled: (id, enabled) => ipcRenderer.invoke("vox:set-command-enabled", id, enabled),
-  listSnippets: () => ipcRenderer.invoke("vox:list-snippets"),
+  getCommands: () => ipcRenderer.invoke("vox:get-commands"),
+  toggleCommand: (id, enabled) => ipcRenderer.invoke("vox:toggle-command", id, enabled),
+  setCommandMatchMode: (id, mode) => ipcRenderer.invoke("vox:set-command-match-mode", id, mode),
+  addCustomCommand: (command) => ipcRenderer.invoke("vox:add-custom-command", command),
+  updateCustomCommand: (id, command) => ipcRenderer.invoke("vox:update-custom-command", id, command),
+  deleteCustomCommand: (id) => ipcRenderer.invoke("vox:delete-custom-command", id),
+  getSnippets: () => ipcRenderer.invoke("vox:get-snippets"),
   saveSnippet: (snippet) => ipcRenderer.invoke("vox:save-snippet", snippet),
   deleteSnippet: (id) => ipcRenderer.invoke("vox:delete-snippet", id),
+  setInlineMode: (enabled) => ipcRenderer.invoke("vox:set-inline-mode", enabled),
+  getTemplates: () => ipcRenderer.invoke("vox:get-templates"),
+  getActiveTemplate: () => ipcRenderer.invoke("vox:get-active-template"),
+  setActiveTemplate: (id) => ipcRenderer.invoke("vox:set-active-template", id),
+  setTemplateEnabled: (id, enabled) => ipcRenderer.invoke("vox:set-template-enabled", id, enabled),
+  addCustomTemplate: (template) => ipcRenderer.invoke("vox:add-custom-template", template),
+  updateCustomTemplate: (id, template) => ipcRenderer.invoke("vox:update-custom-template", id, template),
+  deleteCustomTemplate: (id) => ipcRenderer.invoke("vox:delete-custom-template", id),
   // Event Listeners
   onDockTextUpdate: (callback) => {
     const handler = (_event, text) => callback(text);
@@ -133,6 +143,26 @@ const voxApi = {
     const handler = () => callback();
     ipcRenderer.on("vox:clipboard-refresh", handler);
     return () => ipcRenderer.removeListener("vox:clipboard-refresh", handler);
+  },
+  onSnippetNotConfigured: (callback) => {
+    const handler = (_event, name) => callback(name);
+    ipcRenderer.on("vox:snippet-not-configured", handler);
+    return () => ipcRenderer.removeListener("vox:snippet-not-configured", handler);
+  },
+  onScriptResult: (callback) => {
+    const handler = (_event, result) => callback(result);
+    ipcRenderer.on("vox:script-result", handler);
+    return () => ipcRenderer.removeListener("vox:script-result", handler);
+  },
+  onTranscriptionDone: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("vox:transcription-done", handler);
+    return () => ipcRenderer.removeListener("vox:transcription-done", handler);
+  },
+  onTemplateChanged: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("vox:template-changed", handler);
+    return () => ipcRenderer.removeListener("vox:template-changed", handler);
   }
 };
 contextBridge.exposeInMainWorld("vox", voxApi);

@@ -18,17 +18,16 @@ export interface KeystrokeStep {
 export interface CommandAction {
   type: CommandActionType
   // keystroke: "Enter", "Backspace", "Ctrl+Z", "Ctrl+Shift+T"
-  // keystroke_sequence: keySequence
+  // keystroke_sequence: KeystrokeStep[] (ordered series with delays)
   // inject_text: literal string
   // inject_snippet: snippet name key
   // insert_dynamic: "date" | "time" | "datetime"
   // change_profile: profile name string
-  // vox_control: "stop" | "cancel" | "clear" | "repeat"
-  // open_app: executable path or app name
+  // vox_control: "stop" | "cancel" | "clear" | "repeat" | "delete_last_sentence"
+  // open_app: executable path or logical app name
   // run_script: shell command string
   // open_url: full URL string
-  parameter: string | string[]
-  keySequence?: KeystrokeStep[]
+  parameter: string | string[] | KeystrokeStep[]
 }
 
 export type CommandCategory =

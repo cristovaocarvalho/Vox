@@ -15,10 +15,9 @@ function buildAction(type: CommandActionType, parameter: string): CommandAction 
     case 'keystroke_sequence':
       return {
         type,
-        parameter: [],
-        keySequence: parameter
+        parameter: parameter
           .split(',')
-          .map((s) => ({ key: s.trim() }))
+          .map((s) => ({ key: s.trim(), delayAfter: 0 }))
           .filter((s) => s.key.length > 0)
       }
     case 'insert_dynamic':
@@ -45,11 +44,13 @@ export const CommandEditor: React.FC<Props> = ({ command, onSave, onClose }) => 
   const [triggersPt, setTriggersPt] = useState((command?.triggers.pt || []).join('\n'))
   const [triggersEn, setTriggersEn] = useState((command?.triggers.en || []).join('\n'))
   const [actionType, setActionType] = useState<CommandActionType>(command?.action?.type || 'inject_text')
-  const [parameter, setParameter] = useState<string>(
-    Array.isArray(command?.action?.parameter)
-      ? command.action.parameter.join(', ')
-      : String(command?.action?.parameter || '')
-  )
+  const [parameter, setParameter] = useState<string>(() => {
+    const p = command?.action?.parameter
+    if (Array.isArray(p)) {
+      return p.map((s: any) => (typeof s === 'string' ? s : s.key)).join(', ')
+    }
+    return String(p || '')
+  })
 
   const save = () => {
     onSave({

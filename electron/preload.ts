@@ -73,13 +73,23 @@ export const voxApi = {
   clearVocabulary: () => ipcRenderer.invoke('vox:clear-vocabulary'),
   insertClipboardItem: (text: string) => ipcRenderer.invoke('vox:insert-clipboard-item', text),
   hideClipboard: () => ipcRenderer.invoke('vox:hide-clipboard'),
-  listCommands: () => ipcRenderer.invoke('vox:list-commands'),
-  saveCommand: (cmd: any) => ipcRenderer.invoke('vox:save-command', cmd),
-  deleteCommand: (id: string) => ipcRenderer.invoke('vox:delete-command', id),
-  setCommandEnabled: (id: string, enabled: boolean) => ipcRenderer.invoke('vox:set-command-enabled', id, enabled),
-  listSnippets: () => ipcRenderer.invoke('vox:list-snippets'),
+  getCommands: () => ipcRenderer.invoke('vox:get-commands'),
+  toggleCommand: (id: string, enabled: boolean) => ipcRenderer.invoke('vox:toggle-command', id, enabled),
+  setCommandMatchMode: (id: string, mode: 'isolated' | 'inline') => ipcRenderer.invoke('vox:set-command-match-mode', id, mode),
+  addCustomCommand: (command: any) => ipcRenderer.invoke('vox:add-custom-command', command),
+  updateCustomCommand: (id: string, command: any) => ipcRenderer.invoke('vox:update-custom-command', id, command),
+  deleteCustomCommand: (id: string) => ipcRenderer.invoke('vox:delete-custom-command', id),
+  getSnippets: () => ipcRenderer.invoke('vox:get-snippets'),
   saveSnippet: (snippet: any) => ipcRenderer.invoke('vox:save-snippet', snippet),
   deleteSnippet: (id: string) => ipcRenderer.invoke('vox:delete-snippet', id),
+  setInlineMode: (enabled: boolean) => ipcRenderer.invoke('vox:set-inline-mode', enabled),
+  getTemplates: () => ipcRenderer.invoke('vox:get-templates'),
+  getActiveTemplate: () => ipcRenderer.invoke('vox:get-active-template'),
+  setActiveTemplate: (id: string | null) => ipcRenderer.invoke('vox:set-active-template', id),
+  setTemplateEnabled: (id: string, enabled: boolean) => ipcRenderer.invoke('vox:set-template-enabled', id, enabled),
+  addCustomTemplate: (template: any) => ipcRenderer.invoke('vox:add-custom-template', template),
+  updateCustomTemplate: (id: string, template: any) => ipcRenderer.invoke('vox:update-custom-template', id, template),
+  deleteCustomTemplate: (id: string) => ipcRenderer.invoke('vox:delete-custom-template', id),
 
   // Event Listeners
   onDockTextUpdate: (callback: (text: string) => void) => {
@@ -136,6 +146,26 @@ export const voxApi = {
     const handler = () => callback()
     ipcRenderer.on('vox:clipboard-refresh', handler)
     return () => ipcRenderer.removeListener('vox:clipboard-refresh', handler)
+  },
+  onSnippetNotConfigured: (callback: (name: string) => void) => {
+    const handler = (_event: unknown, name: string) => callback(name)
+    ipcRenderer.on('vox:snippet-not-configured', handler)
+    return () => ipcRenderer.removeListener('vox:snippet-not-configured', handler)
+  },
+  onScriptResult: (callback: (result: any) => void) => {
+    const handler = (_event: unknown, result: any) => callback(result)
+    ipcRenderer.on('vox:script-result', handler)
+    return () => ipcRenderer.removeListener('vox:script-result', handler)
+  },
+  onTranscriptionDone: (callback: (data: any) => void) => {
+    const handler = (_event: unknown, data: any) => callback(data)
+    ipcRenderer.on('vox:transcription-done', handler)
+    return () => ipcRenderer.removeListener('vox:transcription-done', handler)
+  },
+  onTemplateChanged: (callback: (data: { templateId: string | null; activatedAt: string; activatedBy: string }) => void) => {
+    const handler = (_event: unknown, data: { templateId: string | null; activatedAt: string; activatedBy: string }) => callback(data)
+    ipcRenderer.on('vox:template-changed', handler)
+    return () => ipcRenderer.removeListener('vox:template-changed', handler)
   }
 }
 

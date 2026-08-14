@@ -1,5 +1,7 @@
 import { getSetting, logApiCall, getCorrectionDictionary, getSessionCount, listVocabulary } from './db'
 import { resolveProvider, getChatEndpoint, getAuthHeaders } from './providers'
+import { templateManager } from './templateManager'
+import type { DictationTemplate } from '../../src/types/templates'
 
 const DEFAULT_LLM_MODEL = 'llama-3.1-8b-instant'
 const CALIBRATION_SESSIONS = 25
@@ -22,7 +24,7 @@ function buildVocabularyLine(): string {
   return ` Vocabulário pessoal do usuário (nomes próprios, siglas e termos técnicos que devem ser reconhecidos e mantidos exatamente como escritos): ${items}.`
 }
 
-export async function correctTranscription(text: string, context?: string): Promise<string> {
+export async function correctTranscription(text: string, context?: string, template?: DictationTemplate | null): Promise<string> {
   if (!text || text.trim().length === 0) return text
 
   const provider = resolveProvider()
@@ -43,12 +45,15 @@ export async function correctTranscription(text: string, context?: string): Prom
   const dictionaryLine = buildDictionaryLine()
   const vocabularyLine = buildVocabularyLine()
 
+  const basePrompt = `Você é um revisor de transcrições de áudio. Sua ÚNICA função é ajustar pontuação, maiúsculas e ortografia do texto recebido.${contextLine}${vocabularyLine}${dictionaryLine} MANTENHA RIGOROSAMENTE O IDIOMA ORIGINAL DO TEXTO (se o texto estiver em inglês, mantenha em inglês; se estiver em português, mantenha em português). É ESTRITAMENTE PROIBIDO TRADUZIR O TEXTO. Retorne APENAS o texto revisado, sem apresentações ou explicações.`
+  const systemPrompt = templateManager.buildCorrectorPrompt(basePrompt, template ?? null)
+
   try {
     const body: Record<string, any> = {
       messages: [
         {
           role: 'system',
-          content: `Você é um revisor de transcrições de áudio. Sua ÚNICA função é ajustar pontuação, maiúsculas e ortografia do texto recebido.${contextLine}${vocabularyLine}${dictionaryLine} MANTENHA RIGOROSAMENTE O IDIOMA ORIGINAL DO TEXTO (se o texto estiver em inglês, mantenha em inglês; se estiver em português, mantenha em português). É ESTRITAMENTE PROIBIDO TRADUZIR O TEXTO. Retorne APENAS o texto revisado, sem apresentações ou explicações.`
+          content: systemPrompt
         },
         {
           role: 'user',

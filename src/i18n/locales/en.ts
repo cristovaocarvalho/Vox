@@ -45,6 +45,7 @@ const en = {
     vocabularyEmpty: 'No terms added yet.',
     vocabularyClear: 'Clear All',
     commands: 'Commands',
+    templates: 'Templates',
     privacy: 'Privacy',
     privacyHint: 'Every API call Vox makes is recorded locally. This auditable report shows which API was called, how much audio or text was sent, and to which endpoint. Your data never leaves your device except to the provider you configure.',
     privacyTotalCalls: 'Total requests',
@@ -87,10 +88,19 @@ const en = {
     description: 'Description',
     category: 'Category',
     matchMode: 'Match mode',
+    matchModeHint: 'Click to toggle between isolated and inline',
     triggersPt: 'Triggers (PT) — one per line',
     triggersEn: 'Triggers (EN) — one per line',
+    triggersPtShort: 'PT',
+    triggersEnShort: 'EN',
     action: 'Action',
-    parameter: 'Parameter'
+    parameter: 'Parameter',
+    default: 'Built-in command (cannot be deleted)',
+    search: 'Search commands...',
+    inlineMode: 'Inline Mode',
+    inlineModeHint: 'When enabled, commands embedded in dictated text are recognized and executed (e.g. "approved comma new line"). Disable if you notice false positives.',
+    defaultNotice: 'Vox includes {n} built-in commands in Portuguese and English. You can disable any of them or add your own custom commands below.',
+    customEmptyHint: 'No custom commands yet. Create your own voice shortcuts to open apps, insert text, run scripts, and more.'
   },
   snippets: {
     title: 'Snippets',
@@ -100,7 +110,25 @@ const en = {
     triggerPt: 'Trigger (PT)',
     triggerEn: 'Trigger (EN)',
     content: 'Content',
-    empty: 'No snippets.'
+    empty: 'No snippets.',
+    notConfigured: 'Not configured'
+  },
+  templates: {
+    new: 'New Template',
+    edit: 'Edit Template',
+    hint: 'Templates add structural formatting instructions to the corrector. Activate one from the Vox Type tab, via voice, or by app profile.',
+    labelPt: 'Label PT',
+    labelEn: 'Label EN',
+    description: 'Description',
+    category: 'Category',
+    icon: 'Icon',
+    systemPrompt: 'System Prompt',
+    systemPromptHint: 'This prompt is appended to Vox base correction instructions. Write rules in the imperative and reference "the input text".',
+    charCount: '{n} characters',
+    voicePt: 'Voice triggers (PT) — one per line',
+    voiceEn: 'Voice triggers (EN) — one per line',
+    outputPreview: 'Output preview',
+    default: 'Built-in template (read-only)'
   },
   common: {
     settings: 'Settings'

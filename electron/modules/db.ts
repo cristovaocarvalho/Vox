@@ -2,6 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
 import type { VoiceCommand, UserSnippet } from '../../src/types/commands'
+import type { DictationTemplate } from '../../src/types/templates'
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { app, safeStorage } = require('electron')
@@ -55,6 +56,8 @@ let fallbackFileCorrections: string | null = null
 let fallbackFileVocabulary: string | null = null
 let fallbackFileCommands: string | null = null
 let fallbackFileSnippets: string | null = null
+let fallbackFileOverrides: string | null = null
+let fallbackFileTemplates: string | null = null
 const stmtCache = new Map<string, any>()
 
 function encryptValue(plainText: string): string {
@@ -113,6 +116,8 @@ export function initDatabase() {
     fallbackFileVocabulary = path.join(userDataPath, 'vox_vocabulary.json')
     fallbackFileCommands = path.join(userDataPath, 'vox_commands.json')
     fallbackFileSnippets = path.join(userDataPath, 'vox_snippets.json')
+    fallbackFileOverrides = path.join(userDataPath, 'vox_command_overrides.json')
+    fallbackFileTemplates = path.join(userDataPath, 'vox_templates.json')
 
     if (Database) {
       dbInstance = new Database(dbPath)
@@ -161,28 +166,51 @@ export function initDatabase() {
           createdAt TEXT NOT NULL
         );
 
-        CREATE TABLE IF NOT EXISTS commands (
+        CREATE TABLE IF NOT EXISTS custom_commands (
           id          TEXT PRIMARY KEY,
-          isDefault   INTEGER DEFAULT 0,
-          isEnabled   INTEGER DEFAULT 1,
-          category    TEXT,
-          label       TEXT,
+          label       TEXT NOT NULL,
           description TEXT,
-          triggers    TEXT,
-          action      TEXT,
-          matchMode   TEXT,
-          createdAt   TEXT,
-          updatedAt   TEXT
+          category    TEXT DEFAULT 'custom',
+          trigger_pt  TEXT NOT NULL,
+          trigger_en  TEXT NOT NULL,
+          action_type TEXT NOT NULL,
+          action_param TEXT NOT NULL,
+          match_mode  TEXT DEFAULT 'isolated',
+          is_enabled  INTEGER DEFAULT 1,
+          created_at  TEXT NOT NULL,
+          updated_at  TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS default_command_overrides (
+          command_id TEXT PRIMARY KEY,
+          is_enabled INTEGER NOT NULL,
+          match_mode TEXT
         );
 
         CREATE TABLE IF NOT EXISTS snippets (
           id         TEXT PRIMARY KEY,
-          name       TEXT,
-          triggerPt  TEXT,
-          triggerEn  TEXT,
-          content    TEXT,
-          createdAt  TEXT,
-          updatedAt  TEXT
+          name       TEXT NOT NULL,
+          trigger_pt TEXT NOT NULL,
+          trigger_en TEXT NOT NULL,
+          content    TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS custom_templates (
+          id            TEXT PRIMARY KEY,
+          label_pt      TEXT NOT NULL,
+          label_en      TEXT NOT NULL,
+          description   TEXT,
+          icon          TEXT DEFAULT 'file-text',
+          category      TEXT DEFAULT 'custom',
+          system_prompt TEXT NOT NULL,
+          voice_pt      TEXT,
+          voice_en      TEXT,
+          output_preview TEXT,
+          is_enabled    INTEGER DEFAULT 1,
+          created_at    TEXT NOT NULL,
+          updated_at    TEXT NOT NULL
         );
       `)
       console.log('[DB] Banco de dados SQLite pronto em:', dbPath)
@@ -272,6 +300,8 @@ export function getAllSettings() {
     shortcutToggle: 'F10',
     shortcutPushToTalk: 'F9',
     shortcutClipboard: 'F11',
+    commandInlineMode: 'false',
+    activeTemplateId: '',
     wakeWordEnabled: 'true',
     wakeWordSensitivity: '0.5',
     language: systemLanguage,
@@ -821,104 +851,80 @@ export function clearVocabulary(): void {
 
 // ================= Voice Commands =================
 
-function serializeCommand(cmd: VoiceCommand): Record<string, any> {
-  return {
-    id: cmd.id,
-    isDefault: cmd.isDefault ? 1 : 0,
-    isEnabled: cmd.isEnabled ? 1 : 0,
-    category: cmd.category,
-    label: cmd.label,
-    description: cmd.description,
-    triggers: JSON.stringify(cmd.triggers),
-    action: JSON.stringify(cmd.action),
-    matchMode: cmd.matchMode,
-    createdAt: cmd.createdAt || new Date().toISOString(),
-    updatedAt: cmd.updatedAt || new Date().toISOString()
-  }
+export interface DefaultCommandOverride {
+  commandId: string
+  isEnabled: boolean
+  matchMode?: 'isolated' | 'inline'
 }
 
-function parseCommandRow(row: any): VoiceCommand {
-  let triggers = { pt: [] as string[], en: [] as string[] }
-  let action: any = { type: 'keystroke', parameter: '' }
-  try {
-    triggers = JSON.parse(row.triggers || '{"pt":[],"en":[]}')
-  } catch { /* ignore */ }
-  try {
-    action = JSON.parse(row.action || '{}')
-  } catch { /* ignore */ }
+function parseCustomCommandRow(row: any): VoiceCommand {
+  let pt: string[] = []
+  let en: string[] = []
+  let param: any = ''
+  try { pt = JSON.parse(row.trigger_pt || '[]') } catch { /* ignore */ }
+  try { en = JSON.parse(row.trigger_en || '[]') } catch { /* ignore */ }
+  try { param = JSON.parse(row.action_param || '""') } catch { param = row.action_param || '' }
   return {
     id: row.id,
-    isDefault: !!row.isDefault,
-    isEnabled: !!row.isEnabled,
+    isDefault: false,
+    isEnabled: !!row.is_enabled,
     category: row.category || 'custom',
     label: row.label || '',
     description: row.description || '',
-    triggers,
-    action,
-    matchMode: row.matchMode === 'inline' ? 'inline' : 'isolated',
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt
+    triggers: { pt: Array.isArray(pt) ? pt : [], en: Array.isArray(en) ? en : [] },
+    action: { type: row.action_type || 'inject_text', parameter: param },
+    matchMode: row.match_mode === 'inline' ? 'inline' : 'isolated',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
   }
 }
 
-export function seedCommands(defaults: VoiceCommand[]): void {
-  try {
-    const now = new Date().toISOString()
-    for (const cmd of defaults) {
-      const record = serializeCommand({ ...cmd, createdAt: cmd.createdAt || now, updatedAt: cmd.updatedAt || now })
-      if (dbInstance) {
-        dbInstance.prepare(`
-          INSERT OR IGNORE INTO commands (id, isDefault, isEnabled, category, label, description, triggers, action, matchMode, createdAt, updatedAt)
-          VALUES (@id, @isDefault, @isEnabled, @category, @label, @description, @triggers, @action, @matchMode, @createdAt, @updatedAt)
-        `).run(record)
-      } else if (fallbackFileCommands) {
-        let commands: VoiceCommand[] = []
-        if (fs.existsSync(fallbackFileCommands)) {
-          try { commands = JSON.parse(fs.readFileSync(fallbackFileCommands, 'utf-8')) } catch { commands = [] }
-        }
-        if (!commands.some((c) => c.id === cmd.id)) {
-          commands.push(parseCommandRow(record))
-          fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands, null, 2), 'utf-8')
-        }
-      }
-    }
-  } catch (err) {
-    console.error('[DB] Erro ao semear comandos padrão:', err)
-  }
-}
-
-export function listCommands(): VoiceCommand[] {
+export function listCustomCommands(): VoiceCommand[] {
   try {
     if (dbInstance) {
-      const rows = dbInstance.prepare('SELECT * FROM commands').all()
-      return rows.map(parseCommandRow)
+      const rows = dbInstance.prepare('SELECT * FROM custom_commands ORDER BY datetime(created_at) ASC').all()
+      return rows.map(parseCustomCommandRow)
     }
     if (fallbackFileCommands && fs.existsSync(fallbackFileCommands)) {
       return JSON.parse(fs.readFileSync(fallbackFileCommands, 'utf-8'))
     }
   } catch (err) {
-    console.error('[DB] Erro ao listar comandos:', err)
+    console.error('[DB] Erro ao listar comandos personalizados:', err)
   }
   return []
 }
 
-export function saveCommand(cmd: VoiceCommand): void {
+export function saveCustomCommand(cmd: VoiceCommand): void {
   try {
-    const record = serializeCommand(cmd)
+    const record = {
+      id: cmd.id,
+      label: cmd.label,
+      description: cmd.description || '',
+      category: cmd.category || 'custom',
+      trigger_pt: JSON.stringify(cmd.triggers.pt || []),
+      trigger_en: JSON.stringify(cmd.triggers.en || []),
+      action_type: cmd.action.type,
+      action_param: JSON.stringify(cmd.action.parameter ?? ''),
+      match_mode: cmd.matchMode,
+      is_enabled: cmd.isEnabled ? 1 : 0,
+      created_at: cmd.createdAt || new Date().toISOString(),
+      updated_at: cmd.updatedAt || new Date().toISOString()
+    }
     if (dbInstance) {
       dbInstance.prepare(`
-        INSERT INTO commands (id, isDefault, isEnabled, category, label, description, triggers, action, matchMode, createdAt, updatedAt)
-        VALUES (@id, @isDefault, @isEnabled, @category, @label, @description, @triggers, @action, @matchMode, @createdAt, @updatedAt)
+        INSERT INTO custom_commands (id, label, description, category, trigger_pt, trigger_en, action_type, action_param, match_mode, is_enabled, created_at, updated_at)
+        VALUES (@id, @label, @description, @category, @trigger_pt, @trigger_en, @action_type, @action_param, @match_mode, @is_enabled, @created_at, @updated_at)
         ON CONFLICT(id) DO UPDATE SET
-          isDefault = excluded.isDefault,
-          isEnabled = excluded.isEnabled,
-          category = excluded.category,
           label = excluded.label,
           description = excluded.description,
-          triggers = excluded.triggers,
-          action = excluded.action,
-          matchMode = excluded.matchMode,
-          updatedAt = excluded.updatedAt
+          category = excluded.category,
+          trigger_pt = excluded.trigger_pt,
+          trigger_en = excluded.trigger_en,
+          action_type = excluded.action_type,
+          action_param = excluded.action_param,
+          match_mode = excluded.match_mode,
+          is_enabled = excluded.is_enabled,
+          updated_at = excluded.updated_at
       `).run(record)
       return
     }
@@ -928,20 +934,20 @@ export function saveCommand(cmd: VoiceCommand): void {
         try { commands = JSON.parse(fs.readFileSync(fallbackFileCommands, 'utf-8')) } catch { commands = [] }
       }
       const idx = commands.findIndex((c) => c.id === cmd.id)
-      const parsed = parseCommandRow(record)
+      const parsed = parseCustomCommandRow(record)
       if (idx >= 0) commands[idx] = parsed
       else commands.push(parsed)
       fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands, null, 2), 'utf-8')
     }
   } catch (err) {
-    console.error('[DB] Erro ao salvar comando:', err)
+    console.error('[DB] Erro ao salvar comando personalizado:', err)
   }
 }
 
-export function deleteCommand(id: string): void {
+export function deleteCustomCommand(id: string): void {
   try {
     if (dbInstance) {
-      dbInstance.prepare('DELETE FROM commands WHERE id = ?').run(id)
+      dbInstance.prepare('DELETE FROM custom_commands WHERE id = ?').run(id)
       return
     }
     if (fallbackFileCommands && fs.existsSync(fallbackFileCommands)) {
@@ -949,26 +955,48 @@ export function deleteCommand(id: string): void {
       fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands.filter((c: VoiceCommand) => c.id !== id), null, 2), 'utf-8')
     }
   } catch (err) {
-    console.error('[DB] Erro ao excluir comando:', err)
+    console.error('[DB] Erro ao excluir comando personalizado:', err)
   }
 }
 
-export function setCommandEnabled(id: string, enabled: boolean): void {
+export function listDefaultOverrides(): DefaultCommandOverride[] {
   try {
     if (dbInstance) {
-      dbInstance.prepare('UPDATE commands SET isEnabled = ? WHERE id = ?').run(enabled ? 1 : 0, id)
-      return
+      const rows = dbInstance.prepare('SELECT command_id, is_enabled, match_mode FROM default_command_overrides').all() as Array<{ command_id: string; is_enabled: number; match_mode: string | null }>
+      return rows.map((r) => ({ commandId: r.command_id, isEnabled: !!r.is_enabled, matchMode: r.match_mode === 'inline' ? 'inline' : 'isolated' }))
     }
-    if (fallbackFileCommands && fs.existsSync(fallbackFileCommands)) {
-      const commands = JSON.parse(fs.readFileSync(fallbackFileCommands, 'utf-8'))
-      const cmd = commands.find((c: VoiceCommand) => c.id === id)
-      if (cmd) {
-        cmd.isEnabled = enabled
-        fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands, null, 2), 'utf-8')
-      }
+    if (fallbackFileOverrides && fs.existsSync(fallbackFileOverrides)) {
+      return JSON.parse(fs.readFileSync(fallbackFileOverrides, 'utf-8'))
     }
   } catch (err) {
-    console.error('[DB] Erro ao alternar comando:', err)
+    console.error('[DB] Erro ao listar overrides:', err)
+  }
+  return []
+}
+
+export function setDefaultOverride(commandId: string, isEnabled: boolean, matchMode?: 'isolated' | 'inline'): void {
+  try {
+    if (dbInstance) {
+      dbInstance.prepare(`
+        INSERT INTO default_command_overrides (command_id, is_enabled, match_mode)
+        VALUES (?, ?, ?)
+        ON CONFLICT(command_id) DO UPDATE SET is_enabled = excluded.is_enabled, match_mode = excluded.match_mode
+      `).run(commandId, isEnabled ? 1 : 0, matchMode || null)
+      return
+    }
+    if (fallbackFileOverrides) {
+      let overrides: DefaultCommandOverride[] = []
+      if (fs.existsSync(fallbackFileOverrides)) {
+        try { overrides = JSON.parse(fs.readFileSync(fallbackFileOverrides, 'utf-8')) } catch { overrides = [] }
+      }
+      const idx = overrides.findIndex((o) => o.commandId === commandId)
+      const entry = { commandId, isEnabled, matchMode }
+      if (idx >= 0) overrides[idx] = entry
+      else overrides.push(entry)
+      fs.writeFileSync(fallbackFileOverrides, JSON.stringify(overrides, null, 2), 'utf-8')
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao definir override de comando:', err)
   }
 }
 
@@ -978,18 +1006,43 @@ function parseSnippetRow(row: any): UserSnippet {
   return {
     id: row.id,
     name: row.name || '',
-    triggerPt: row.triggerPt || '',
-    triggerEn: row.triggerEn || '',
+    triggerPt: row.trigger_pt || '',
+    triggerEn: row.trigger_en || '',
     content: row.content || '',
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }
+}
+
+export function seedSnippets(placeholders: Array<{ name: string; triggerPt: string; triggerEn: string }>): void {
+  try {
+    const now = new Date().toISOString()
+    for (const p of placeholders) {
+      if (dbInstance) {
+        dbInstance.prepare(`
+          INSERT OR IGNORE INTO snippets (id, name, trigger_pt, trigger_en, content, created_at, updated_at)
+          VALUES (?, ?, ?, ?, '', ?, ?)
+        `).run(crypto.randomUUID(), p.name, p.triggerPt, p.triggerEn, now, now)
+      } else if (fallbackFileSnippets) {
+        let snippets: UserSnippet[] = []
+        if (fs.existsSync(fallbackFileSnippets)) {
+          try { snippets = JSON.parse(fs.readFileSync(fallbackFileSnippets, 'utf-8')) } catch { snippets = [] }
+        }
+        if (!snippets.some((s) => s.name === p.name)) {
+          snippets.push({ id: crypto.randomUUID(), name: p.name, triggerPt: p.triggerPt, triggerEn: p.triggerEn, content: '', createdAt: now, updatedAt: now })
+          fs.writeFileSync(fallbackFileSnippets, JSON.stringify(snippets, null, 2), 'utf-8')
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao semear snippets:', err)
   }
 }
 
 export function listSnippets(): UserSnippet[] {
   try {
     if (dbInstance) {
-      const rows = dbInstance.prepare('SELECT * FROM snippets ORDER BY datetime(createdAt) ASC').all()
+      const rows = dbInstance.prepare('SELECT * FROM snippets ORDER BY datetime(created_at) ASC').all()
       return rows.map(parseSnippetRow)
     }
     if (fallbackFileSnippets && fs.existsSync(fallbackFileSnippets)) {
@@ -1006,22 +1059,22 @@ export function saveSnippet(snippet: UserSnippet): void {
     const record = {
       id: snippet.id,
       name: snippet.name,
-      triggerPt: snippet.triggerPt,
-      triggerEn: snippet.triggerEn,
+      trigger_pt: snippet.triggerPt,
+      trigger_en: snippet.triggerEn,
       content: snippet.content,
-      createdAt: snippet.createdAt || new Date().toISOString(),
-      updatedAt: snippet.updatedAt || new Date().toISOString()
+      created_at: snippet.createdAt || new Date().toISOString(),
+      updated_at: snippet.updatedAt || new Date().toISOString()
     }
     if (dbInstance) {
       dbInstance.prepare(`
-        INSERT INTO snippets (id, name, triggerPt, triggerEn, content, createdAt, updatedAt)
-        VALUES (@id, @name, @triggerPt, @triggerEn, @content, @createdAt, @updatedAt)
+        INSERT INTO snippets (id, name, trigger_pt, trigger_en, content, created_at, updated_at)
+        VALUES (@id, @name, @trigger_pt, @trigger_en, @content, @created_at, @updated_at)
         ON CONFLICT(id) DO UPDATE SET
           name = excluded.name,
-          triggerPt = excluded.triggerPt,
-          triggerEn = excluded.triggerEn,
+          trigger_pt = excluded.trigger_pt,
+          trigger_en = excluded.trigger_en,
           content = excluded.content,
-          updatedAt = excluded.updatedAt
+          updated_at = excluded.updated_at
       `).run(record)
       return
     }
@@ -1055,6 +1108,116 @@ export function deleteSnippet(id: string): void {
   }
 }
 
+// ================= Custom Templates =================
+
+function parseTemplateRow(row: any): DictationTemplate {
+  let voicePt: string[] = []
+  let voiceEn: string[] = []
+  try { voicePt = JSON.parse(row.voice_pt || '[]') } catch { /* ignore */ }
+  try { voiceEn = JSON.parse(row.voice_en || '[]') } catch { /* ignore */ }
+  return {
+    id: row.id,
+    isDefault: false,
+    isEnabled: !!row.is_enabled,
+    label: row.label_pt || row.label_en || '',
+    labelPt: row.label_pt || '',
+    labelEn: row.label_en || '',
+    description: row.description || '',
+    icon: row.icon || 'file-text',
+    category: row.category || 'custom',
+    systemPrompt: row.system_prompt || '',
+    voiceTriggerPt: Array.isArray(voicePt) ? voicePt : [],
+    voiceTriggerEn: Array.isArray(voiceEn) ? voiceEn : [],
+    outputPreview: row.output_preview || '',
+    supportsStreaming: false,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }
+}
+
+export function listCustomTemplates(): DictationTemplate[] {
+  try {
+    if (dbInstance) {
+      const rows = dbInstance.prepare('SELECT * FROM custom_templates ORDER BY datetime(created_at) ASC').all()
+      return rows.map(parseTemplateRow)
+    }
+    if (fallbackFileTemplates && fs.existsSync(fallbackFileTemplates)) {
+      return JSON.parse(fs.readFileSync(fallbackFileTemplates, 'utf-8'))
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao listar templates personalizados:', err)
+  }
+  return []
+}
+
+export function saveCustomTemplate(template: DictationTemplate): void {
+  try {
+    const record = {
+      id: template.id,
+      label_pt: template.labelPt || template.label,
+      label_en: template.labelEn || template.label,
+      description: template.description || '',
+      icon: template.icon || 'file-text',
+      category: template.category || 'custom',
+      system_prompt: template.systemPrompt || '',
+      voice_pt: JSON.stringify(template.voiceTriggerPt || []),
+      voice_en: JSON.stringify(template.voiceTriggerEn || []),
+      output_preview: template.outputPreview || '',
+      is_enabled: template.isEnabled ? 1 : 0,
+      created_at: template.createdAt || new Date().toISOString(),
+      updated_at: template.updatedAt || new Date().toISOString()
+    }
+    if (dbInstance) {
+      dbInstance.prepare(`
+        INSERT INTO custom_templates (id, label_pt, label_en, description, icon, category, system_prompt, voice_pt, voice_en, output_preview, is_enabled, created_at, updated_at)
+        VALUES (@id, @label_pt, @label_en, @description, @icon, @category, @system_prompt, @voice_pt, @voice_en, @output_preview, @is_enabled, @created_at, @updated_at)
+        ON CONFLICT(id) DO UPDATE SET
+          label_pt = excluded.label_pt,
+          label_en = excluded.label_en,
+          description = excluded.description,
+          icon = excluded.icon,
+          category = excluded.category,
+          system_prompt = excluded.system_prompt,
+          voice_pt = excluded.voice_pt,
+          voice_en = excluded.voice_en,
+          output_preview = excluded.output_preview,
+          is_enabled = excluded.is_enabled,
+          updated_at = excluded.updated_at
+      `).run(record)
+      return
+    }
+    if (fallbackFileTemplates) {
+      let templates: DictationTemplate[] = []
+      if (fs.existsSync(fallbackFileTemplates)) {
+        try { templates = JSON.parse(fs.readFileSync(fallbackFileTemplates, 'utf-8')) } catch { templates = [] }
+      }
+      const idx = templates.findIndex((t) => t.id === template.id)
+      const parsed = parseTemplateRow(record)
+      if (idx >= 0) templates[idx] = parsed
+      else templates.push(parsed)
+      fs.writeFileSync(fallbackFileTemplates, JSON.stringify(templates, null, 2), 'utf-8')
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao salvar template personalizado:', err)
+  }
+}
+
+export function deleteCustomTemplate(id: string): void {
+  try {
+    if (dbInstance) {
+      dbInstance.prepare('DELETE FROM custom_templates WHERE id = ?').run(id)
+      return
+    }
+    if (fallbackFileTemplates && fs.existsSync(fallbackFileTemplates)) {
+      const templates = JSON.parse(fs.readFileSync(fallbackFileTemplates, 'utf-8'))
+      fs.writeFileSync(fallbackFileTemplates, JSON.stringify(templates.filter((t: DictationTemplate) => t.id !== id), null, 2), 'utf-8')
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao excluir template personalizado:', err)
+  }
+}
+
+
 export default {
   initDatabase,
   getSetting,
@@ -1076,12 +1239,16 @@ export default {
   listVocabulary,
   removeVocabularyTerm,
   clearVocabulary,
-  seedCommands,
-  listCommands,
-  saveCommand,
-  deleteCommand,
-  setCommandEnabled,
+  listCustomCommands,
+  saveCustomCommand,
+  deleteCustomCommand,
+  listDefaultOverrides,
+  setDefaultOverride,
+  seedSnippets,
   listSnippets,
   saveSnippet,
-  deleteSnippet
+  deleteSnippet,
+  listCustomTemplates,
+  saveCustomTemplate,
+  deleteCustomTemplate
 }

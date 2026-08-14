@@ -7,12 +7,13 @@ import { transcribeAudio } from './modules/stt'
 import { correctTranscription } from './modules/corrector'
 import { injectText, WindowRef } from './modules/injector'
 
-import { initDatabase, getAllSettings, getSetting, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, listApiLogs, clearApiLogs, recordCorrections, addVocabularyTerm, listVocabulary, removeVocabularyTerm, clearVocabulary, seedCommands, listCommands, saveCommand, deleteCommand, setCommandEnabled, listSnippets, saveSnippet, deleteSnippet, Session } from './modules/db'
-import { parseCommandText } from './modules/commandParser'
-import { executeCommand } from './modules/commandExecutor'
-import { DEFAULT_COMMANDS, getEnabledCommands } from './modules/commandRegistry'
-import { getSnippets } from './modules/snippetManager'
-import type { ParseResult } from '../src/types/commands'
+import { initDatabase, getAllSettings, getSetting, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, listApiLogs, clearApiLogs, recordCorrections, addVocabularyTerm, listVocabulary, removeVocabularyTerm, clearVocabulary, seedSnippets, listSnippets, saveSnippet, deleteSnippet, Session } from './modules/db'
+import { CommandParser } from './modules/commandParser'
+import { commandExecutor } from './modules/commandExecutor'
+import { getEnabledCommands, getAllCommands, setEnabled, setMatchMode, addCustomCommand, updateCustomCommand, deleteCustomCommand } from './modules/commandRegistry'
+import * as snippetManager from './modules/snippetManager'
+import { templateManager } from './modules/templateManager'
+import type { ParseResult, VoiceCommand } from '../src/types/commands'
 import wakewordDetector from './modules/wakeword'
 import { resolveProvider, getModelsEndpoint, getAuthHeaders, PROVIDER_PRESETS } from './modules/providers'
 import { execFile } from 'child_process'
@@ -274,7 +275,19 @@ const APP_CONTEXT_RULES: { category: string; keywords: string[] }[] = [
   { category: 'a terminal or shell', keywords: ['terminal', 'cmd', 'powershell', 'iterm', 'konsole', 'bash', 'zsh', 'alacritty', 'kitty', 'windows terminal', 'wezterm'] }
 ]
 
+const PROFILE_CONTEXT: Record<string, string> = {
+  code: 'a code editor',
+  text: 'a text document',
+  email: 'an email message'
+}
+
+let activeProfile: string | null = null
+
 function buildContextHint(ref: WindowRef | null): string {
+  if (activeProfile && PROFILE_CONTEXT[activeProfile]) {
+    return PROFILE_CONTEXT[activeProfile]
+  }
+
   const candidates = [ref?.processName, ref?.title]
     .map((s) => (s || '').trim())
     .filter(Boolean)
@@ -293,33 +306,56 @@ function buildContextHint(ref: WindowRef | null): string {
   return `the "${name}" application`
 }
 
-let lastInjectedText = ''
+function handleChangeProfile(profile: string) {
+  activeProfile = profile
+  console.log('[Main] Perfil ativo alterado:', profile)
+}
+
+function applyActiveTemplate(id: string | null, by: 'ui' | 'voice' | 'profile' = 'ui') {
+  templateManager.setActiveTemplate(id)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('vox:template-changed', {
+      templateId: id,
+      activatedAt: new Date().toISOString(),
+      activatedBy: by
+    })
+  }
+}
+
+let lastSuccessfulTranscription = ''
 
 function handleVoxControl(action: string) {
   switch (action) {
     case 'stop':
       hideDock()
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('vox:stop-recording')
+      }
       break
     case 'cancel':
-      // handled by the caller (skip injection/session)
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('vox:cancel-recording')
+      }
       break
     case 'clear':
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('vox:transcript-result', '')
+        mainWindow.webContents.send('vox:clear-buffer')
       }
       break
-    case 'repeat':
-      if (lastInjectedText) {
-        void injectText(lastInjectedText, targetWindowRef || undefined)
-      }
+    case 'deactivate_template':
+      applyActiveTemplate(null, 'voice')
       break
     default:
-      console.warn('[Main] Ação vox_control desconhecida:', action)
+      if (action.startsWith('activate_template:')) {
+        applyActiveTemplate(action.split(':')[1], 'voice')
+      } else {
+        console.warn('[Main] Ação vox_control desconhecida:', action)
+      }
   }
 }
 
-async function processCommandSegments(parseResult: ParseResult): Promise<boolean> {
-  const snippets = getSnippets()
+async function processCommandSegments(parseResult: ParseResult, language: 'pt' | 'en'): Promise<boolean> {
+  const snippets = snippetManager.getAll()
   let cancelled = false
 
   for (const seg of parseResult.segments) {
@@ -330,17 +366,18 @@ async function processCommandSegments(parseResult: ParseResult): Promise<boolean
         cancelled = true
         break
       }
-      await executeCommand(seg.command, {
-        windowRef: targetWindowRef,
-        snippets,
-        onVoxControl: handleVoxControl
+      await commandExecutor.execute(seg.command, {
+        windowRef: targetWindowRef || {},
+        lastTranscription: lastSuccessfulTranscription,
+        language,
+        snippets
       })
     } else if (seg.type === 'content' && seg.contentText) {
-      const corrected = await correctTranscription(seg.contentText, buildContextHint(targetWindowRef))
+      const corrected = await correctTranscription(seg.contentText, buildContextHint(targetWindowRef), templateManager.getActiveTemplate())
       if (corrected) {
         recordCorrections(seg.contentText, corrected)
         await injectText(corrected, targetWindowRef || undefined)
-        lastInjectedText = corrected
+        lastSuccessfulTranscription = corrected
       }
     }
   }
@@ -356,12 +393,36 @@ async function processTranscriptionResult(buffer: Buffer): Promise<{ text: strin
   console.log('[Main] Transcrição bruta:', result.text)
 
   if (result.text && !result.text.startsWith('[Erro')) {
-    const language = getSetting('language', 'pt-BR')
-    const commands = getEnabledCommands()
-    const parseResult = parseCommandText(result.text, commands, language)
+    const inlineMode = getSetting('commandInlineMode', 'false') === 'true'
+    const parser = new CommandParser(getEnabledCommands(), inlineMode)
+    const appLang: 'pt' | 'en' = getSetting('language', 'pt-BR') === 'en' ? 'en' : 'pt'
+
+    // 1. Template voice activation (before command parsing)
+    let textToProcess = result.text
+    const activation = templateManager.resolveVoiceActivation(result.text, appLang)
+    if (activation) {
+      applyActiveTemplate(activation.templateId === 'none' ? null : activation.templateId, 'voice')
+      textToProcess = activation.remainingText
+      if (!textToProcess) {
+        result.text = ''
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('vox:transcript-result', '')
+          mainWindow.webContents.send('vox:transcription-done', {
+            rawText,
+            segments: [],
+            hadCommands: true
+          })
+        }
+        return result
+      }
+    }
+
+    // 2. Command parsing on the remaining text
+    const parseResult = parser.parse(textToProcess, 'auto')
+    const language: 'pt' | 'en' = parser.getDetectedLanguage()
 
     if (parseResult.hasCommands) {
-      const cancelled = await processCommandSegments(parseResult)
+      const cancelled = await processCommandSegments(parseResult, language)
 
       if (!cancelled && rawText) {
         const sessionData: Session = {
@@ -378,11 +439,16 @@ async function processTranscriptionResult(buffer: Buffer): Promise<{ text: strin
       result.text = ''
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('vox:transcript-result', '')
+        mainWindow.webContents.send('vox:transcription-done', {
+          rawText,
+          segments: parseResult.segments,
+          hadCommands: parseResult.hasCommands
+        })
       }
       return result
     }
 
-    result.text = await correctTranscription(result.text, buildContextHint(targetWindowRef))
+    result.text = await correctTranscription(textToProcess, buildContextHint(targetWindowRef), templateManager.getActiveTemplate())
     console.log('[Main] Transcrição corrigida:', result.text)
 
     if (rawText && result.text && rawText !== result.text) {
@@ -405,7 +471,7 @@ async function processTranscriptionResult(buffer: Buffer): Promise<{ text: strin
     if (!injectRes.success) {
       console.warn('[Main] Falha ao injetar texto:', injectRes.error)
     }
-    lastInjectedText = result.text
+    lastSuccessfulTranscription = result.text
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('vox:transcript-result', result.text)
     }
@@ -707,41 +773,98 @@ function setupIpcHandlers() {
   })
 
   // Voice Commands Handlers
-  ipcMain.handle('vox:list-commands', () => {
-    return listCommands()
+  ipcMain.handle('vox:get-commands', () => {
+    return getAllCommands()
   })
 
-  ipcMain.handle('vox:save-command', (_event: unknown, cmd: any) => {
-    if (cmd && typeof cmd === 'object' && cmd.id) {
-      saveCommand(cmd)
+  ipcMain.handle('vox:toggle-command', (_event: unknown, id: string, enabled: boolean) => {
+    if (typeof id === 'string') setEnabled(id, !!enabled)
+    return { success: true }
+  })
+
+  ipcMain.handle('vox:set-command-match-mode', (_event: unknown, id: string, mode: 'isolated' | 'inline') => {
+    if (typeof id === 'string' && (mode === 'isolated' || mode === 'inline')) {
+      setMatchMode(id, mode)
     }
     return { success: true }
   })
 
-  ipcMain.handle('vox:delete-command', (_event: unknown, id: string) => {
-    if (typeof id === 'string') deleteCommand(id)
+  ipcMain.handle('vox:add-custom-command', (_event: unknown, command: VoiceCommand) => {
+    if (command && typeof command === 'object') {
+      return addCustomCommand(command)
+    }
+    return null
+  })
+
+  ipcMain.handle('vox:update-custom-command', (_event: unknown, id: string, command: Partial<VoiceCommand>) => {
+    if (typeof id === 'string' && command && typeof command === 'object') {
+      updateCustomCommand(id, command)
+    }
     return { success: true }
   })
 
-  ipcMain.handle('vox:set-command-enabled', (_event: unknown, id: string, enabled: boolean) => {
-    if (typeof id === 'string') setCommandEnabled(id, !!enabled)
+  ipcMain.handle('vox:delete-custom-command', (_event: unknown, id: string) => {
+    if (typeof id === 'string') deleteCustomCommand(id)
+    return { success: true }
+  })
+
+  ipcMain.handle('vox:set-inline-mode', (_event: unknown, enabled: boolean) => {
+    setSetting('commandInlineMode', enabled ? 'true' : 'false')
     return { success: true }
   })
 
   // Snippets Handlers
-  ipcMain.handle('vox:list-snippets', () => {
-    return listSnippets()
+  ipcMain.handle('vox:get-snippets', () => {
+    return snippetManager.getAll()
   })
 
   ipcMain.handle('vox:save-snippet', (_event: unknown, snippet: any) => {
     if (snippet && typeof snippet === 'object' && snippet.id) {
-      saveSnippet(snippet)
+      snippetManager.save(snippet)
     }
     return { success: true }
   })
 
   ipcMain.handle('vox:delete-snippet', (_event: unknown, id: string) => {
-    if (typeof id === 'string') deleteSnippet(id)
+    if (typeof id === 'string') snippetManager.delete(id)
+    return { success: true }
+  })
+
+  // Templates Handlers
+  ipcMain.handle('vox:get-templates', () => {
+    return templateManager.getAllTemplates()
+  })
+
+  ipcMain.handle('vox:get-active-template', () => {
+    return templateManager.getActiveTemplate()
+  })
+
+  ipcMain.handle('vox:set-active-template', (_event: unknown, id: string | null) => {
+    applyActiveTemplate(typeof id === 'string' && id ? id : null, 'ui')
+    return { success: true }
+  })
+
+  ipcMain.handle('vox:set-template-enabled', (_event: unknown, id: string, enabled: boolean) => {
+    if (typeof id === 'string') templateManager.setTemplateEnabled(id, !!enabled)
+    return { success: true }
+  })
+
+  ipcMain.handle('vox:add-custom-template', (_event: unknown, template: any) => {
+    if (template && typeof template === 'object') {
+      return templateManager.addCustomTemplate(template)
+    }
+    return null
+  })
+
+  ipcMain.handle('vox:update-custom-template', (_event: unknown, id: string, updates: any) => {
+    if (typeof id === 'string' && updates && typeof updates === 'object') {
+      templateManager.updateCustomTemplate(id, updates)
+    }
+    return { success: true }
+  })
+
+  ipcMain.handle('vox:delete-custom-template', (_event: unknown, id: string) => {
+    if (typeof id === 'string') templateManager.deleteCustomTemplate(id)
     return { success: true }
   })
 }
@@ -852,13 +975,40 @@ function registerShortcuts() {
   register(clipboard, toggleClipboardHistory, 'clipboard')
 }
 
+function setupCommandExecutorEvents() {
+  commandExecutor.on('vox_control', (action: string) => {
+    handleVoxControl(action)
+  })
+  commandExecutor.on('change_profile', (profile: string) => {
+    handleChangeProfile(profile)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('vox:change-profile', profile)
+    }
+  })
+  commandExecutor.on('snippet_not_configured', (name: string) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('vox:snippet-not-configured', name)
+    }
+  })
+  commandExecutor.on('script_result', (result: unknown) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('vox:script-result', result)
+    }
+  })
+}
+
 app.whenReady().then(async () => {
   initDatabase()
-  seedCommands(DEFAULT_COMMANDS)
+  seedSnippets([
+    { name: 'signature', triggerPt: 'inserir assinatura', triggerEn: 'insert signature' },
+    { name: 'email_address', triggerPt: 'inserir email', triggerEn: 'insert email' },
+    { name: 'address', triggerPt: 'inserir endereço', triggerEn: 'insert address' }
+  ])
   createMainWindow()
   createDockWindow()
   createClipboardWindow()
   setupIpcHandlers()
+  setupCommandExecutorEvents()
 
   // Inicializa o módulo Wake Word
   const settings = getAllSettings()

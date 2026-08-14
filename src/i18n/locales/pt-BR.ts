@@ -47,6 +47,7 @@ const ptBR: TranslationKeys = {
     vocabularyEmpty: 'Nenhum termo adicionado ainda.',
     vocabularyClear: 'Limpar Tudo',
     commands: 'Comandos',
+    templates: 'Templates',
     privacy: 'Privacidade',
     privacyHint: 'Toda chamada de API feita pelo Vox é registrada localmente. Este relatório auditável mostra qual API foi chamada, quantos bytes de áudio ou texto foram enviados e para qual endpoint. Seus dados nunca saem do seu dispositivo, exceto para o provedor que você configurar.',
     privacyTotalCalls: 'Total de chamadas',
@@ -89,10 +90,19 @@ const ptBR: TranslationKeys = {
     description: 'Descrição',
     category: 'Categoria',
     matchMode: 'Modo de correspondência',
+    matchModeHint: 'Clique para alternar entre isolado e inline',
     triggersPt: 'Gatilhos (PT) — um por linha',
     triggersEn: 'Gatilhos (EN) — um por linha',
+    triggersPtShort: 'PT',
+    triggersEnShort: 'EN',
     action: 'Ação',
-    parameter: 'Parâmetro'
+    parameter: 'Parâmetro',
+    default: 'Comando integrado (não pode ser excluído)',
+    search: 'Buscar comandos...',
+    inlineMode: 'Modo Inline',
+    inlineModeHint: 'Quando ativado, comandos embutidos no texto ditado são reconhecidos e executados (ex.: "aprovado vírgula nova linha"). Desative se notar falsos positivos.',
+    defaultNotice: 'O Vox inclui {n} comandos integrados em português e inglês. Você pode desativar qualquer um deles ou adicionar seus próprios comandos abaixo.',
+    customEmptyHint: 'Nenhum comando personalizado ainda. Crie seus próprios atalhos de voz para abrir apps, inserir texto, executar scripts e muito mais.'
   },
   snippets: {
     title: 'Snippets',
@@ -102,7 +112,25 @@ const ptBR: TranslationKeys = {
     triggerPt: 'Gatilho (PT)',
     triggerEn: 'Gatilho (EN)',
     content: 'Conteúdo',
-    empty: 'Nenhum snippet.'
+    empty: 'Nenhum snippet.',
+    notConfigured: 'Não configurado'
+  },
+  templates: {
+    new: 'Novo Template',
+    edit: 'Editar Template',
+    hint: 'Templates adicionam instruções de formatação estrutural ao corretor. Ative um pela aba Vox Type, por voz ou por perfil de app.',
+    labelPt: 'Rótulo PT',
+    labelEn: 'Rótulo EN',
+    description: 'Descrição',
+    category: 'Categoria',
+    icon: 'Ícone',
+    systemPrompt: 'Prompt do Sistema',
+    systemPromptHint: 'Este prompt é anexado às instruções básicas de correção do Vox. Escreva regras no imperativo e referencie "o texto de entrada".',
+    charCount: '{n} caracteres',
+    voicePt: 'Gatilhos de voz (PT) — um por linha',
+    voiceEn: 'Gatilhos de voz (EN) — um por linha',
+    outputPreview: 'Prévia de saída',
+    default: 'Template integrado (somente leitura)'
   },
   common: {
     settings: 'Configurações'

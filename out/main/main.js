@@ -131,6 +131,8 @@ let fallbackFileCorrections = null;
 let fallbackFileVocabulary = null;
 let fallbackFileCommands = null;
 let fallbackFileSnippets = null;
+let fallbackFileOverrides = null;
+let fallbackFileTemplates = null;
 const stmtCache = /* @__PURE__ */ new Map();
 function encryptValue(plainText) {
   try {
@@ -184,6 +186,8 @@ function initDatabase() {
     fallbackFileVocabulary = path.join(userDataPath, "vox_vocabulary.json");
     fallbackFileCommands = path.join(userDataPath, "vox_commands.json");
     fallbackFileSnippets = path.join(userDataPath, "vox_snippets.json");
+    fallbackFileOverrides = path.join(userDataPath, "vox_command_overrides.json");
+    fallbackFileTemplates = path.join(userDataPath, "vox_templates.json");
     if (Database) {
       dbInstance = new Database(dbPath);
       dbInstance.exec(`
@@ -231,28 +235,51 @@ function initDatabase() {
           createdAt TEXT NOT NULL
         );
 
-        CREATE TABLE IF NOT EXISTS commands (
+        CREATE TABLE IF NOT EXISTS custom_commands (
           id          TEXT PRIMARY KEY,
-          isDefault   INTEGER DEFAULT 0,
-          isEnabled   INTEGER DEFAULT 1,
-          category    TEXT,
-          label       TEXT,
+          label       TEXT NOT NULL,
           description TEXT,
-          triggers    TEXT,
-          action      TEXT,
-          matchMode   TEXT,
-          createdAt   TEXT,
-          updatedAt   TEXT
+          category    TEXT DEFAULT 'custom',
+          trigger_pt  TEXT NOT NULL,
+          trigger_en  TEXT NOT NULL,
+          action_type TEXT NOT NULL,
+          action_param TEXT NOT NULL,
+          match_mode  TEXT DEFAULT 'isolated',
+          is_enabled  INTEGER DEFAULT 1,
+          created_at  TEXT NOT NULL,
+          updated_at  TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS default_command_overrides (
+          command_id TEXT PRIMARY KEY,
+          is_enabled INTEGER NOT NULL,
+          match_mode TEXT
         );
 
         CREATE TABLE IF NOT EXISTS snippets (
           id         TEXT PRIMARY KEY,
-          name       TEXT,
-          triggerPt  TEXT,
-          triggerEn  TEXT,
-          content    TEXT,
-          createdAt  TEXT,
-          updatedAt  TEXT
+          name       TEXT NOT NULL,
+          trigger_pt TEXT NOT NULL,
+          trigger_en TEXT NOT NULL,
+          content    TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS custom_templates (
+          id            TEXT PRIMARY KEY,
+          label_pt      TEXT NOT NULL,
+          label_en      TEXT NOT NULL,
+          description   TEXT,
+          icon          TEXT DEFAULT 'file-text',
+          category      TEXT DEFAULT 'custom',
+          system_prompt TEXT NOT NULL,
+          voice_pt      TEXT,
+          voice_en      TEXT,
+          output_preview TEXT,
+          is_enabled    INTEGER DEFAULT 1,
+          created_at    TEXT NOT NULL,
+          updated_at    TEXT NOT NULL
         );
       `);
       console.log("[DB] Banco de dados SQLite pronto em:", dbPath);
@@ -338,6 +365,8 @@ function getAllSettings() {
     shortcutToggle: "F10",
     shortcutPushToTalk: "F9",
     shortcutClipboard: "F11",
+    commandInlineMode: "false",
+    activeTemplateId: "",
     wakeWordEnabled: "true",
     wakeWordSensitivity: "0.5",
     language: systemLanguage,
@@ -820,106 +849,82 @@ function clearVocabulary() {
     console.error("[DB] Erro ao limpar vocabulário:", err);
   }
 }
-function serializeCommand(cmd) {
-  return {
-    id: cmd.id,
-    isDefault: cmd.isDefault ? 1 : 0,
-    isEnabled: cmd.isEnabled ? 1 : 0,
-    category: cmd.category,
-    label: cmd.label,
-    description: cmd.description,
-    triggers: JSON.stringify(cmd.triggers),
-    action: JSON.stringify(cmd.action),
-    matchMode: cmd.matchMode,
-    createdAt: cmd.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
-    updatedAt: cmd.updatedAt || (/* @__PURE__ */ new Date()).toISOString()
-  };
-}
-function parseCommandRow(row) {
-  let triggers = { pt: [], en: [] };
-  let action = { type: "keystroke", parameter: "" };
+function parseCustomCommandRow(row) {
+  let pt = [];
+  let en = [];
+  let param = "";
   try {
-    triggers = JSON.parse(row.triggers || '{"pt":[],"en":[]}');
+    pt = JSON.parse(row.trigger_pt || "[]");
   } catch {
   }
   try {
-    action = JSON.parse(row.action || "{}");
+    en = JSON.parse(row.trigger_en || "[]");
   } catch {
+  }
+  try {
+    param = JSON.parse(row.action_param || '""');
+  } catch {
+    param = row.action_param || "";
   }
   return {
     id: row.id,
-    isDefault: !!row.isDefault,
-    isEnabled: !!row.isEnabled,
+    isDefault: false,
+    isEnabled: !!row.is_enabled,
     category: row.category || "custom",
     label: row.label || "",
     description: row.description || "",
-    triggers,
-    action,
-    matchMode: row.matchMode === "inline" ? "inline" : "isolated",
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt
+    triggers: { pt: Array.isArray(pt) ? pt : [], en: Array.isArray(en) ? en : [] },
+    action: { type: row.action_type || "inject_text", parameter: param },
+    matchMode: row.match_mode === "inline" ? "inline" : "isolated",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
   };
 }
-function seedCommands(defaults) {
-  try {
-    const now = (/* @__PURE__ */ new Date()).toISOString();
-    for (const cmd of defaults) {
-      const record = serializeCommand({ ...cmd, createdAt: cmd.createdAt || now, updatedAt: cmd.updatedAt || now });
-      if (dbInstance) {
-        dbInstance.prepare(`
-          INSERT OR IGNORE INTO commands (id, isDefault, isEnabled, category, label, description, triggers, action, matchMode, createdAt, updatedAt)
-          VALUES (@id, @isDefault, @isEnabled, @category, @label, @description, @triggers, @action, @matchMode, @createdAt, @updatedAt)
-        `).run(record);
-      } else if (fallbackFileCommands) {
-        let commands = [];
-        if (fs.existsSync(fallbackFileCommands)) {
-          try {
-            commands = JSON.parse(fs.readFileSync(fallbackFileCommands, "utf-8"));
-          } catch {
-            commands = [];
-          }
-        }
-        if (!commands.some((c) => c.id === cmd.id)) {
-          commands.push(parseCommandRow(record));
-          fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands, null, 2), "utf-8");
-        }
-      }
-    }
-  } catch (err) {
-    console.error("[DB] Erro ao semear comandos padrão:", err);
-  }
-}
-function listCommands() {
+function listCustomCommands() {
   try {
     if (dbInstance) {
-      const rows = dbInstance.prepare("SELECT * FROM commands").all();
-      return rows.map(parseCommandRow);
+      const rows = dbInstance.prepare("SELECT * FROM custom_commands ORDER BY datetime(created_at) ASC").all();
+      return rows.map(parseCustomCommandRow);
     }
     if (fallbackFileCommands && fs.existsSync(fallbackFileCommands)) {
       return JSON.parse(fs.readFileSync(fallbackFileCommands, "utf-8"));
     }
   } catch (err) {
-    console.error("[DB] Erro ao listar comandos:", err);
+    console.error("[DB] Erro ao listar comandos personalizados:", err);
   }
   return [];
 }
-function saveCommand(cmd) {
+function saveCustomCommand(cmd) {
   try {
-    const record = serializeCommand(cmd);
+    const record = {
+      id: cmd.id,
+      label: cmd.label,
+      description: cmd.description || "",
+      category: cmd.category || "custom",
+      trigger_pt: JSON.stringify(cmd.triggers.pt || []),
+      trigger_en: JSON.stringify(cmd.triggers.en || []),
+      action_type: cmd.action.type,
+      action_param: JSON.stringify(cmd.action.parameter ?? ""),
+      match_mode: cmd.matchMode,
+      is_enabled: cmd.isEnabled ? 1 : 0,
+      created_at: cmd.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+      updated_at: cmd.updatedAt || (/* @__PURE__ */ new Date()).toISOString()
+    };
     if (dbInstance) {
       dbInstance.prepare(`
-        INSERT INTO commands (id, isDefault, isEnabled, category, label, description, triggers, action, matchMode, createdAt, updatedAt)
-        VALUES (@id, @isDefault, @isEnabled, @category, @label, @description, @triggers, @action, @matchMode, @createdAt, @updatedAt)
+        INSERT INTO custom_commands (id, label, description, category, trigger_pt, trigger_en, action_type, action_param, match_mode, is_enabled, created_at, updated_at)
+        VALUES (@id, @label, @description, @category, @trigger_pt, @trigger_en, @action_type, @action_param, @match_mode, @is_enabled, @created_at, @updated_at)
         ON CONFLICT(id) DO UPDATE SET
-          isDefault = excluded.isDefault,
-          isEnabled = excluded.isEnabled,
-          category = excluded.category,
           label = excluded.label,
           description = excluded.description,
-          triggers = excluded.triggers,
-          action = excluded.action,
-          matchMode = excluded.matchMode,
-          updatedAt = excluded.updatedAt
+          category = excluded.category,
+          trigger_pt = excluded.trigger_pt,
+          trigger_en = excluded.trigger_en,
+          action_type = excluded.action_type,
+          action_param = excluded.action_param,
+          match_mode = excluded.match_mode,
+          is_enabled = excluded.is_enabled,
+          updated_at = excluded.updated_at
       `).run(record);
       return;
     }
@@ -933,19 +938,19 @@ function saveCommand(cmd) {
         }
       }
       const idx = commands.findIndex((c) => c.id === cmd.id);
-      const parsed = parseCommandRow(record);
+      const parsed = parseCustomCommandRow(record);
       if (idx >= 0) commands[idx] = parsed;
       else commands.push(parsed);
       fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands, null, 2), "utf-8");
     }
   } catch (err) {
-    console.error("[DB] Erro ao salvar comando:", err);
+    console.error("[DB] Erro ao salvar comando personalizado:", err);
   }
 }
-function deleteCommand(id) {
+function deleteCustomCommand$1(id) {
   try {
     if (dbInstance) {
-      dbInstance.prepare("DELETE FROM commands WHERE id = ?").run(id);
+      dbInstance.prepare("DELETE FROM custom_commands WHERE id = ?").run(id);
       return;
     }
     if (fallbackFileCommands && fs.existsSync(fallbackFileCommands)) {
@@ -953,42 +958,95 @@ function deleteCommand(id) {
       fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands.filter((c) => c.id !== id), null, 2), "utf-8");
     }
   } catch (err) {
-    console.error("[DB] Erro ao excluir comando:", err);
+    console.error("[DB] Erro ao excluir comando personalizado:", err);
   }
 }
-function setCommandEnabled(id, enabled) {
+function listDefaultOverrides() {
   try {
     if (dbInstance) {
-      dbInstance.prepare("UPDATE commands SET isEnabled = ? WHERE id = ?").run(enabled ? 1 : 0, id);
-      return;
+      const rows = dbInstance.prepare("SELECT command_id, is_enabled, match_mode FROM default_command_overrides").all();
+      return rows.map((r) => ({ commandId: r.command_id, isEnabled: !!r.is_enabled, matchMode: r.match_mode === "inline" ? "inline" : "isolated" }));
     }
-    if (fallbackFileCommands && fs.existsSync(fallbackFileCommands)) {
-      const commands = JSON.parse(fs.readFileSync(fallbackFileCommands, "utf-8"));
-      const cmd = commands.find((c) => c.id === id);
-      if (cmd) {
-        cmd.isEnabled = enabled;
-        fs.writeFileSync(fallbackFileCommands, JSON.stringify(commands, null, 2), "utf-8");
-      }
+    if (fallbackFileOverrides && fs.existsSync(fallbackFileOverrides)) {
+      return JSON.parse(fs.readFileSync(fallbackFileOverrides, "utf-8"));
     }
   } catch (err) {
-    console.error("[DB] Erro ao alternar comando:", err);
+    console.error("[DB] Erro ao listar overrides:", err);
+  }
+  return [];
+}
+function setDefaultOverride(commandId, isEnabled, matchMode) {
+  try {
+    if (dbInstance) {
+      dbInstance.prepare(`
+        INSERT INTO default_command_overrides (command_id, is_enabled, match_mode)
+        VALUES (?, ?, ?)
+        ON CONFLICT(command_id) DO UPDATE SET is_enabled = excluded.is_enabled, match_mode = excluded.match_mode
+      `).run(commandId, isEnabled ? 1 : 0, matchMode || null);
+      return;
+    }
+    if (fallbackFileOverrides) {
+      let overrides = [];
+      if (fs.existsSync(fallbackFileOverrides)) {
+        try {
+          overrides = JSON.parse(fs.readFileSync(fallbackFileOverrides, "utf-8"));
+        } catch {
+          overrides = [];
+        }
+      }
+      const idx = overrides.findIndex((o) => o.commandId === commandId);
+      const entry = { commandId, isEnabled, matchMode };
+      if (idx >= 0) overrides[idx] = entry;
+      else overrides.push(entry);
+      fs.writeFileSync(fallbackFileOverrides, JSON.stringify(overrides, null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao definir override de comando:", err);
   }
 }
 function parseSnippetRow(row) {
   return {
     id: row.id,
     name: row.name || "",
-    triggerPt: row.triggerPt || "",
-    triggerEn: row.triggerEn || "",
+    triggerPt: row.trigger_pt || "",
+    triggerEn: row.trigger_en || "",
     content: row.content || "",
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
   };
+}
+function seedSnippets(placeholders) {
+  try {
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    for (const p of placeholders) {
+      if (dbInstance) {
+        dbInstance.prepare(`
+          INSERT OR IGNORE INTO snippets (id, name, trigger_pt, trigger_en, content, created_at, updated_at)
+          VALUES (?, ?, ?, ?, '', ?, ?)
+        `).run(crypto.randomUUID(), p.name, p.triggerPt, p.triggerEn, now, now);
+      } else if (fallbackFileSnippets) {
+        let snippets = [];
+        if (fs.existsSync(fallbackFileSnippets)) {
+          try {
+            snippets = JSON.parse(fs.readFileSync(fallbackFileSnippets, "utf-8"));
+          } catch {
+            snippets = [];
+          }
+        }
+        if (!snippets.some((s) => s.name === p.name)) {
+          snippets.push({ id: crypto.randomUUID(), name: p.name, triggerPt: p.triggerPt, triggerEn: p.triggerEn, content: "", createdAt: now, updatedAt: now });
+          fs.writeFileSync(fallbackFileSnippets, JSON.stringify(snippets, null, 2), "utf-8");
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao semear snippets:", err);
+  }
 }
 function listSnippets() {
   try {
     if (dbInstance) {
-      const rows = dbInstance.prepare("SELECT * FROM snippets ORDER BY datetime(createdAt) ASC").all();
+      const rows = dbInstance.prepare("SELECT * FROM snippets ORDER BY datetime(created_at) ASC").all();
       return rows.map(parseSnippetRow);
     }
     if (fallbackFileSnippets && fs.existsSync(fallbackFileSnippets)) {
@@ -1004,22 +1062,22 @@ function saveSnippet(snippet) {
     const record = {
       id: snippet.id,
       name: snippet.name,
-      triggerPt: snippet.triggerPt,
-      triggerEn: snippet.triggerEn,
+      trigger_pt: snippet.triggerPt,
+      trigger_en: snippet.triggerEn,
       content: snippet.content,
-      createdAt: snippet.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
-      updatedAt: snippet.updatedAt || (/* @__PURE__ */ new Date()).toISOString()
+      created_at: snippet.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+      updated_at: snippet.updatedAt || (/* @__PURE__ */ new Date()).toISOString()
     };
     if (dbInstance) {
       dbInstance.prepare(`
-        INSERT INTO snippets (id, name, triggerPt, triggerEn, content, createdAt, updatedAt)
-        VALUES (@id, @name, @triggerPt, @triggerEn, @content, @createdAt, @updatedAt)
+        INSERT INTO snippets (id, name, trigger_pt, trigger_en, content, created_at, updated_at)
+        VALUES (@id, @name, @trigger_pt, @trigger_en, @content, @created_at, @updated_at)
         ON CONFLICT(id) DO UPDATE SET
           name = excluded.name,
-          triggerPt = excluded.triggerPt,
-          triggerEn = excluded.triggerEn,
+          trigger_pt = excluded.trigger_pt,
+          trigger_en = excluded.trigger_en,
           content = excluded.content,
-          updatedAt = excluded.updatedAt
+          updated_at = excluded.updated_at
       `).run(record);
       return;
     }
@@ -1053,6 +1111,119 @@ function deleteSnippet(id) {
     }
   } catch (err) {
     console.error("[DB] Erro ao excluir snippet:", err);
+  }
+}
+function parseTemplateRow(row) {
+  let voicePt = [];
+  let voiceEn = [];
+  try {
+    voicePt = JSON.parse(row.voice_pt || "[]");
+  } catch {
+  }
+  try {
+    voiceEn = JSON.parse(row.voice_en || "[]");
+  } catch {
+  }
+  return {
+    id: row.id,
+    isDefault: false,
+    isEnabled: !!row.is_enabled,
+    label: row.label_pt || row.label_en || "",
+    labelPt: row.label_pt || "",
+    labelEn: row.label_en || "",
+    description: row.description || "",
+    icon: row.icon || "file-text",
+    category: row.category || "custom",
+    systemPrompt: row.system_prompt || "",
+    voiceTriggerPt: Array.isArray(voicePt) ? voicePt : [],
+    voiceTriggerEn: Array.isArray(voiceEn) ? voiceEn : [],
+    outputPreview: row.output_preview || "",
+    supportsStreaming: false,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+function listCustomTemplates() {
+  try {
+    if (dbInstance) {
+      const rows = dbInstance.prepare("SELECT * FROM custom_templates ORDER BY datetime(created_at) ASC").all();
+      return rows.map(parseTemplateRow);
+    }
+    if (fallbackFileTemplates && fs.existsSync(fallbackFileTemplates)) {
+      return JSON.parse(fs.readFileSync(fallbackFileTemplates, "utf-8"));
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao listar templates personalizados:", err);
+  }
+  return [];
+}
+function saveCustomTemplate(template) {
+  try {
+    const record = {
+      id: template.id,
+      label_pt: template.labelPt || template.label,
+      label_en: template.labelEn || template.label,
+      description: template.description || "",
+      icon: template.icon || "file-text",
+      category: template.category || "custom",
+      system_prompt: template.systemPrompt || "",
+      voice_pt: JSON.stringify(template.voiceTriggerPt || []),
+      voice_en: JSON.stringify(template.voiceTriggerEn || []),
+      output_preview: template.outputPreview || "",
+      is_enabled: template.isEnabled ? 1 : 0,
+      created_at: template.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+      updated_at: template.updatedAt || (/* @__PURE__ */ new Date()).toISOString()
+    };
+    if (dbInstance) {
+      dbInstance.prepare(`
+        INSERT INTO custom_templates (id, label_pt, label_en, description, icon, category, system_prompt, voice_pt, voice_en, output_preview, is_enabled, created_at, updated_at)
+        VALUES (@id, @label_pt, @label_en, @description, @icon, @category, @system_prompt, @voice_pt, @voice_en, @output_preview, @is_enabled, @created_at, @updated_at)
+        ON CONFLICT(id) DO UPDATE SET
+          label_pt = excluded.label_pt,
+          label_en = excluded.label_en,
+          description = excluded.description,
+          icon = excluded.icon,
+          category = excluded.category,
+          system_prompt = excluded.system_prompt,
+          voice_pt = excluded.voice_pt,
+          voice_en = excluded.voice_en,
+          output_preview = excluded.output_preview,
+          is_enabled = excluded.is_enabled,
+          updated_at = excluded.updated_at
+      `).run(record);
+      return;
+    }
+    if (fallbackFileTemplates) {
+      let templates = [];
+      if (fs.existsSync(fallbackFileTemplates)) {
+        try {
+          templates = JSON.parse(fs.readFileSync(fallbackFileTemplates, "utf-8"));
+        } catch {
+          templates = [];
+        }
+      }
+      const idx = templates.findIndex((t) => t.id === template.id);
+      const parsed = parseTemplateRow(record);
+      if (idx >= 0) templates[idx] = parsed;
+      else templates.push(parsed);
+      fs.writeFileSync(fallbackFileTemplates, JSON.stringify(templates, null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao salvar template personalizado:", err);
+  }
+}
+function deleteCustomTemplate(id) {
+  try {
+    if (dbInstance) {
+      dbInstance.prepare("DELETE FROM custom_templates WHERE id = ?").run(id);
+      return;
+    }
+    if (fallbackFileTemplates && fs.existsSync(fallbackFileTemplates)) {
+      const templates = JSON.parse(fs.readFileSync(fallbackFileTemplates, "utf-8"));
+      fs.writeFileSync(fallbackFileTemplates, JSON.stringify(templates.filter((t) => t.id !== id), null, 2), "utf-8");
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao excluir template personalizado:", err);
   }
 }
 const PROVIDER_PRESETS = [
@@ -1195,6 +1366,473 @@ async function transcribeAudio(audioBuffer, language) {
     };
   }
 }
+const DEFAULT_TEMPLATES = [
+  {
+    id: "none",
+    isDefault: true,
+    isEnabled: true,
+    label: "✦ Livre / Free",
+    labelPt: "Ditado Livre",
+    labelEn: "Free Dictation",
+    description: "Standard dictation with punctuation and grammar correction only",
+    icon: "mic",
+    voiceTriggerPt: [],
+    voiceTriggerEn: [],
+    systemPrompt: null,
+    outputPreview: "",
+    supportsStreaming: true,
+    category: "document"
+  },
+  {
+    id: "email_formal",
+    isDefault: true,
+    isEnabled: true,
+    label: "Email Formal",
+    labelPt: "Email Formal",
+    labelEn: "Formal Email",
+    description: "Formats dictated text as a complete formal email with greeting, body paragraphs, and closing",
+    icon: "mail",
+    voiceTriggerPt: ["ativar email formal", "modo email formal", "template email formal"],
+    voiceTriggerEn: ["activate formal email", "formal email mode", "formal email template"],
+    category: "communication",
+    supportsStreaming: false,
+    systemPrompt: `You are a professional email formatter. The user has dictated an email verbally. Your task is to transform the raw transcription into a properly formatted formal email in the SAME LANGUAGE as the input text.
+
+Rules:
+- Identify and preserve: recipient name (if mentioned), subject (if mentioned), sender name (if mentioned at the end)
+- Structure the output as:
+    Subject: [subject line if mentioned, otherwise infer from content]
+
+    [Formal greeting], [recipient name or "Dear Sir/Madam"],
+
+    [Body: organized into paragraphs. Each new topic or sentence group becomes its own paragraph. Formal tone throughout.]
+
+    [Formal closing: "Sincerely," / "Atenciosamente," or similar],
+    [Sender name if mentioned, otherwise leave blank]
+
+- Fix all punctuation, capitalization, and grammar
+- Do NOT add information not present in the dictation
+- Do NOT translate — output in the same language as the input
+- If the dictation is incomplete (only body, no greeting), format only what was provided without inventing missing parts`,
+    outputPreview: `Subject: Project Update — Q3 Report
+
+Dear Mr. Santos,
+
+I hope this message finds you well. I am writing to inform you that the Q3 report has been completed and is ready for your review.
+
+Sincerely,`
+  },
+  {
+    id: "message_casual",
+    isDefault: true,
+    isEnabled: true,
+    label: "Mensagem Casual",
+    labelPt: "Mensagem Casual",
+    labelEn: "Casual Message",
+    description: "Formats text as a conversational message, preserving informal tone",
+    icon: "message-circle",
+    voiceTriggerPt: ["mensagem casual", "modo casual", "template mensagem"],
+    voiceTriggerEn: ["casual message", "casual mode", "message template"],
+    category: "communication",
+    supportsStreaming: true,
+    systemPrompt: `You are formatting a casual spoken message into written text.
+Rules:
+- Fix punctuation and capitalization minimally — preserve conversational tone
+- Keep contractions, informal language, and the speaker's natural voice
+- Break into short paragraphs if the message is long
+- Do NOT make it formal. Do NOT restructure sentences.
+- Output in the same language as the input`,
+    outputPreview: ""
+  },
+  {
+    id: "bullet_points",
+    isDefault: true,
+    isEnabled: true,
+    label: "Tópicos",
+    labelPt: "Tópicos (Bullet Points)",
+    labelEn: "Bullet Points",
+    description: "Converts dictated text into a structured bullet point list",
+    icon: "list",
+    voiceTriggerPt: ["ativar tópicos", "modo tópicos", "bullet points", "lista de tópicos"],
+    voiceTriggerEn: ["bullet points", "bullet mode", "list mode", "activate bullets"],
+    category: "list",
+    supportsStreaming: false,
+    systemPrompt: `You are converting spoken dictation into a structured bullet point list.
+Rules:
+- Each distinct idea, item, or sentence group becomes one bullet point
+- Use "• " as the bullet character
+- Sub-points (when the speaker elaborates on a point) use "  ◦ " (2 spaces + ◦)
+- Fix grammar and punctuation within each bullet
+- Remove filler words ("um", "uh", "like", "então", "tipo")
+- Keep each bullet concise — if a bullet is very long, split it
+- Do NOT add a title or header unless the user explicitly mentioned one
+- Output in the same language as the input
+- Example output format:
+  • Main point one
+  • Main point two
+    ◦ Sub-point elaborating on point two
+  • Main point three`,
+    outputPreview: `• Project deadline has been moved to the end of the month
+• Team needs to complete the API integration before Thursday
+  ◦ Backend endpoints must be documented
+  ◦ Frontend tests need to pass
+• Client presentation scheduled for Friday at 3 PM`
+  },
+  {
+    id: "numbered_list",
+    isDefault: true,
+    isEnabled: true,
+    label: "Lista Numerada",
+    labelPt: "Lista Numerada",
+    labelEn: "Numbered List",
+    description: "Converts dictated text into a numbered ordered list",
+    icon: "list-ordered",
+    voiceTriggerPt: ["lista numerada", "modo lista numerada", "lista ordenada"],
+    voiceTriggerEn: ["numbered list", "ordered list", "numbered mode"],
+    category: "list",
+    supportsStreaming: false,
+    systemPrompt: `You are converting spoken dictation into a numbered ordered list.
+Rules:
+- Each distinct step, item, or idea becomes one numbered item
+- Format: "1. ", "2. ", "3. " etc.
+- Fix grammar and punctuation within each item
+- Remove filler words
+- Keep items parallel in structure when possible
+- Output in the same language as the input`,
+    outputPreview: ""
+  },
+  {
+    id: "checklist",
+    isDefault: true,
+    isEnabled: true,
+    label: "Checklist",
+    labelPt: "Lista de Tarefas (Checklist)",
+    labelEn: "Checklist",
+    description: "Converts dictated items into a markdown checklist",
+    icon: "check-square",
+    voiceTriggerPt: ["checklist", "lista de tarefas", "modo checklist"],
+    voiceTriggerEn: ["checklist", "task list", "todo list", "checklist mode"],
+    category: "list",
+    supportsStreaming: false,
+    systemPrompt: `You are converting spoken dictation into a markdown checklist.
+Rules:
+- Each item becomes: "- [ ] Item text"
+- Fix grammar and punctuation within each item
+- Remove filler words
+- Output in the same language as the input`,
+    outputPreview: ""
+  },
+  {
+    id: "meeting_notes",
+    isDefault: true,
+    isEnabled: true,
+    label: "Notas de Reunião",
+    labelPt: "Notas de Reunião",
+    labelEn: "Meeting Notes",
+    description: "Structures dictated content as organized meeting notes with participants, topics, decisions, and action items",
+    icon: "users",
+    voiceTriggerPt: ["notas de reunião", "modo reunião", "ata de reunião"],
+    voiceTriggerEn: ["meeting notes", "meeting mode", "minutes mode"],
+    category: "meeting",
+    supportsStreaming: false,
+    systemPrompt: `You are formatting spoken dictation into structured meeting notes.
+Analyze the content and extract/organize into these sections (only include sections that have relevant content):
+
+## Meeting Notes
+**Date:** [today's date if not mentioned]
+
+### Participants
+[List any names mentioned as being present]
+
+### Topics Discussed
+[Main subjects covered, as bullet points]
+
+### Decisions Made
+[Any conclusions or decisions reached, as bullet points]
+
+### Action Items
+[Tasks assigned, format: "• [Person] — [task] — [deadline if mentioned]"]
+
+### Next Steps
+[Any follow-up meetings or deadlines mentioned]
+
+Rules:
+- Output in the same language as the input
+- If a section has no content, omit it entirely
+- Fix grammar and punctuation throughout
+- Remove filler words and verbal artifacts
+- Infer structure from context — the speaker may not announce each section`,
+    outputPreview: ""
+  },
+  {
+    id: "code_comment",
+    isDefault: true,
+    isEnabled: true,
+    label: "Comentário de Código",
+    labelPt: "Comentário de Código",
+    labelEn: "Code Comment",
+    description: "Formats dictated text as a clean inline or block code comment",
+    icon: "code",
+    voiceTriggerPt: ["comentário de código", "modo comentário", "template código"],
+    voiceTriggerEn: ["code comment", "comment mode", "code template"],
+    category: "code",
+    supportsStreaming: true,
+    systemPrompt: `You are formatting spoken dictation into a code comment.
+Rules:
+- Output ONLY the comment text, no code
+- Use clear, technical English regardless of input language (code comments are typically in English — apply this rule unless the user explicitly says "em português" or "in Portuguese")
+- Remove all filler words and verbal artifacts completely
+- Be concise and precise — eliminate redundancy
+- If the dictation describes a function/method: format as a JSDoc-style comment:
+    /**
+     * [Brief description]
+     * @param [name] - [description] (if params mentioned)
+     * @returns [description] (if return mentioned)
+     */
+- If the dictation is a short inline comment: output a single line comment:
+    // [concise description]
+- If the dictation describes a TODO or fix:
+    // TODO: [description]
+    // FIXME: [description]
+- Do not add // or /* */ automatically — output only the comment content so the user can paste it in the appropriate context`,
+    outputPreview: ""
+  },
+  {
+    id: "git_commit",
+    isDefault: true,
+    isEnabled: true,
+    label: "Mensagem de Commit",
+    labelPt: "Mensagem de Commit",
+    labelEn: "Git Commit Message",
+    description: "Formats dictated text as a conventional git commit message",
+    icon: "git-commit",
+    voiceTriggerPt: ["mensagem de commit", "modo commit", "template commit"],
+    voiceTriggerEn: ["commit message", "commit mode", "git commit"],
+    category: "code",
+    supportsStreaming: false,
+    systemPrompt: `You are formatting spoken dictation into a git commit message following the Conventional Commits specification.
+
+Output format:
+  <type>(<scope>): <short description>
+
+  [optional body: more detailed explanation if the user provided one]
+
+  [optional footer: breaking changes or issue references if mentioned]
+
+Types: feat, fix, docs, style, refactor, test, chore, perf, ci, build
+Scope: infer from context if mentioned (e.g. "auth", "api", "ui")
+
+Rules:
+- First line: maximum 72 characters
+- Type and scope in lowercase English always, regardless of input language
+- Description: imperative mood, lowercase, no period at end
+- If user describes multiple changes, use the most significant as the type and list others in the body
+- Remove all filler words
+- Examples:
+    feat(auth): add OAuth2 login with Google
+    fix(recorder): prevent memory leak on recording stop
+    docs: update README with installation instructions`,
+    outputPreview: ""
+  },
+  {
+    id: "technical_report",
+    isDefault: true,
+    isEnabled: true,
+    label: "Relatório Técnico",
+    labelPt: "Relatório Técnico",
+    labelEn: "Technical Report",
+    description: "Structures dictated content as a formal technical report with sections and professional language",
+    icon: "file-text",
+    voiceTriggerPt: ["relatório técnico", "modo relatório", "template relatório"],
+    voiceTriggerEn: ["technical report", "report mode", "report template"],
+    category: "document",
+    supportsStreaming: false,
+    systemPrompt: `You are formatting spoken dictation into a structured technical report.
+
+Structure (include only sections with content):
+  # [Title — infer from context or omit if unclear]
+
+  ## Introduction / Introdução
+  [Context and purpose]
+
+  ## Findings / Resultados
+  [Main content, findings, or analysis]
+
+  ## Recommendations / Recomendações
+  [Action items or suggestions mentioned]
+
+  ## Conclusion / Conclusão
+  [Summary or closing remarks]
+
+Rules:
+- Output in the same language as the input
+- Use formal, professional language throughout
+- Fix all grammar and punctuation
+- Remove all filler words and verbal artifacts
+- Organize content logically even if the speaker was not perfectly organized`,
+    outputPreview: ""
+  },
+  {
+    id: "brain_dump",
+    isDefault: true,
+    isEnabled: true,
+    label: "Captura Livre",
+    labelPt: "Captura Livre (Brain Dump)",
+    labelEn: "Brain Dump",
+    description: "Captures raw thoughts with light cleanup, preserving the natural flow without imposing structure",
+    icon: "brain",
+    voiceTriggerPt: ["captura livre", "brain dump", "modo livre", "despejo mental"],
+    voiceTriggerEn: ["brain dump", "free capture", "raw capture", "stream of thought"],
+    category: "document",
+    supportsStreaming: true,
+    systemPrompt: `You are lightly cleaning up a stream-of-consciousness voice dictation.
+Rules:
+- Fix punctuation and capitalization only
+- Remove filler words ("um", "uh", "então", "tipo", "like", "you know")
+- Preserve the natural, informal flow and structure of thought
+- Do NOT reorganize, summarize, or impose structure
+- Do NOT change vocabulary or sentence structure
+- Keep it as close to the original as possible while being readable
+- Output in the same language as the input`,
+    outputPreview: ""
+  }
+];
+const DEACTIVATION_PHRASES = {
+  pt: ["ditado livre", "sem template", "modo padrão", "remover template", "desativar template"],
+  en: ["free dictation", "no template", "default mode", "remove template", "deactivate template"]
+};
+const MAX_PROMPT_CHARS = 8e3;
+class TemplateManager {
+  getDisabledIds() {
+    try {
+      const raw = getSetting("disabledTemplateIds", "[]").trim();
+      const parsed = JSON.parse(raw || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  setDisabledIds(ids) {
+    setSetting("disabledTemplateIds", JSON.stringify(ids));
+  }
+  getAllTemplates() {
+    const disabled = new Set(this.getDisabledIds());
+    const defaults = DEFAULT_TEMPLATES.map((t) => ({ ...t, isEnabled: !disabled.has(t.id) }));
+    return [...defaults, ...listCustomTemplates()];
+  }
+  setTemplateEnabled(id, enabled) {
+    const template = this.getTemplate(id);
+    if (!template) return;
+    if (template.isDefault) {
+      const disabled = this.getDisabledIds();
+      const next = enabled ? disabled.filter((d) => d !== id) : [.../* @__PURE__ */ new Set([...disabled, id])];
+      this.setDisabledIds(next);
+    } else {
+      saveCustomTemplate({ ...template, isEnabled: enabled });
+    }
+  }
+  getEnabledTemplates() {
+    return this.getAllTemplates().filter((t) => t.isEnabled);
+  }
+  getTemplate(id) {
+    return this.getAllTemplates().find((t) => t.id === id) || null;
+  }
+  getActiveTemplate() {
+    const id = getSetting("activeTemplateId", "").trim();
+    if (!id || id === "none") return null;
+    const template = this.getTemplate(id);
+    if (!template) {
+      this.setActiveTemplate(null);
+      return null;
+    }
+    return template;
+  }
+  setActiveTemplate(id) {
+    setSetting("activeTemplateId", id || "");
+  }
+  addCustomTemplate(template) {
+    const full = {
+      id: template.id || crypto.randomUUID(),
+      isDefault: false,
+      isEnabled: template.isEnabled ?? true,
+      label: template.labelPt || template.labelEn || template.label || "Template",
+      labelPt: template.labelPt || "",
+      labelEn: template.labelEn || "",
+      description: template.description || "",
+      icon: template.icon || "file-text",
+      category: template.category || "custom",
+      systemPrompt: template.systemPrompt || "",
+      voiceTriggerPt: template.voiceTriggerPt || [],
+      voiceTriggerEn: template.voiceTriggerEn || [],
+      outputPreview: template.outputPreview || "",
+      supportsStreaming: false,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    saveCustomTemplate(full);
+    return full;
+  }
+  updateCustomTemplate(id, updates) {
+    const existing = listCustomTemplates().find((t) => t.id === id);
+    if (!existing) return;
+    saveCustomTemplate({ ...existing, ...updates, id, isDefault: false, updatedAt: (/* @__PURE__ */ new Date()).toISOString() });
+  }
+  deleteCustomTemplate(id) {
+    deleteCustomTemplate(id);
+    if (getSetting("activeTemplateId", "").trim() === id) {
+      this.setActiveTemplate(null);
+    }
+  }
+  buildCorrectorPrompt(basePrompt, template) {
+    if (!template || !template.systemPrompt) return basePrompt;
+    const combined = `${basePrompt}
+
+---
+ADDITIONAL FORMATTING INSTRUCTIONS:
+${template.systemPrompt}`;
+    if (combined.length <= MAX_PROMPT_CHARS) return combined;
+    const maxTemplate = MAX_PROMPT_CHARS - basePrompt.length - 60;
+    return `${basePrompt}
+
+---
+ADDITIONAL FORMATTING INSTRUCTIONS:
+${template.systemPrompt.slice(0, Math.max(0, maxTemplate))}`;
+  }
+  resolveVoiceActivation(text, language) {
+    const normalized = text.toLowerCase().replace(/\s+/g, " ").trim();
+    if (!normalized) return null;
+    const allDeactivation = [...DEACTIVATION_PHRASES.pt, ...DEACTIVATION_PHRASES.en];
+    for (const phrase of allDeactivation) {
+      const idx = this.findPhraseIndex(normalized, phrase);
+      if (idx >= 0) {
+        return { templateId: "none", remainingText: this.removeAt(normalized, idx, phrase) };
+      }
+    }
+    for (const t of this.getEnabledTemplates()) {
+      for (const phrase of [...t.voiceTriggerPt, ...t.voiceTriggerEn]) {
+        const idx = this.findPhraseIndex(normalized, phrase);
+        if (idx >= 0) {
+          return { templateId: t.id, remainingText: this.removeAt(normalized, idx, phrase) };
+        }
+      }
+    }
+    return null;
+  }
+  findPhraseIndex(normalized, phrase) {
+    const p = phrase.toLowerCase().trim();
+    if (!p) return -1;
+    const idx = normalized.indexOf(p);
+    if (idx < 0) return -1;
+    const before = idx === 0 ? " " : normalized[idx - 1];
+    const after = idx + p.length >= normalized.length ? " " : normalized[idx + p.length];
+    if (/[a-z0-9áéíóúâêôãõçà-ÿ]/.test(before) || /[a-z0-9áéíóúâêôãõçà-ÿ]/.test(after)) return -1;
+    return idx;
+  }
+  removeAt(normalized, idx, phrase) {
+    return (normalized.slice(0, idx) + " " + normalized.slice(idx + phrase.length)).replace(/\s+/g, " ").trim();
+  }
+}
+const templateManager = new TemplateManager();
 const DEFAULT_LLM_MODEL = "llama-3.1-8b-instant";
 const CALIBRATION_SESSIONS = 25;
 function buildDictionaryLine() {
@@ -1210,7 +1848,7 @@ function buildVocabularyLine() {
   const items = terms.map((t) => `"${t}"`).join(", ");
   return ` Vocabulário pessoal do usuário (nomes próprios, siglas e termos técnicos que devem ser reconhecidos e mantidos exatamente como escritos): ${items}.`;
 }
-async function correctTranscription(text, context) {
+async function correctTranscription(text, context, template) {
   if (!text || text.trim().length === 0) return text;
   const provider = resolveProvider();
   if (provider.requiresApiKey && !provider.apiKey) {
@@ -1223,12 +1861,14 @@ async function correctTranscription(text, context) {
   const contextLine = context ? ` Contexto do ditado: o usuário está digitando em ${context}. Ajuste a formatação de acordo (ex.: código, e-mail, documento, chat).` : "";
   const dictionaryLine = buildDictionaryLine();
   const vocabularyLine = buildVocabularyLine();
+  const basePrompt = `Você é um revisor de transcrições de áudio. Sua ÚNICA função é ajustar pontuação, maiúsculas e ortografia do texto recebido.${contextLine}${vocabularyLine}${dictionaryLine} MANTENHA RIGOROSAMENTE O IDIOMA ORIGINAL DO TEXTO (se o texto estiver em inglês, mantenha em inglês; se estiver em português, mantenha em português). É ESTRITAMENTE PROIBIDO TRADUZIR O TEXTO. Retorne APENAS o texto revisado, sem apresentações ou explicações.`;
+  const systemPrompt = templateManager.buildCorrectorPrompt(basePrompt, template ?? null);
   try {
     const body = {
       messages: [
         {
           role: "system",
-          content: `Você é um revisor de transcrições de áudio. Sua ÚNICA função é ajustar pontuação, maiúsculas e ortografia do texto recebido.${contextLine}${vocabularyLine}${dictionaryLine} MANTENHA RIGOROSAMENTE O IDIOMA ORIGINAL DO TEXTO (se o texto estiver em inglês, mantenha em inglês; se estiver em português, mantenha em português). É ESTRITAMENTE PROIBIDO TRADUZIR O TEXTO. Retorne APENAS o texto revisado, sem apresentações ou explicações.`
+          content: systemPrompt
         },
         {
           role: "user",
@@ -1274,7 +1914,7 @@ async function correctTranscription(text, context) {
     return text;
   }
 }
-const { clipboard } = require("electron");
+const { clipboard: clipboard$1 } = require("electron");
 async function injectText(text, windowRef, _delayMs = 150, legacyHwnd) {
   if (!text || text.trim().length === 0) {
     return { success: false, method: "none", error: "Texto vazio" };
@@ -1288,7 +1928,7 @@ async function injectText(text, windowRef, _delayMs = 150, legacyHwnd) {
     ref = { hwnd: legacyHwnd };
   }
   console.log(`[Injector] Injetando texto no cursor ativo (${text.length} chars)...`);
-  clipboard.writeText(text);
+  clipboard$1.writeText(text);
   await new Promise((resolve) => setTimeout(resolve, 150));
   const targetHwnd = ref.hwnd;
   const psCommand = targetHwnd && targetHwnd !== "0" && targetHwnd !== "null" ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${targetHwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait('^v')` : `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`;
@@ -1304,58 +1944,57 @@ async function injectText(text, windowRef, _delayMs = 150, legacyHwnd) {
     });
   });
 }
-function normalize(text) {
-  return text.toLowerCase().replace(/\s+/g, " ").trim();
-}
-function getTriggers(cmd, language) {
-  const lang = language === "en" ? "en" : "pt";
-  const list = cmd.triggers[lang] && cmd.triggers[lang].length > 0 ? cmd.triggers[lang] : cmd.triggers.en;
-  return list || [];
-}
-function matchWhole(text, pattern) {
-  try {
-    return new RegExp(`^(?:${pattern})$`, "i").test(text);
-  } catch {
-    return false;
+const PT_FUNCTION_WORDS = /* @__PURE__ */ new Set(["de", "do", "da", "em", "para", "que", "com", "uma", "por"]);
+class CommandParser {
+  registry;
+  inlineModeEnabled;
+  detectedLanguage = "en";
+  constructor(registry, inlineModeEnabled = true) {
+    this.registry = registry;
+    this.inlineModeEnabled = inlineModeEnabled;
   }
-}
-function parseCommandText(rawText, commands, language = "pt-BR") {
-  const normalized = normalize(rawText);
-  if (!normalized) {
-    return { segments: [], hasCommands: false, hasContent: false, isMixed: false };
-  }
-  for (const cmd of commands) {
-    if (!cmd.isEnabled || cmd.matchMode !== "isolated") continue;
-    for (const pattern of getTriggers(cmd, language)) {
-      if (matchWhole(normalized, pattern)) {
-        return {
-          segments: [{ type: "command", value: cmd.id, command: cmd }],
-          hasCommands: true,
-          hasContent: false,
-          isMixed: false
-        };
-      }
+  parse(rawText, language = "auto") {
+    const normalized = this.normalize(rawText);
+    if (!normalized) {
+      return { segments: [], hasCommands: false, hasContent: false, isMixed: false };
     }
-  }
-  const spans = [];
-  for (const cmd of commands) {
-    if (!cmd.isEnabled || cmd.matchMode !== "inline") continue;
-    for (const pattern of getTriggers(cmd, language)) {
-      try {
-        const regex = new RegExp(pattern, "gi");
-        let m;
-        while ((m = regex.exec(normalized)) !== null) {
-          if (m[0].length === 0) {
-            regex.lastIndex++;
-            continue;
-          }
-          spans.push({ start: m.index, end: m.index + m[0].length, cmd });
+    this.detectedLanguage = language === "auto" ? this.detectLanguage(normalized) : language;
+    for (const cmd of this.registry) {
+      if (!cmd.isEnabled) continue;
+      for (const pattern of this.patterns(cmd)) {
+        if (this.fullMatch(normalized, pattern)) {
+          return {
+            segments: [{ type: "command", value: cmd.id, command: cmd }],
+            hasCommands: true,
+            hasContent: false,
+            isMixed: false
+          };
         }
-      } catch {
       }
     }
-  }
-  if (spans.length === 0) {
+    if (this.inlineModeEnabled) {
+      const spans = [];
+      for (const cmd of this.registry) {
+        if (!cmd.isEnabled || cmd.matchMode !== "inline") continue;
+        for (const pattern of this.patterns(cmd)) {
+          try {
+            const regex = new RegExp(pattern, "gi");
+            let m;
+            while ((m = regex.exec(normalized)) !== null) {
+              if (m[0].length === 0) {
+                regex.lastIndex++;
+                continue;
+              }
+              spans.push({ start: m.index, end: m.index + m[0].length, cmd });
+            }
+          } catch {
+          }
+        }
+      }
+      if (spans.length > 0) {
+        return this.buildMixed(normalized, spans);
+      }
+    }
     return {
       segments: [{ type: "content", value: rawText, contentText: rawText }],
       hasCommands: false,
@@ -1363,36 +2002,71 @@ function parseCommandText(rawText, commands, language = "pt-BR") {
       isMixed: false
     };
   }
-  spans.sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start));
-  const kept = [];
-  let lastEnd = -1;
-  for (const s of spans) {
-    if (s.start < lastEnd) continue;
-    kept.push(s);
-    lastEnd = s.end;
+  getDetectedLanguage() {
+    return this.detectedLanguage;
   }
-  const segments = [];
-  let cursor = 0;
-  for (const s of kept) {
-    if (s.start > cursor) {
-      const contentText = normalized.slice(cursor, s.start).trim();
+  normalize(raw) {
+    let s = raw.toLowerCase();
+    s = s.replace(/^\s+|\s+$/g, "");
+    s = s.replace(/^[.,!?;:]+|[.,!?;:]+$/g, "");
+    s = s.replace(/\s+/g, " ");
+    return s.trim();
+  }
+  detectLanguage(text) {
+    const words = text.split(/\s+/);
+    let matches = 0;
+    for (const w of words) {
+      if (PT_FUNCTION_WORDS.has(w)) matches++;
+    }
+    return matches >= 3 ? "pt" : "en";
+  }
+  patterns(cmd) {
+    const list = cmd.triggers[this.detectedLanguage] && cmd.triggers[this.detectedLanguage].length > 0 ? cmd.triggers[this.detectedLanguage] : cmd.triggers.en;
+    return list || [];
+  }
+  fullMatch(text, pattern) {
+    try {
+      const m = new RegExp(pattern, "i").exec(text);
+      return !!m && m[0].length === text.length;
+    } catch {
+      return false;
+    }
+  }
+  cleanContent(text) {
+    return text.replace(/^[\s.,!?;:]+|[\s.,!?;:]+$/g, "").trim();
+  }
+  buildMixed(normalized, spans) {
+    spans.sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start));
+    const kept = [];
+    let lastEnd = -1;
+    for (const s of spans) {
+      if (s.start < lastEnd) continue;
+      kept.push(s);
+      lastEnd = s.end;
+    }
+    const segments = [];
+    let cursor = 0;
+    for (const s of kept) {
+      if (s.start > cursor) {
+        const contentText = this.cleanContent(normalized.slice(cursor, s.start));
+        if (contentText) segments.push({ type: "content", value: contentText, contentText });
+      }
+      segments.push({ type: "command", value: s.cmd.id, command: s.cmd });
+      cursor = s.end;
+    }
+    if (cursor < normalized.length) {
+      const contentText = this.cleanContent(normalized.slice(cursor));
       if (contentText) segments.push({ type: "content", value: contentText, contentText });
     }
-    segments.push({ type: "command", value: s.cmd.id, command: s.cmd });
-    cursor = s.end;
+    const hasCommands = segments.some((s) => s.type === "command");
+    const hasContent = segments.some((s) => s.type === "content");
+    return { segments, hasCommands, hasContent, isMixed: hasCommands && hasContent };
   }
-  if (cursor < normalized.length) {
-    const contentText = normalized.slice(cursor).trim();
-    if (contentText) segments.push({ type: "content", value: contentText, contentText });
-  }
-  const hasCommands = segments.some((s) => s.type === "command");
-  const hasContent = segments.some((s) => s.type === "content");
-  return { segments, hasCommands, hasContent, isMixed: hasCommands && hasContent };
 }
-const { shell } = require("electron");
+const { shell, clipboard } = require("electron");
 function runPowerShell(command) {
   return new Promise((resolve, reject) => {
-    child_process.execFile("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", command], (err) => {
+    child_process.exec(`powershell -NoProfile -WindowStyle Hidden -Command ${command}`, (err) => {
       if (err) reject(err);
       else resolve();
     });
@@ -1415,6 +2089,7 @@ const SEND_KEYS_MAP = {
   Left: "{LEFT}",
   Right: "{RIGHT}",
   Space: " ",
+  PrintScreen: "{PRTSC}",
   F1: "{F1}",
   F2: "{F2}",
   F3: "{F3}",
@@ -1434,7 +2109,7 @@ function toSendKeys(combo) {
   const key = parts[parts.length - 1];
   const mods = parts.slice(0, -1);
   const keyStr = SEND_KEYS_MAP[key] || (key.length === 1 ? key.toLowerCase() : `{${key.toUpperCase()}}`);
-  const prefix = mods.map((m) => m === "Ctrl" ? "^" : m === "Alt" ? "%" : m === "Shift" ? "+" : "").join("");
+  const prefix = mods.map((m) => m === "Ctrl" ? "^" : m === "Alt" ? "%" : m === "Shift" ? "+" : m === "Meta" || m === "Cmd" || m === "Win" ? "^" : "").join("");
   return prefix + keyStr;
 }
 async function sendKeys(combos) {
@@ -1451,102 +2126,262 @@ async function sendKeySequence(steps) {
   }).join("; ");
   await runPowerShell(`Add-Type -AssemblyName System.Windows.Forms; ${body}`);
 }
-function dynamicValue(kind) {
+function dynamicValue(kind, language) {
   const now = /* @__PURE__ */ new Date();
+  const pt = language === "pt";
   switch (kind) {
     case "date":
-      return now.toLocaleDateString();
+      return pt ? new Intl.DateTimeFormat("pt-BR", { day: "numeric", month: "long", year: "numeric" }).format(now) : new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(now);
     case "time":
-      return now.toLocaleTimeString();
+      return pt ? new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", hour12: false }).format(now) : new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", hour12: true }).format(now);
     case "datetime":
-      return now.toLocaleString();
+      return `${dynamicValue("date", language)}, ${dynamicValue("time", language)}`;
     default:
       return "";
   }
 }
-async function executeCommand(command, ctx = {}) {
-  const action = command.action;
-  if (!action) return;
-  try {
-    switch (action.type) {
-      case "keystroke":
-        await sendKeys([String(action.parameter)]);
-        break;
-      case "keystroke_sequence": {
-        const steps = action.keySequence || (Array.isArray(action.parameter) ? action.parameter.map((k) => ({ key: String(k) })) : []);
-        await sendKeySequence(steps);
-        break;
-      }
-      case "inject_text":
-        await injectText(String(action.parameter), ctx.windowRef || void 0);
-        break;
-      case "inject_snippet": {
-        const snippet = (ctx.snippets || []).find((s) => s.name === action.parameter);
-        if (snippet) await injectText(snippet.content, ctx.windowRef || void 0);
-        break;
-      }
-      case "insert_dynamic":
-        await injectText(dynamicValue(String(action.parameter)), ctx.windowRef || void 0);
-        break;
-      case "vox_control":
-        ctx.onVoxControl?.(String(action.parameter));
-        break;
-      case "open_url":
-        await shell.openExternal(String(action.parameter));
-        break;
-      case "open_app":
-        await shell.openPath(String(action.parameter));
-        break;
-      case "run_script":
-        await new Promise((resolve) => {
-          child_process.execFile("powershell", ["-NoProfile", "-Command", String(action.parameter)], () => resolve());
-        });
-        break;
-      case "change_profile":
-        console.warn("[CommandExecutor] change_profile ainda não implementado:", action.parameter);
-        break;
-      default:
-        console.warn("[CommandExecutor] Tipo de ação desconhecido:", action.type);
-    }
-  } catch (err) {
-    console.error("[CommandExecutor] Falha ao executar comando:", err);
+async function openApp(name) {
+  switch (name) {
+    case "terminal":
+      await runPowerShell("Start-Process 'wt.exe'").catch(() => runPowerShell("Start-Process 'cmd.exe'"));
+      break;
+    case "explorer":
+      await runPowerShell("Start-Process 'explorer.exe'");
+      break;
+    case "browser":
+      await shell.openExternal("https://");
+      break;
+    default:
+      await runPowerShell(`Start-Process '${name}'`);
   }
 }
-const DEFAULT_COMMANDS = [
-  // ---- Punctuation (inline) ----
-  { id: "cmd-comma", isDefault: true, isEnabled: true, category: "punctuation", label: "Comma", description: "Inserts a comma", triggers: { pt: ["\\bvírgula\\b"], en: ["\\bcomma\\b"] }, action: { type: "inject_text", parameter: "," }, matchMode: "inline" },
-  { id: "cmd-period", isDefault: true, isEnabled: true, category: "punctuation", label: "Period", description: "Inserts a period", triggers: { pt: ["\\bponto\\b"], en: ["\\bperiod\\b"] }, action: { type: "inject_text", parameter: "." }, matchMode: "inline" },
-  { id: "cmd-question", isDefault: true, isEnabled: true, category: "punctuation", label: "Question mark", description: "Inserts a question mark", triggers: { pt: ["\\bponto de interrogação\\b", "\\binterrogação\\b"], en: ["\\bquestion mark\\b"] }, action: { type: "inject_text", parameter: "?" }, matchMode: "inline" },
-  { id: "cmd-exclamation", isDefault: true, isEnabled: true, category: "punctuation", label: "Exclamation mark", description: "Inserts an exclamation mark", triggers: { pt: ["\\bponto de exclamação\\b", "\\bexclamação\\b"], en: ["\\bexclamation mark\\b"] }, action: { type: "inject_text", parameter: "!" }, matchMode: "inline" },
-  { id: "cmd-colon", isDefault: true, isEnabled: true, category: "punctuation", label: "Colon", description: "Inserts a colon", triggers: { pt: ["\\bdois pontos\\b"], en: ["\\bcolon\\b"] }, action: { type: "inject_text", parameter: ":" }, matchMode: "inline" },
-  { id: "cmd-semicolon", isDefault: true, isEnabled: true, category: "punctuation", label: "Semicolon", description: "Inserts a semicolon", triggers: { pt: ["\\bponto e vírgula\\b"], en: ["\\bsemicolon\\b"] }, action: { type: "inject_text", parameter: ";" }, matchMode: "inline" },
-  { id: "cmd-newline", isDefault: true, isEnabled: true, category: "punctuation", label: "New line", description: "Inserts a line break", triggers: { pt: ["\\bnova linha\\b"], en: ["\\bnew line\\b"] }, action: { type: "keystroke", parameter: "Enter" }, matchMode: "inline" },
-  { id: "cmd-paragraph", isDefault: true, isEnabled: true, category: "punctuation", label: "New paragraph", description: "Inserts a paragraph break", triggers: { pt: ["\\bnovo parágrafo\\b"], en: ["\\bnew paragraph\\b"] }, action: { type: "keystroke_sequence", parameter: [], keySequence: [{ key: "Enter" }, { key: "Enter" }] }, matchMode: "inline" },
-  { id: "cmd-space", isDefault: true, isEnabled: true, category: "punctuation", label: "Space", description: "Inserts a space", triggers: { pt: ["\\bespaço\\b"], en: ["\\bspace\\b"] }, action: { type: "inject_text", parameter: " " }, matchMode: "inline" },
-  // ---- Navigation (isolated) ----
-  { id: "cmd-delete", isDefault: true, isEnabled: true, category: "navigation", label: "Delete", description: "Presses Backspace", triggers: { pt: ["apagar", "apague"], en: ["delete"] }, action: { type: "keystroke", parameter: "Backspace" }, matchMode: "isolated" },
-  { id: "cmd-delete-word", isDefault: true, isEnabled: true, category: "navigation", label: "Delete word", description: "Deletes the previous word", triggers: { pt: ["apagar palavra"], en: ["delete word"] }, action: { type: "keystroke", parameter: "Ctrl+Backspace" }, matchMode: "isolated" },
-  { id: "cmd-tab", isDefault: true, isEnabled: true, category: "navigation", label: "Tab", description: "Presses Tab", triggers: { pt: ["tab"], en: ["tab"] }, action: { type: "keystroke", parameter: "Tab" }, matchMode: "isolated" },
-  // ---- Editing (isolated) ----
-  { id: "cmd-select-all", isDefault: true, isEnabled: true, category: "editing", label: "Select all", description: "Selects all text", triggers: { pt: ["selecionar tudo"], en: ["select all"] }, action: { type: "keystroke", parameter: "Ctrl+A" }, matchMode: "isolated" },
-  { id: "cmd-copy", isDefault: true, isEnabled: true, category: "editing", label: "Copy", description: "Copies selection", triggers: { pt: ["copiar"], en: ["copy"] }, action: { type: "keystroke", parameter: "Ctrl+C" }, matchMode: "isolated" },
-  { id: "cmd-paste", isDefault: true, isEnabled: true, category: "editing", label: "Paste", description: "Pastes from clipboard", triggers: { pt: ["colar"], en: ["paste"] }, action: { type: "keystroke", parameter: "Ctrl+V" }, matchMode: "isolated" },
-  { id: "cmd-undo", isDefault: true, isEnabled: true, category: "editing", label: "Undo", description: "Undoes last action", triggers: { pt: ["desfazer"], en: ["undo"] }, action: { type: "keystroke", parameter: "Ctrl+Z" }, matchMode: "isolated" },
-  { id: "cmd-redo", isDefault: true, isEnabled: true, category: "editing", label: "Redo", description: "Redoes last action", triggers: { pt: ["refazer"], en: ["redo"] }, action: { type: "keystroke", parameter: "Ctrl+Y" }, matchMode: "isolated" },
-  // ---- Vox control (isolated) ----
-  { id: "cmd-stop", isDefault: true, isEnabled: true, category: "vox_control", label: "Stop", description: "Stops dictation and finalizes", triggers: { pt: ["parar"], en: ["stop"] }, action: { type: "vox_control", parameter: "stop" }, matchMode: "isolated" },
-  { id: "cmd-cancel", isDefault: true, isEnabled: true, category: "vox_control", label: "Cancel", description: "Cancels dictation without injecting", triggers: { pt: ["cancelar"], en: ["cancel"] }, action: { type: "vox_control", parameter: "cancel" }, matchMode: "isolated" },
-  { id: "cmd-clear", isDefault: true, isEnabled: true, category: "vox_control", label: "Clear", description: "Clears the current transcription", triggers: { pt: ["limpar"], en: ["clear"] }, action: { type: "vox_control", parameter: "clear" }, matchMode: "isolated" },
-  { id: "cmd-repeat", isDefault: true, isEnabled: true, category: "vox_control", label: "Repeat", description: "Re-injects the last transcription", triggers: { pt: ["repetir"], en: ["repeat"] }, action: { type: "vox_control", parameter: "repeat" }, matchMode: "isolated" },
-  // ---- Dynamic (inline) ----
-  { id: "cmd-date", isDefault: true, isEnabled: true, category: "system", label: "Insert date", description: "Inserts today's date", triggers: { pt: ["\\bdata de hoje\\b"], en: ["\\btoday's date\\b"] }, action: { type: "insert_dynamic", parameter: "date" }, matchMode: "inline" },
-  { id: "cmd-time", isDefault: true, isEnabled: true, category: "system", label: "Insert time", description: "Inserts the current time", triggers: { pt: ["\\bhora atual\\b"], en: ["\\bcurrent time\\b"] }, action: { type: "insert_dynamic", parameter: "time" }, matchMode: "inline" }
-];
-function getEnabledCommands() {
-  return listCommands().filter((c) => c.isEnabled);
+function findLastSentenceBoundary(text) {
+  for (let i = text.length - 2; i >= 0; i--) {
+    if ((text[i] === "." || text[i] === "!" || text[i] === "?") && text[i + 1] === " ") {
+      return i + 2;
+    }
+  }
+  return -1;
 }
-function getSnippets() {
+async function deleteLastSentence(windowRef) {
+  const text = clipboard.readText();
+  const boundary = text ? findLastSentenceBoundary(text) : -1;
+  if (!text || boundary <= 0) {
+    await sendKeySequence([{ key: "Ctrl+Shift+Home", delayAfter: 30 }, { key: "Delete", delayAfter: 0 }]);
+    return;
+  }
+  const newText = text.slice(0, boundary);
+  clipboard.writeText(newText);
+  await sendKeySequence([{ key: "Ctrl+A", delayAfter: 30 }, { key: "Ctrl+V", delayAfter: 0 }]);
+}
+class CommandExecutor extends events.EventEmitter {
+  async execute(command, context) {
+    const action = command.action;
+    if (!action) return;
+    try {
+      switch (action.type) {
+        case "keystroke":
+          await sendKeys([String(action.parameter)]);
+          break;
+        case "keystroke_sequence": {
+          const raw = action.parameter;
+          const steps = Array.isArray(raw) ? raw.map((s) => typeof s === "string" ? { key: s, delayAfter: 0 } : s) : [];
+          await sendKeySequence(steps);
+          break;
+        }
+        case "inject_text":
+          await injectText(String(action.parameter), context.windowRef);
+          break;
+        case "inject_snippet": {
+          const snippet = (context.snippets || []).find((s) => s.name === action.parameter);
+          if (snippet && snippet.content) {
+            await injectText(snippet.content, context.windowRef);
+          } else {
+            this.emit("snippet_not_configured", String(action.parameter));
+          }
+          break;
+        }
+        case "insert_dynamic":
+          await injectText(dynamicValue(String(action.parameter), context.language), context.windowRef);
+          break;
+        case "vox_control":
+          if (action.parameter === "delete_last_sentence") {
+            await deleteLastSentence(context.windowRef);
+          } else if (action.parameter === "repeat") {
+            if (context.lastTranscription) {
+              await injectText(context.lastTranscription, context.windowRef);
+            }
+          } else {
+            this.emit("vox_control", String(action.parameter));
+          }
+          break;
+        case "change_profile":
+          this.emit("change_profile", String(action.parameter));
+          break;
+        case "open_url":
+          await shell.openExternal(String(action.parameter));
+          break;
+        case "open_app":
+          await openApp(String(action.parameter));
+          break;
+        case "run_script":
+          await this.runScript(String(action.parameter));
+          break;
+        default:
+          console.warn("[CommandExecutor] Tipo de ação desconhecido:", action.type);
+      }
+    } catch (err) {
+      console.error("[CommandExecutor] Falha ao executar comando:", err);
+    }
+  }
+  runScript(command) {
+    return new Promise((resolve) => {
+      child_process.exec(command, { timeout: 1e4 }, (err, stdout, stderr) => {
+        const result = {
+          stdout: stdout || "",
+          stderr: stderr || "",
+          error: err ? err.killed ? "Timeout" : err.message : void 0
+        };
+        this.emit("script_result", result);
+        resolve();
+      });
+    });
+  }
+}
+const commandExecutor = new CommandExecutor();
+const DEFAULT_COMMANDS = [
+  // ───────────────────────────── punctuation ─────────────────────────────
+  { id: "punct_comma", isDefault: true, isEnabled: true, category: "punctuation", label: "Comma / Vírgula", description: "Injects a comma followed by a space", triggers: { pt: ["vírgula", "virgula"], en: ["comma"] }, action: { type: "inject_text", parameter: ", " }, matchMode: "inline" },
+  { id: "punct_period", isDefault: true, isEnabled: true, category: "punctuation", label: "Period / Ponto Final", description: "Injects a period followed by a space", triggers: { pt: ["ponto\\s*final", "ponto\\.?$", "^ponto$"], en: ["period", "full stop", "dot"] }, action: { type: "inject_text", parameter: ". " }, matchMode: "inline" },
+  { id: "punct_semicolon", isDefault: true, isEnabled: true, category: "punctuation", label: "Semicolon / Ponto e Vírgula", description: "Injects a semicolon followed by a space", triggers: { pt: ["ponto\\s*e\\s*v[íi]rgula"], en: ["semicolon"] }, action: { type: "inject_text", parameter: "; " }, matchMode: "inline" },
+  { id: "punct_colon", isDefault: true, isEnabled: true, category: "punctuation", label: "Colon / Dois Pontos", description: "Injects a colon followed by a space", triggers: { pt: ["dois\\s*pontos"], en: ["colon"] }, action: { type: "inject_text", parameter: ": " }, matchMode: "inline" },
+  { id: "punct_ellipsis", isDefault: true, isEnabled: true, category: "punctuation", label: "Ellipsis / Reticências", description: "Injects an ellipsis followed by a space", triggers: { pt: ["retic[eê]ncias", "tr[eê]s\\s*pontos"], en: ["ellipsis", "dot\\s*dot\\s*dot", "three dots"] }, action: { type: "inject_text", parameter: "... " }, matchMode: "inline" },
+  { id: "punct_exclamation", isDefault: true, isEnabled: true, category: "punctuation", label: "Exclamation / Exclamação", description: "Injects an exclamation mark followed by a space", triggers: { pt: ["excla(mação|macao|ma)", "ponto\\s*de\\s*excla"], en: ["exclamation\\s*(mark|point)?", "bang"] }, action: { type: "inject_text", parameter: "! " }, matchMode: "inline" },
+  { id: "punct_question", isDefault: true, isEnabled: true, category: "punctuation", label: "Question Mark / Interrogação", description: "Injects a question mark followed by a space", triggers: { pt: ["interroga(ção|cao|)", "ponto\\s*de\\s*interroga"], en: ["question\\s*mark"] }, action: { type: "inject_text", parameter: "? " }, matchMode: "inline" },
+  { id: "punct_open_paren", isDefault: true, isEnabled: true, category: "punctuation", label: "Open Parenthesis / Abre Parênteses", description: "", triggers: { pt: ["abre\\s*par[eê]ntese[s]?"], en: ["open\\s*paren(thesis)?", "left\\s*paren(thesis)?"] }, action: { type: "inject_text", parameter: "(" }, matchMode: "inline" },
+  { id: "punct_close_paren", isDefault: true, isEnabled: true, category: "punctuation", label: "Close Parenthesis / Fecha Parênteses", description: "", triggers: { pt: ["fecha\\s*par[eê]ntese[s]?"], en: ["close\\s*paren(thesis)?", "right\\s*paren(thesis)?"] }, action: { type: "inject_text", parameter: ")" }, matchMode: "inline" },
+  { id: "punct_open_quote", isDefault: true, isEnabled: true, category: "punctuation", label: "Open Quote / Abre Aspas", description: "", triggers: { pt: ["abre\\s*aspas"], en: ["open\\s*quote"] }, action: { type: "inject_text", parameter: '"' }, matchMode: "inline" },
+  { id: "punct_close_quote", isDefault: true, isEnabled: true, category: "punctuation", label: "Close Quote / Fecha Aspas", description: "", triggers: { pt: ["fecha\\s*aspas"], en: ["close\\s*quote"] }, action: { type: "inject_text", parameter: '"' }, matchMode: "inline" },
+  { id: "punct_em_dash", isDefault: true, isEnabled: true, category: "punctuation", label: "Em Dash / Travessão", description: "", triggers: { pt: ["trav(essão|essao|ess[aã]o)"], en: ["(em\\s*)?dash", "em\\s*dash"] }, action: { type: "inject_text", parameter: " — " }, matchMode: "inline" },
+  { id: "punct_hyphen", isDefault: true, isEnabled: true, category: "punctuation", label: "Hyphen / Hífen", description: "", triggers: { pt: ["h[íi]fen"], en: ["hyphen"] }, action: { type: "inject_text", parameter: "-" }, matchMode: "inline" },
+  // ───────────────────────────── navigation ─────────────────────────────
+  { id: "nav_new_line", isDefault: true, isEnabled: true, category: "navigation", label: "New Line / Nova Linha", description: "Presses Enter once", triggers: { pt: ["nova\\s*linha", "pr[oó]xima\\s*linha", "quebra\\s*de\\s*linha"], en: ["new\\s*line", "next\\s*line", "line\\s*break", "enter"] }, action: { type: "keystroke", parameter: "Enter" }, matchMode: "inline" },
+  { id: "nav_new_paragraph", isDefault: true, isEnabled: true, category: "navigation", label: "New Paragraph / Novo Parágrafo", description: "Presses Enter twice", triggers: { pt: ["novo\\s*par[aá]grafo", "par[aá]grafo\\s*novo", "par[aá]grafo"], en: ["new\\s*paragraph", "paragraph"] }, action: { type: "keystroke_sequence", parameter: [{ key: "Enter", delayAfter: 50 }, { key: "Enter", delayAfter: 0 }] }, matchMode: "isolated" },
+  { id: "nav_tab", isDefault: true, isEnabled: true, category: "navigation", label: "Tab / Tabulação", description: "", triggers: { pt: ["tabula(ção|cao|)", "tab"], en: ["tab", "indent"] }, action: { type: "keystroke", parameter: "Tab" }, matchMode: "inline" },
+  { id: "nav_home", isDefault: true, isEnabled: true, category: "navigation", label: "Beginning of Line / Início da Linha", description: "", triggers: { pt: ["in[íi]cio\\s*da\\s*linha", "come(ço|co)\\s*da\\s*linha"], en: ["beginning\\s*of\\s*(the\\s*)?line", "start\\s*of\\s*(the\\s*)?line", "home"] }, action: { type: "keystroke", parameter: "Home" }, matchMode: "isolated" },
+  { id: "nav_end", isDefault: true, isEnabled: true, category: "navigation", label: "End of Line / Fim da Linha", description: "", triggers: { pt: ["fim\\s*da\\s*linha", "final\\s*da\\s*linha"], en: ["end\\s*of\\s*(the\\s*)?line"] }, action: { type: "keystroke", parameter: "End" }, matchMode: "isolated" },
+  { id: "nav_doc_start", isDefault: true, isEnabled: true, category: "navigation", label: "Top of Document / Início do Documento", description: "", triggers: { pt: ["in[íi]cio\\s*do\\s*documento", "topo\\s*do\\s*documento"], en: ["(beginning|top|start)\\s*of\\s*(the\\s*)?document"] }, action: { type: "keystroke", parameter: "Ctrl+Home" }, matchMode: "isolated" },
+  { id: "nav_doc_end", isDefault: true, isEnabled: true, category: "navigation", label: "End of Document / Fim do Documento", description: "", triggers: { pt: ["fim\\s*do\\s*documento", "final\\s*do\\s*documento"], en: ["(end|bottom)\\s*of\\s*(the\\s*)?document"] }, action: { type: "keystroke", parameter: "Ctrl+End" }, matchMode: "isolated" },
+  // ───────────────────────────── editing ─────────────────────────────
+  { id: "edit_backspace", isDefault: true, isEnabled: true, category: "editing", label: "Backspace / Apagar", description: "", triggers: { pt: ["apagar?", "deletar?", "remover?"], en: ["backspace", "delete", "erase"] }, action: { type: "keystroke", parameter: "Backspace" }, matchMode: "isolated" },
+  { id: "edit_delete_word", isDefault: true, isEnabled: true, category: "editing", label: "Delete Word / Apagar Palavra", description: "", triggers: { pt: ["apagar?\\s*palavra", "deletar?\\s*palavra", "remover?\\s*palavra"], en: ["delete\\s*word", "backspace\\s*word", "erase\\s*word"] }, action: { type: "keystroke", parameter: "Ctrl+Backspace" }, matchMode: "isolated" },
+  { id: "edit_delete_line", isDefault: true, isEnabled: true, category: "editing", label: "Delete Line / Apagar Linha", description: "", triggers: { pt: ["apagar?\\s*linha", "deletar?\\s*linha", "remover?\\s*linha"], en: ["delete\\s*line", "erase\\s*line", "clear\\s*line"] }, action: { type: "keystroke_sequence", parameter: [{ key: "Home", delayAfter: 30 }, { key: "Shift+End", delayAfter: 30 }, { key: "Delete", delayAfter: 0 }] }, matchMode: "isolated" },
+  { id: "edit_delete_last_sentence", isDefault: true, isEnabled: true, category: "editing", label: "Delete Last Sentence / Apagar Última Frase", description: "Selects and deletes text back to the previous period, exclamation, or question mark", triggers: { pt: ["apagar?\\s*[uú]ltima\\s*frase", "deletar?\\s*[uú]ltima\\s*frase", "remover?\\s*[uú]ltima\\s*frase"], en: ["delete\\s*(the\\s*)?last\\s*sentence", "erase\\s*(the\\s*)?last\\s*sentence", "remove\\s*(the\\s*)?last\\s*sentence"] }, action: { type: "vox_control", parameter: "delete_last_sentence" }, matchMode: "isolated" },
+  { id: "edit_delete_all", isDefault: true, isEnabled: true, category: "editing", label: "Delete All / Apagar Tudo", description: "", triggers: { pt: ["apagar?\\s*tudo", "deletar?\\s*tudo", "limpar\\s*tudo"], en: ["delete\\s*all", "erase\\s*all", "clear\\s*all", "select\\s*all\\s*and\\s*delete"] }, action: { type: "keystroke_sequence", parameter: [{ key: "Ctrl+A", delayAfter: 50 }, { key: "Delete", delayAfter: 0 }] }, matchMode: "isolated" },
+  { id: "edit_undo", isDefault: true, isEnabled: true, category: "editing", label: "Undo / Desfazer", description: "", triggers: { pt: ["desfazer?", "desfaz"], en: ["undo"] }, action: { type: "keystroke", parameter: "Ctrl+Z" }, matchMode: "isolated" },
+  { id: "edit_redo", isDefault: true, isEnabled: true, category: "editing", label: "Redo / Refazer", description: "", triggers: { pt: ["refazer?", "refaz"], en: ["redo"] }, action: { type: "keystroke", parameter: "Ctrl+Y" }, matchMode: "isolated" },
+  { id: "edit_select_all", isDefault: true, isEnabled: true, category: "editing", label: "Select All / Selecionar Tudo", description: "", triggers: { pt: ["selecionar?\\s*tudo", "seleciona\\s*tudo"], en: ["select\\s*all"] }, action: { type: "keystroke", parameter: "Ctrl+A" }, matchMode: "isolated" },
+  { id: "edit_copy", isDefault: true, isEnabled: true, category: "editing", label: "Copy / Copiar", description: "", triggers: { pt: ["copiar?", "copia"], en: ["copy"] }, action: { type: "keystroke", parameter: "Ctrl+C" }, matchMode: "isolated" },
+  { id: "edit_paste", isDefault: true, isEnabled: true, category: "editing", label: "Paste / Colar", description: "", triggers: { pt: ["colar?", "cola"], en: ["paste"] }, action: { type: "keystroke", parameter: "Ctrl+V" }, matchMode: "isolated" },
+  { id: "edit_cut", isDefault: true, isEnabled: true, category: "editing", label: "Cut / Recortar", description: "", triggers: { pt: ["recortar?", "recorta"], en: ["cut"] }, action: { type: "keystroke", parameter: "Ctrl+X" }, matchMode: "isolated" },
+  { id: "edit_bold", isDefault: true, isEnabled: true, category: "editing", label: "Bold / Negrito", description: "", triggers: { pt: ["negrito"], en: ["bold"] }, action: { type: "keystroke", parameter: "Ctrl+B" }, matchMode: "isolated" },
+  { id: "edit_italic", isDefault: true, isEnabled: true, category: "editing", label: "Italic / Itálico", description: "", triggers: { pt: ["it[aá]lico"], en: ["italic"] }, action: { type: "keystroke", parameter: "Ctrl+I" }, matchMode: "isolated" },
+  { id: "edit_underline", isDefault: true, isEnabled: true, category: "editing", label: "Underline / Sublinhado", description: "", triggers: { pt: ["sublinhado", "sublinhar?"], en: ["underline"] }, action: { type: "keystroke", parameter: "Ctrl+U" }, matchMode: "isolated" },
+  { id: "edit_save", isDefault: true, isEnabled: true, category: "editing", label: "Save / Salvar", description: "", triggers: { pt: ["salvar?", "salva", "guardar?"], en: ["save"] }, action: { type: "keystroke", parameter: "Ctrl+S" }, matchMode: "isolated" },
+  // ───────────────────────────── vox_control ─────────────────────────────
+  { id: "vox_stop", isDefault: true, isEnabled: true, category: "vox_control", label: "Stop Recording / Parar Gravação", description: "", triggers: { pt: ["parar?\\s*grava(ção|cao)", "terminar?\\s*grava(ção|cao)", "para\\s*grava(ção|cao)", "para"], en: ["stop\\s*recording", "stop", "finish\\s*recording", "done"] }, action: { type: "vox_control", parameter: "stop" }, matchMode: "isolated" },
+  { id: "vox_cancel", isDefault: true, isEnabled: true, category: "vox_control", label: "Cancel / Cancelar", description: "Stops recording and discards the transcription without injecting", triggers: { pt: ["cancelar?", "cancela", "descartar?", "descarta"], en: ["cancel", "abort", "discard", "never\\s*mind"] }, action: { type: "vox_control", parameter: "cancel" }, matchMode: "isolated" },
+  { id: "vox_clear", isDefault: true, isEnabled: true, category: "vox_control", label: "Clear / Limpar", description: "Clears the current transcription buffer without stopping", triggers: { pt: ["limpar?", "limpa"], en: ["clear"] }, action: { type: "vox_control", parameter: "clear" }, matchMode: "isolated" },
+  { id: "vox_repeat", isDefault: true, isEnabled: true, category: "vox_control", label: "Repeat / Repetir", description: "Re-injects the last successful transcription", triggers: { pt: ["repetir?", "repete", "dizer?\\s*novamente", "diz\\s*novamente"], en: ["repeat", "say\\s*(that\\s*)?again", "again"] }, action: { type: "vox_control", parameter: "repeat" }, matchMode: "isolated" },
+  { id: "vox_mode_code", isDefault: true, isEnabled: true, category: "vox_control", label: "Code Mode / Modo Código", description: "", triggers: { pt: ["modo\\s*c[oó]digo", "ativar?\\s*modo\\s*c[oó]digo"], en: ["code\\s*mode", "coding\\s*mode", "switch\\s*to\\s*code"] }, action: { type: "change_profile", parameter: "code" }, matchMode: "isolated" },
+  { id: "vox_mode_text", isDefault: true, isEnabled: true, category: "vox_control", label: "Text Mode / Modo Texto", description: "", triggers: { pt: ["modo\\s*texto", "ativar?\\s*modo\\s*texto", "modo\\s*prosa"], en: ["text\\s*mode", "prose\\s*mode", "switch\\s*to\\s*text"] }, action: { type: "change_profile", parameter: "text" }, matchMode: "isolated" },
+  { id: "vox_mode_email", isDefault: true, isEnabled: true, category: "vox_control", label: "Email Mode / Modo Email", description: "", triggers: { pt: ["modo\\s*email", "ativar?\\s*modo\\s*email"], en: ["email\\s*mode", "switch\\s*to\\s*email"] }, action: { type: "change_profile", parameter: "email" }, matchMode: "isolated" },
+  { id: "template_deactivate", isDefault: true, isEnabled: true, category: "vox_control", label: "Deactivate Template / Desativar Template", description: "", triggers: { pt: ["desativar template", "sem template", "ditado livre", "modo padrão", "remover template"], en: ["deactivate template", "no template", "free dictation", "default mode", "remove template"] }, action: { type: "vox_control", parameter: "deactivate_template" }, matchMode: "isolated" },
+  // ───────────────────────────── snippets (dynamic) ─────────────────────────────
+  { id: "snippet_date", isDefault: true, isEnabled: true, category: "snippets", label: "Insert Date / Inserir Data", description: "", triggers: { pt: ["inserir?\\s*data", "insere\\s*data", "data\\s*de\\s*hoje"], en: ["insert\\s*(the\\s*)?date", "today'?s?\\s*date", "current\\s*date"] }, action: { type: "insert_dynamic", parameter: "date" }, matchMode: "isolated" },
+  { id: "snippet_time", isDefault: true, isEnabled: true, category: "snippets", label: "Insert Time / Inserir Hora", description: "", triggers: { pt: ["inserir?\\s*hora", "insere\\s*hora", "hora\\s*atual"], en: ["insert\\s*(the\\s*)?time", "current\\s*time"] }, action: { type: "insert_dynamic", parameter: "time" }, matchMode: "isolated" },
+  { id: "snippet_datetime", isDefault: true, isEnabled: true, category: "snippets", label: "Insert Date and Time / Inserir Data e Hora", description: "", triggers: { pt: ["inserir?\\s*data\\s*e\\s*hora", "data\\s*e\\s*hora"], en: ["insert\\s*(date\\s*and\\s*time|datetime)", "date\\s*and\\s*time"] }, action: { type: "insert_dynamic", parameter: "datetime" }, matchMode: "isolated" },
+  { id: "snippet_signature", isDefault: true, isEnabled: true, category: "snippets", label: "Insert Signature / Inserir Assinatura", description: "", triggers: { pt: ["inserir?\\s*assinatura", "insere\\s*assinatura", "minha\\s*assinatura"], en: ["insert\\s*(my\\s*)?signature", "my\\s*signature"] }, action: { type: "inject_snippet", parameter: "signature" }, matchMode: "isolated" },
+  { id: "snippet_email_address", isDefault: true, isEnabled: true, category: "snippets", label: "Insert Email Address / Inserir Email", description: "", triggers: { pt: ["inserir?\\s*(meu\\s*)?e?\\s*mail", "insere\\s*(meu\\s*)?e?\\s*mail"], en: ["insert\\s*(my\\s*)?email(\\s*address)?", "my\\s*email"] }, action: { type: "inject_snippet", parameter: "email_address" }, matchMode: "isolated" },
+  { id: "snippet_address", isDefault: true, isEnabled: true, category: "snippets", label: "Insert Address / Inserir Endereço", description: "", triggers: { pt: ["inserir?\\s*(meu\\s*)?endere(ço|co)", "insere\\s*endere(ço|co)"], en: ["insert\\s*(my\\s*)?address", "my\\s*address"] }, action: { type: "inject_snippet", parameter: "address" }, matchMode: "isolated" },
+  // ───────────────────────────── system ─────────────────────────────
+  { id: "sys_terminal", isDefault: true, isEnabled: true, category: "system", label: "Open Terminal / Abrir Terminal", description: "", triggers: { pt: ["abrir?\\s*terminal", "abre\\s*terminal"], en: ["open\\s*terminal", "open\\s*(the\\s*)?console"] }, action: { type: "open_app", parameter: "terminal" }, matchMode: "isolated" },
+  { id: "sys_browser", isDefault: true, isEnabled: true, category: "system", label: "Open Browser / Abrir Navegador", description: "", triggers: { pt: ["abrir?\\s*navegador", "abre\\s*navegador", "abrir?\\s*browser"], en: ["open\\s*(the\\s*)?(browser|web\\s*browser)"] }, action: { type: "open_app", parameter: "browser" }, matchMode: "isolated" },
+  { id: "sys_explorer", isDefault: true, isEnabled: true, category: "system", label: "Open File Explorer / Abrir Explorador", description: "", triggers: { pt: ["abrir?\\s*explorador", "abre\\s*explorador", "abrir?\\s*arquivos", "abrir?\\s*pasta"], en: ["open\\s*(the\\s*)?(file\\s*)?explorer", "open\\s*(the\\s*)?finder"] }, action: { type: "open_app", parameter: "explorer" }, matchMode: "isolated" },
+  { id: "sys_screenshot", isDefault: true, isEnabled: true, category: "system", label: "Take Screenshot / Tirar Print", description: "", triggers: { pt: ["tirar?\\s*print", "tira\\s*print", "captura\\s*de\\s*tela", "screenshot"], en: ["(take\\s*(a\\s*)?)?screenshot", "print\\s*screen"] }, action: { type: "keystroke", parameter: "PrintScreen" }, matchMode: "isolated" }
+];
+function applyOverrides() {
+  const overrides = listDefaultOverrides();
+  const overrideMap = new Map(overrides.map((o) => [o.commandId, o]));
+  const defaults = DEFAULT_COMMANDS.map((cmd) => {
+    const o = overrideMap.get(cmd.id);
+    if (!o) return cmd;
+    return {
+      ...cmd,
+      isEnabled: o.isEnabled,
+      matchMode: o.matchMode || cmd.matchMode
+    };
+  });
+  return [...defaults, ...listCustomCommands()];
+}
+function getAllCommands() {
+  return applyOverrides();
+}
+function getEnabledCommands() {
+  return applyOverrides().filter((c) => c.isEnabled);
+}
+function setEnabled(id, enabled) {
+  const current = getAllCommands().find((c) => c.id === id);
+  if (!current) return;
+  if (current.isDefault) {
+    setDefaultOverride(id, enabled, current.matchMode);
+  } else {
+    saveCustomCommand({ ...current, isEnabled: enabled });
+  }
+}
+function setMatchMode(id, mode) {
+  const current = getAllCommands().find((c) => c.id === id);
+  if (!current) return;
+  if (current.isDefault) {
+    setDefaultOverride(id, current.isEnabled, mode);
+  } else {
+    saveCustomCommand({ ...current, matchMode: mode });
+  }
+}
+function addCustomCommand(command) {
+  const full = {
+    id: command.id || crypto.randomUUID(),
+    isDefault: false,
+    isEnabled: command.isEnabled ?? true,
+    category: command.category || "custom",
+    label: command.label || "Untitled",
+    description: command.description || "",
+    triggers: command.triggers || { pt: [], en: [] },
+    action: command.action || { type: "inject_text", parameter: "" },
+    matchMode: command.matchMode || "isolated",
+    createdAt: command.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  saveCustomCommand(full);
+  return full;
+}
+function updateCustomCommand(id, command) {
+  const existing = listCustomCommands().find((c) => c.id === id);
+  if (!existing) return;
+  saveCustomCommand({ ...existing, ...command, id, isDefault: false, updatedAt: (/* @__PURE__ */ new Date()).toISOString() });
+}
+function deleteCustomCommand(id) {
+  deleteCustomCommand$1(id);
+}
+function getAll() {
   return listSnippets();
+}
+function save(snippet) {
+  saveSnippet(snippet);
+  return snippet;
+}
+function remove(id) {
+  deleteSnippet(id);
 }
 const SAMPLE_RATE = 16e3;
 const MAX_BUFFER_SECONDS = 3;
@@ -1956,7 +2791,16 @@ const APP_CONTEXT_RULES = [
   { category: "a chat or messaging app", keywords: ["slack", "teams", "discord", "whatsapp", "telegram", "messenger", "signal", "skype", "zoom"] },
   { category: "a terminal or shell", keywords: ["terminal", "cmd", "powershell", "iterm", "konsole", "bash", "zsh", "alacritty", "kitty", "windows terminal", "wezterm"] }
 ];
+const PROFILE_CONTEXT = {
+  code: "a code editor",
+  text: "a text document",
+  email: "an email message"
+};
+let activeProfile = null;
 function buildContextHint(ref) {
+  if (activeProfile && PROFILE_CONTEXT[activeProfile]) {
+    return PROFILE_CONTEXT[activeProfile];
+  }
   const candidates = [ref?.processName, ref?.title].map((s) => (s || "").trim()).filter(Boolean);
   if (candidates.length === 0) return "the active application";
   const name = candidates[0];
@@ -1968,30 +2812,52 @@ function buildContextHint(ref) {
   }
   return `the "${name}" application`;
 }
-let lastInjectedText = "";
+function handleChangeProfile(profile) {
+  activeProfile = profile;
+  console.log("[Main] Perfil ativo alterado:", profile);
+}
+function applyActiveTemplate(id, by = "ui") {
+  templateManager.setActiveTemplate(id);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("vox:template-changed", {
+      templateId: id,
+      activatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      activatedBy: by
+    });
+  }
+}
+let lastSuccessfulTranscription = "";
 function handleVoxControl(action) {
   switch (action) {
     case "stop":
       hideDock();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("vox:stop-recording");
+      }
       break;
     case "cancel":
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("vox:cancel-recording");
+      }
       break;
     case "clear":
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("vox:transcript-result", "");
+        mainWindow.webContents.send("vox:clear-buffer");
       }
       break;
-    case "repeat":
-      if (lastInjectedText) {
-        void injectText(lastInjectedText, targetWindowRef || void 0);
-      }
+    case "deactivate_template":
+      applyActiveTemplate(null, "voice");
       break;
     default:
-      console.warn("[Main] Ação vox_control desconhecida:", action);
+      if (action.startsWith("activate_template:")) {
+        applyActiveTemplate(action.split(":")[1], "voice");
+      } else {
+        console.warn("[Main] Ação vox_control desconhecida:", action);
+      }
   }
 }
-async function processCommandSegments(parseResult) {
-  const snippets = getSnippets();
+async function processCommandSegments(parseResult, language) {
+  const snippets = getAll();
   let cancelled = false;
   for (const seg of parseResult.segments) {
     if (cancelled) break;
@@ -2000,17 +2866,18 @@ async function processCommandSegments(parseResult) {
         cancelled = true;
         break;
       }
-      await executeCommand(seg.command, {
-        windowRef: targetWindowRef,
-        snippets,
-        onVoxControl: handleVoxControl
+      await commandExecutor.execute(seg.command, {
+        windowRef: targetWindowRef || {},
+        lastTranscription: lastSuccessfulTranscription,
+        language,
+        snippets
       });
     } else if (seg.type === "content" && seg.contentText) {
-      const corrected = await correctTranscription(seg.contentText, buildContextHint(targetWindowRef));
+      const corrected = await correctTranscription(seg.contentText, buildContextHint(targetWindowRef), templateManager.getActiveTemplate());
       if (corrected) {
         recordCorrections(seg.contentText, corrected);
         await injectText(corrected, targetWindowRef || void 0);
-        lastInjectedText = corrected;
+        lastSuccessfulTranscription = corrected;
       }
     }
   }
@@ -2022,12 +2889,31 @@ async function processTranscriptionResult(buffer) {
   const rawText = result.text;
   console.log("[Main] Transcrição bruta:", result.text);
   if (result.text && !result.text.startsWith("[Erro")) {
-    const language = getSetting("language", "pt-BR");
-    const commands = getEnabledCommands();
-    const parseResult = parseCommandText(result.text, commands, language);
+    const inlineMode = getSetting("commandInlineMode", "false") === "true";
+    const parser = new CommandParser(getEnabledCommands(), inlineMode);
+    const appLang = getSetting("language", "pt-BR") === "en" ? "en" : "pt";
+    let textToProcess = result.text;
+    const activation = templateManager.resolveVoiceActivation(result.text, appLang);
+    if (activation) {
+      applyActiveTemplate(activation.templateId === "none" ? null : activation.templateId, "voice");
+      textToProcess = activation.remainingText;
+      if (!textToProcess) {
+        result.text = "";
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("vox:transcript-result", "");
+          mainWindow.webContents.send("vox:transcription-done", {
+            rawText,
+            segments: [],
+            hadCommands: true
+          });
+        }
+        return result;
+      }
+    }
+    const parseResult = parser.parse(textToProcess, "auto");
+    const language = parser.getDetectedLanguage();
     if (parseResult.hasCommands) {
-      const cancelled = await processCommandSegments(parseResult);
-      result.text = cancelled ? "" : rawText;
+      const cancelled = await processCommandSegments(parseResult, language);
       if (!cancelled && rawText) {
         const sessionData = {
           id: crypto.randomUUID(),
@@ -2039,12 +2925,18 @@ async function processTranscriptionResult(buffer) {
         };
         saveSession(sessionData);
       }
+      result.text = "";
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send("vox:transcript-result", result.text);
+        mainWindow.webContents.send("vox:transcript-result", "");
+        mainWindow.webContents.send("vox:transcription-done", {
+          rawText,
+          segments: parseResult.segments,
+          hadCommands: parseResult.hasCommands
+        });
       }
       return result;
     }
-    result.text = await correctTranscription(result.text, buildContextHint(targetWindowRef));
+    result.text = await correctTranscription(textToProcess, buildContextHint(targetWindowRef), templateManager.getActiveTemplate());
     console.log("[Main] Transcrição corrigida:", result.text);
     if (rawText && result.text && rawText !== result.text) {
       recordCorrections(rawText, result.text);
@@ -2064,7 +2956,7 @@ async function processTranscriptionResult(buffer) {
     if (!injectRes.success) {
       console.warn("[Main] Falha ao injetar texto:", injectRes.error);
     }
-    lastInjectedText = result.text;
+    lastSuccessfulTranscription = result.text;
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("vox:transcript-result", result.text);
     }
@@ -2313,34 +3205,80 @@ function setupIpcHandlers() {
     hideClipboardHistory();
     return { success: true };
   });
-  ipcMain.handle("vox:list-commands", () => {
-    return listCommands();
+  ipcMain.handle("vox:get-commands", () => {
+    return getAllCommands();
   });
-  ipcMain.handle("vox:save-command", (_event, cmd) => {
-    if (cmd && typeof cmd === "object" && cmd.id) {
-      saveCommand(cmd);
+  ipcMain.handle("vox:toggle-command", (_event, id, enabled) => {
+    if (typeof id === "string") setEnabled(id, !!enabled);
+    return { success: true };
+  });
+  ipcMain.handle("vox:set-command-match-mode", (_event, id, mode) => {
+    if (typeof id === "string" && (mode === "isolated" || mode === "inline")) {
+      setMatchMode(id, mode);
     }
     return { success: true };
   });
-  ipcMain.handle("vox:delete-command", (_event, id) => {
-    if (typeof id === "string") deleteCommand(id);
+  ipcMain.handle("vox:add-custom-command", (_event, command) => {
+    if (command && typeof command === "object") {
+      return addCustomCommand(command);
+    }
+    return null;
+  });
+  ipcMain.handle("vox:update-custom-command", (_event, id, command) => {
+    if (typeof id === "string" && command && typeof command === "object") {
+      updateCustomCommand(id, command);
+    }
     return { success: true };
   });
-  ipcMain.handle("vox:set-command-enabled", (_event, id, enabled) => {
-    if (typeof id === "string") setCommandEnabled(id, !!enabled);
+  ipcMain.handle("vox:delete-custom-command", (_event, id) => {
+    if (typeof id === "string") deleteCustomCommand(id);
     return { success: true };
   });
-  ipcMain.handle("vox:list-snippets", () => {
-    return listSnippets();
+  ipcMain.handle("vox:set-inline-mode", (_event, enabled) => {
+    setSetting("commandInlineMode", enabled ? "true" : "false");
+    return { success: true };
+  });
+  ipcMain.handle("vox:get-snippets", () => {
+    return getAll();
   });
   ipcMain.handle("vox:save-snippet", (_event, snippet) => {
     if (snippet && typeof snippet === "object" && snippet.id) {
-      saveSnippet(snippet);
+      save(snippet);
     }
     return { success: true };
   });
   ipcMain.handle("vox:delete-snippet", (_event, id) => {
-    if (typeof id === "string") deleteSnippet(id);
+    if (typeof id === "string") remove(id);
+    return { success: true };
+  });
+  ipcMain.handle("vox:get-templates", () => {
+    return templateManager.getAllTemplates();
+  });
+  ipcMain.handle("vox:get-active-template", () => {
+    return templateManager.getActiveTemplate();
+  });
+  ipcMain.handle("vox:set-active-template", (_event, id) => {
+    applyActiveTemplate(typeof id === "string" && id ? id : null, "ui");
+    return { success: true };
+  });
+  ipcMain.handle("vox:set-template-enabled", (_event, id, enabled) => {
+    if (typeof id === "string") templateManager.setTemplateEnabled(id, !!enabled);
+    return { success: true };
+  });
+  ipcMain.handle("vox:add-custom-template", (_event, template) => {
+    if (template && typeof template === "object") {
+      return templateManager.addCustomTemplate(template);
+    }
+    return null;
+  });
+  ipcMain.handle("vox:update-custom-template", (_event, id, updates) => {
+    if (typeof id === "string" && updates && typeof updates === "object") {
+      templateManager.updateCustomTemplate(id, updates);
+    }
+    return { success: true };
+  });
+  ipcMain.handle("vox:delete-custom-template", (_event, id) => {
+    if (typeof id === "string") templateManager.deleteCustomTemplate(id);
     return { success: true };
   });
 }
@@ -2431,13 +3369,39 @@ function registerShortcuts() {
   register(ptt, startPushToTalk, "push-to-talk");
   register(clipboard2, toggleClipboardHistory, "clipboard");
 }
+function setupCommandExecutorEvents() {
+  commandExecutor.on("vox_control", (action) => {
+    handleVoxControl(action);
+  });
+  commandExecutor.on("change_profile", (profile) => {
+    handleChangeProfile(profile);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("vox:change-profile", profile);
+    }
+  });
+  commandExecutor.on("snippet_not_configured", (name) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("vox:snippet-not-configured", name);
+    }
+  });
+  commandExecutor.on("script_result", (result) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("vox:script-result", result);
+    }
+  });
+}
 app.whenReady().then(async () => {
   initDatabase();
-  seedCommands(DEFAULT_COMMANDS);
+  seedSnippets([
+    { name: "signature", triggerPt: "inserir assinatura", triggerEn: "insert signature" },
+    { name: "email_address", triggerPt: "inserir email", triggerEn: "insert email" },
+    { name: "address", triggerPt: "inserir endereço", triggerEn: "insert address" }
+  ]);
   createMainWindow();
   createDockWindow();
   createClipboardWindow();
   setupIpcHandlers();
+  setupCommandExecutorEvents();
   const settings = getAllSettings();
   const sensitivity = parseFloat(settings.wakeWordSensitivity || "0.5");
   await wakewordDetector.init(void 0, sensitivity);

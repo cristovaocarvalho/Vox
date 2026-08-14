@@ -25,6 +25,8 @@ import configImg from '../../assets/config.png'
 import onSound from '../../assets/On.mp3'
 import offSound from '../../assets/Off.mp3'
 import { CommandsTab } from './tabs/CommandsTab'
+import { TemplatesTab } from './tabs/TemplatesTab'
+import { TemplateSelector } from './components/TemplateSelector'
 
 const prettyModelName = (id: string): string => {
   const base = id.split('/').pop() || id
@@ -96,13 +98,15 @@ export const MainWindow: React.FC = () => {
     setLanguage,
     autoStartEnabled,
     setAutoStartEnabled,
+    commandInlineMode,
+    setInlineMode,
     updateSettings
   } = useVoxStore()
 
   const [partialTranscript, setPartialTranscript] = useState('')
   const [isCopied, setIsCopied] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [settingsPage, setSettingsPage] = useState<'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences' | 'privacy' | 'vocabulary' | 'commands'>('provider')
+  const [settingsPage, setSettingsPage] = useState<'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences' | 'privacy' | 'vocabulary' | 'commands' | 'templates'>('provider')
   const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
 
@@ -317,7 +321,7 @@ export const MainWindow: React.FC = () => {
     }
   }
 
-  const settingsNavItems: { id: 'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences' | 'privacy' | 'vocabulary' | 'commands'; label: string }[] = [
+  const settingsNavItems: { id: 'provider' | 'models' | 'shortcuts' | 'voice' | 'preferences' | 'privacy' | 'vocabulary' | 'commands' | 'templates'; label: string }[] = [
     { id: 'provider', label: t('settings.provider') },
     { id: 'models', label: t('settings.models') },
     { id: 'shortcuts', label: t('settings.shortcuts') },
@@ -325,6 +329,7 @@ export const MainWindow: React.FC = () => {
     { id: 'preferences', label: t('settings.preferences') },
     { id: 'vocabulary', label: t('settings.vocabulary') },
     { id: 'commands', label: t('settings.commands') },
+    { id: 'templates', label: t('settings.templates') },
     { id: 'privacy', label: t('settings.privacy') }
   ]
 
@@ -387,6 +392,7 @@ export const MainWindow: React.FC = () => {
         if (saved.shortcutToggle) settingsToUpdate.shortcutToggle = saved.shortcutToggle
         if (saved.shortcutPushToTalk) settingsToUpdate.shortcutPushToTalk = saved.shortcutPushToTalk
         if (saved.shortcutClipboard) settingsToUpdate.shortcutClipboard = saved.shortcutClipboard
+        if (saved.commandInlineMode !== undefined) settingsToUpdate.commandInlineMode = saved.commandInlineMode === 'true'
         if (saved.wakeWordEnabled !== undefined) settingsToUpdate.wakeWordEnabled = saved.wakeWordEnabled === 'true'
         if (saved.wakeWordSensitivity) settingsToUpdate.wakeWordSensitivity = parseFloat(saved.wakeWordSensitivity)
         if (saved.autoStartEnabled !== undefined) {
@@ -829,6 +835,11 @@ export const MainWindow: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Template selector */}
+                  <div className="w-full mb-6">
+                    <TemplateSelector />
+                  </div>
+
                   <Badge variant={isRecording ? 'accent' : 'neutral'}>
                     {isRecording && <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-dot" />}
                     {isRecording ? t('type.recording') : t('type.waiting')}
@@ -1229,6 +1240,29 @@ export const MainWindow: React.FC = () => {
                             </div>
                           )}
                         </div>
+
+                        {/* Inline Command Mode */}
+                        <div className="p-4 bg-background/50 border border-border/60 rounded-xl">
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <span className="text-xs font-semibold text-text-primary block leading-relaxed">{t('commands.inlineMode')}</span>
+                              <span className="text-[11px] text-text-secondary leading-relaxed">{t('commands.inlineModeHint')}</span>
+                            </div>
+                            <div className="switch-button">
+                              <label className="switch-outer">
+                                <input
+                                  type="checkbox"
+                                  checked={commandInlineMode}
+                                  onChange={(e) => setInlineMode(e.target.checked)}
+                                />
+                                <div className="button">
+                                  <div className="button-toggle"></div>
+                                  <div className="button-indicator"></div>
+                                </div>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
 
@@ -1428,6 +1462,10 @@ export const MainWindow: React.FC = () => {
 
                     {settingsPage === 'commands' && (
                       <CommandsTab />
+                    )}
+
+                    {settingsPage === 'templates' && (
+                      <TemplatesTab />
                     )}
                   </div>
                 </div>
