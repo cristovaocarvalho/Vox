@@ -26,7 +26,6 @@ import onSound from '../../assets/On.mp3'
 import offSound from '../../assets/Off.mp3'
 import { CommandsTab } from './tabs/CommandsTab'
 import { TemplatesTab } from './tabs/TemplatesTab'
-import { TemplateSelector } from './components/TemplateSelector'
 
 const prettyModelName = (id: string): string => {
   const base = id.split('/').pop() || id
@@ -833,11 +832,6 @@ export const MainWindow: React.FC = () => {
                       <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">F9</kbd>
                       <span className="text-xs text-text-secondary font-medium">{t('type.pushToTalk')}</span>
                     </div>
-                  </div>
-
-                  {/* Template selector */}
-                  <div className="w-full mb-6">
-                    <TemplateSelector />
                   </div>
 
                   <Badge variant={isRecording ? 'accent' : 'neutral'}>

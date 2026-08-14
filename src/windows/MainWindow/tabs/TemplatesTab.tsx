@@ -54,7 +54,6 @@ export const TemplatesTab: React.FC = () => {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-text-primary">{isEn ? tpl.labelEn : tpl.labelPt}</span>
-                  {tpl.isDefault && <span className="text-[10px] text-text-muted" title={t('templates.default')}>🔒</span>}
                   <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-accent/10 text-accent border border-accent/20">{tpl.category}</span>
                 </div>
                 {tpl.description && <p className="text-[11px] text-text-muted truncate mt-0.5">{tpl.description}</p>}
