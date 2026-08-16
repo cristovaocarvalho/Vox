@@ -82,7 +82,7 @@ export const LiquidGlassCard: React.FC<LiquidGlassCardProps> = ({
       />
 
       {/* Inner Content */}
-      <div className="relative z-10">{children}</div>
+      <div className="relative z-10 flex flex-col flex-1 min-h-0 h-full">{children}</div>
     </Component>
   )
 }

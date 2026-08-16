@@ -1000,26 +1000,19 @@ export const MainWindow: React.FC = () => {
             }}
           >
             <motion.div
-              layout
               initial={{ opacity: 0, y: 30, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              transition={{
-                duration: 0.35,
-                ease: [0.16, 1, 0.3, 1],
-                layout: { duration: 0.35, ease: [0.16, 1, 0.3, 1] }
-              }}
-              className="w-full max-w-3xl"
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full max-w-3xl h-[620px] max-h-[85vh] flex flex-col"
             >
               <LiquidGlassCard
-                layout
-                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 glowIntensity="md"
                 blurIntensity="lg"
-                className="flex flex-col border border-border/80 shadow-2xl"
+                className="flex flex-col border border-border/80 shadow-2xl h-full overflow-hidden"
               >
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border/40">
+                <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border/40 shrink-0">
                   <div className="flex items-center gap-2.5">
                     <img src={configImg} alt="" className="w-4 h-4 object-contain opacity-90" />
                     <h2 className="text-base font-semibold font-heading tracking-tight text-text-primary">{t('settings.title')}</h2>
@@ -1036,7 +1029,7 @@ export const MainWindow: React.FC = () => {
                 {/* Body: sidebar + content */}
                 <div className="flex flex-1 min-h-0">
                   {/* Sidebar */}
-                  <aside className="w-44 shrink-0 border-r border-border/40 p-3">
+                  <aside className="w-44 shrink-0 border-r border-border/40 p-3 overflow-y-auto custom-scrollbar">
                     <nav className="space-y-1">
                       {settingsNavItems.map((item) => (
                         <button
@@ -1055,7 +1048,7 @@ export const MainWindow: React.FC = () => {
                   </aside>
 
                   {/* Content */}
-                  <div className="flex-1 min-w-0 p-6 max-h-[62vh] overflow-y-auto custom-scrollbar">
+                  <div className="flex-1 min-w-0 p-6 overflow-y-auto custom-scrollbar">
                     <AnimatePresence mode="wait">
                       <motion.div
                         key={settingsPage}
@@ -1491,7 +1484,7 @@ export const MainWindow: React.FC = () => {
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border/40">
+                <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border/40 shrink-0">
                   <button
                     type="button"
                     onClick={() => setIsSettingsOpen(false)}
