@@ -12,9 +12,15 @@ extraResources:
     to: Logo-Vox1.ico
 win:
   icon: src/assets/Logo-Vox1.ico
+  signAndEditExecutable: false
   target:
+    - dir
     - nsis
-    - portable
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  deleteAppDataOnUninstall: false
 asar: true
 asarUnpack:
   - "node_modules/better-sqlite3/**/*"

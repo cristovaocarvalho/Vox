@@ -1,13 +1,14 @@
 {
   "name": "vox",
   "version": "1.5.0",
-  "description": "Vox - Transcrição via NVIDIA API e Digitação por Voz Nativa",
+  "description": "Vox - Transcrição via API e Digitação por Voz Nativa",
   "main": "out/main/main.js",
   "author": "Vox Team",
   "license": "MIT",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "build:win": "electron-vite build && electron-builder --win",
     "preview": "electron-vite preview",
     "lint": "tsc --noEmit",
     "postinstall": "electron-builder install-app-deps",
