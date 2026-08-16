@@ -16,6 +16,7 @@ import { templateManager } from './modules/templateManager'
 import type { ParseResult, VoiceCommand } from '../src/types/commands'
 import wakewordDetector from './modules/wakeword'
 import { resolveProvider, getModelsEndpoint, getAuthHeaders, PROVIDER_PRESETS } from './modules/providers'
+import { initAutoUpdater } from './modules/updater'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import crypto from 'crypto'
@@ -1007,6 +1008,7 @@ app.whenReady().then(async () => {
   createMainWindow()
   createDockWindow()
   createClipboardWindow()
+  initAutoUpdater(() => mainWindow)
   setupIpcHandlers()
   setupCommandExecutorEvents()
 

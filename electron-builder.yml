@@ -2,6 +2,10 @@ appId: com.vox.app
 productName: Vox
 directories:
   output: dist-build
+publish:
+  provider: github
+  owner: cristovaocarvalho
+  repo: Vox
 files:
   - "out/**/*"
 extraResources:

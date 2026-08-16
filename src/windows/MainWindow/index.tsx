@@ -145,7 +145,31 @@ export const MainWindow: React.FC = () => {
   const [vocabulary, setVocabulary] = useState<string[]>([])
   const [newTerm, setNewTerm] = useState('')
 
+  const [updaterState, setUpdaterState] = useState<{
+    status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'
+    version?: string
+    percent?: number
+    error?: string
+  }>({ status: 'idle' })
 
+  React.useEffect(() => {
+    const unsub = window.vox?.onUpdaterStatus?.((data) => {
+      setUpdaterState(data)
+    })
+    return () => unsub?.()
+  }, [])
+
+  const handleCheckUpdates = async () => {
+    setUpdaterState({ status: 'checking' })
+    const res = await window.vox?.checkForUpdates?.()
+    if (!res?.success && res?.message) {
+      setUpdaterState({ status: 'error', error: res.message })
+    }
+  }
+
+  const handleInstallUpdate = () => {
+    window.vox?.restartAndInstallUpdate?.()
+  }
 
   React.useEffect(() => {
     document.documentElement.lang = language === 'en' ? 'en' : 'pt-BR'
@@ -1342,6 +1366,42 @@ export const MainWindow: React.FC = () => {
                               <IconTrash className="w-3.5 h-3.5" />
                               {t('settings.clearHistory')}
                             </button>
+                          </div>
+                        </div>
+
+                        {/* Updates / Versão */}
+                        <div className="p-4 bg-background/50 border border-border/60 rounded-xl space-y-3">
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <span className="text-xs font-semibold text-text-primary block leading-relaxed">Atualizações de Versão</span>
+                              <span className="text-[11px] text-text-secondary leading-relaxed">
+                                {updaterState.status === 'checking' && 'Verificando novas versões no GitHub...'}
+                                {updaterState.status === 'available' && `Nova versão ${updaterState.version} encontrada! Baixando...`}
+                                {updaterState.status === 'downloading' && `Baixando atualização: ${updaterState.percent || 0}%`}
+                                {updaterState.status === 'downloaded' && `Versão ${updaterState.version} pronta para instalar!`}
+                                {updaterState.status === 'not-available' && 'Você está na versão mais recente.'}
+                                {updaterState.status === 'error' && (updaterState.error || 'Erro ao verificar atualizações')}
+                                {updaterState.status === 'idle' && 'Vox v1.5.0 • Atualizações automáticas ativas'}
+                              </span>
+                            </div>
+                            {updaterState.status === 'downloaded' ? (
+                              <SpecularButton
+                                size="sm"
+                                onClick={handleInstallUpdate}
+                                className="!px-4 shrink-0"
+                              >
+                                Reiniciar e Atualizar
+                              </SpecularButton>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={handleCheckUpdates}
+                                disabled={updaterState.status === 'checking' || updaterState.status === 'downloading'}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-surface border border-border/60 hover:border-border rounded-lg transition-all duration-250 cursor-pointer shrink-0 disabled:opacity-50"
+                              >
+                                {updaterState.status === 'checking' ? 'Verificando...' : 'Verificar Agora'}
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>

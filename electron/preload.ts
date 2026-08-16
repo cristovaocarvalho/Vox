@@ -166,6 +166,15 @@ export const voxApi = {
     const handler = (_event: unknown, data: { templateId: string | null; activatedAt: string; activatedBy: string }) => callback(data)
     ipcRenderer.on('vox:template-changed', handler)
     return () => ipcRenderer.removeListener('vox:template-changed', handler)
+  },
+
+  // Auto Updater
+  checkForUpdates: () => ipcRenderer.invoke('vox:check-for-updates'),
+  restartAndInstallUpdate: () => ipcRenderer.invoke('vox:restart-and-install-update'),
+  onUpdaterStatus: (callback: (data: { status: 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'; version?: string; percent?: number; error?: string }) => void) => {
+    const handler = (_event: unknown, data: any) => callback(data)
+    ipcRenderer.on('vox:updater-status', handler)
+    return () => ipcRenderer.removeListener('vox:updater-status', handler)
   }
 }
 
