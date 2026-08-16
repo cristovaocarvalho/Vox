@@ -12,15 +12,27 @@ extraResources:
     to: Logo-Vox1.ico
 win:
   icon: src/assets/Logo-Vox1.ico
-  signAndEditExecutable: false
   target:
     - dir
     - nsis
 nsis:
-  oneClick: true
+  artifactName: "Vox Setup.${ext}"
+  uninstallDisplayName: "Vox"
+  shortcutName: "Vox"
+  installerIcon: src/assets/Logo-Vox1.ico
+  uninstallerIcon: src/assets/Logo-Vox1.ico
+  installerHeaderIcon: src/assets/Logo-Vox1.ico
+  installerSidebar: resources/installer/installerSidebar.bmp
+  uninstallerSidebar: resources/installer/uninstallerSidebar.bmp
+  installerHeader: resources/installer/installerHeader.bmp
+  oneClick: false
   perMachine: false
-  allowToChangeInstallationDirectory: false
+  allowToChangeInstallationDirectory: true
+  allowElevation: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
   deleteAppDataOnUninstall: false
+  runAfterFinish: true
 asar: true
 asarUnpack:
   - "node_modules/better-sqlite3/**/*"
