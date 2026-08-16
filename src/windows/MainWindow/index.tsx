@@ -969,17 +969,16 @@ export const MainWindow: React.FC = () => {
         <SpecularButton
           size="sm"
           radius={9999}
-          autoAnimate
-          speed={0.45}
-          followMouse
-          proximity={180}
+          followMouse={false}
+          autoAnimate={false}
+          intensity={0.7}
           onClick={handleOpenSettings}
-          className="!w-10 !h-10 !p-0 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 group !rounded-full shadow-lg"
+          className="!w-10 !h-10 !p-0 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 group !rounded-full"
         >
           <img
             src={configImg}
             alt={t('common.settings')}
-            className="w-4 h-4 object-contain opacity-80 group-hover:opacity-100 transition-all duration-350 ease-smooth group-hover:rotate-90 filter drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]"
+            className="w-4 h-4 object-contain opacity-80 group-hover:opacity-100 transition-transform duration-500 ease-smooth group-hover:rotate-45 filter drop-shadow-[0_0_6px_rgba(255,255,255,0.3)]"
           />
         </SpecularButton>
       </div>
