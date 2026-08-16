@@ -4,6 +4,7 @@ const events = require("events");
 const fs = require("fs");
 const crypto = require("crypto");
 const child_process = require("child_process");
+const electronUpdater = require("electron-updater");
 const util = require("util");
 class AudioRecorder extends events.EventEmitter {
   isRecording = false;
@@ -116,7 +117,7 @@ class AudioRecorder extends events.EventEmitter {
   }
 }
 const recorder = new AudioRecorder();
-const { app: app$1, safeStorage } = require("electron");
+const { app: app$2, safeStorage } = require("electron");
 let Database = null;
 try {
   Database = require("better-sqlite3");
@@ -174,7 +175,7 @@ function cachedStmt(sql) {
 }
 function initDatabase() {
   try {
-    const userDataPath = app$1.getPath("userData");
+    const userDataPath = app$2.getPath("userData");
     if (!fs.existsSync(userDataPath)) {
       fs.mkdirSync(userDataPath, { recursive: true });
     }
@@ -348,7 +349,7 @@ function setSetting(key, value) {
 function getAllSettings() {
   let systemLanguage = "pt-BR";
   try {
-    const locale = app$1.getLocale() || "pt-BR";
+    const locale = app$2.getLocale() || "pt-BR";
     if (locale.toLowerCase().startsWith("en")) {
       systemLanguage = "en";
     }
@@ -2591,6 +2592,60 @@ class WakeWordDetector extends events.EventEmitter {
   }
 }
 const wakewordDetector = new WakeWordDetector();
+const { app: app$1, ipcMain: ipcMain$1 } = require("electron");
+function initAutoUpdater(getMainWindow) {
+  electronUpdater.autoUpdater.autoDownload = true;
+  electronUpdater.autoUpdater.autoInstallOnAppQuit = true;
+  const notify = (data) => {
+    const win = getMainWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send("vox:updater-status", data);
+    }
+  };
+  electronUpdater.autoUpdater.on("checking-for-update", () => {
+    notify({ status: "checking" });
+  });
+  electronUpdater.autoUpdater.on("update-available", (info) => {
+    notify({ status: "available", version: info.version });
+  });
+  electronUpdater.autoUpdater.on("update-not-available", (info) => {
+    notify({ status: "not-available", version: info?.version });
+  });
+  electronUpdater.autoUpdater.on("download-progress", (progressObj) => {
+    notify({
+      status: "downloading",
+      percent: Math.round(progressObj.percent),
+      bytesPerSecond: progressObj.bytesPerSecond
+    });
+  });
+  electronUpdater.autoUpdater.on("update-downloaded", (info) => {
+    notify({ status: "downloaded", version: info.version });
+  });
+  electronUpdater.autoUpdater.on("error", (err) => {
+    notify({ status: "error", error: err?.message });
+  });
+  ipcMain$1.handle("vox:check-for-updates", async () => {
+    if (!app$1.isPackaged) {
+      return { success: false, message: "Em modo de desenvolvimento (não empacotado)" };
+    }
+    try {
+      const result = await electronUpdater.autoUpdater.checkForUpdates();
+      return { success: true, version: result?.updateInfo?.version };
+    } catch (e) {
+      return { success: false, error: e?.message };
+    }
+  });
+  ipcMain$1.handle("vox:restart-and-install-update", () => {
+    electronUpdater.autoUpdater.quitAndInstall();
+  });
+  if (app$1.isPackaged) {
+    setTimeout(() => {
+      electronUpdater.autoUpdater.checkForUpdatesAndNotify().catch((e) => {
+        console.warn("[AutoUpdater] Falha na checagem automática inicial:", e);
+      });
+    }, 6e3);
+  }
+}
 const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage } = require("electron");
 const execFileAsync = util.promisify(child_process.execFile);
 let mainWindow = null;
@@ -3426,6 +3481,7 @@ app.whenReady().then(async () => {
   createMainWindow();
   createDockWindow();
   createClipboardWindow();
+  initAutoUpdater(() => mainWindow);
   setupIpcHandlers();
   setupCommandExecutorEvents();
   const settings = getAllSettings();

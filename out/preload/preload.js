@@ -163,6 +163,14 @@ const voxApi = {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on("vox:template-changed", handler);
     return () => ipcRenderer.removeListener("vox:template-changed", handler);
+  },
+  // Auto Updater
+  checkForUpdates: () => ipcRenderer.invoke("vox:check-for-updates"),
+  restartAndInstallUpdate: () => ipcRenderer.invoke("vox:restart-and-install-update"),
+  onUpdaterStatus: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("vox:updater-status", handler);
+    return () => ipcRenderer.removeListener("vox:updater-status", handler);
   }
 };
 contextBridge.exposeInMainWorld("vox", voxApi);
