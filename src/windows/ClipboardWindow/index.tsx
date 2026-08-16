@@ -51,10 +51,10 @@ export const ClipboardWindow: React.FC = () => {
   }
 
   return (
-    <div className="w-full h-full flex items-center justify-center p-3 select-none drag-region">
-      <div className="w-full h-full flex flex-col bg-[#16161A]/85 backdrop-blur-xl backdrop-saturate-150 border border-white/15 rounded-2xl shadow-[0_16px_48px_0_rgba(0,0,0,0.6)] overflow-hidden">
+    <div className="w-full h-full flex flex-col select-none drag-region p-0 bg-transparent">
+      <div className="w-full h-full flex flex-col bg-[#16161A]/95 backdrop-blur-xl backdrop-saturate-150 border border-border shadow-none overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 shrink-0">
           <div className="flex items-center gap-2">
             <IconCopy className="w-3.5 h-3.5 text-white/70" />
             <span className="text-xs font-semibold font-heading tracking-tight text-white">{t('type.history')}</span>
@@ -62,7 +62,7 @@ export const ClipboardWindow: React.FC = () => {
           <button
             type="button"
             onClick={() => window.vox?.hideClipboard?.()}
-            className="text-white/50 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors duration-200 cursor-pointer"
+            className="text-white/50 hover:text-white p-1 hover:bg-white/10 transition-colors duration-200 cursor-pointer"
           >
             <IconX className="w-4 h-4" />
           </button>
@@ -84,7 +84,7 @@ export const ClipboardWindow: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.02, duration: 0.18 }}
                   onClick={() => insert(item.text)}
-                  className="w-full text-left px-3 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] border border-white/5 hover:border-white/15 transition-colors duration-150 cursor-pointer group"
+                  className="w-full text-left px-3 py-2.5 bg-white/[0.04] hover:bg-white/[0.1] border border-white/5 hover:border-white/15 transition-colors duration-150 cursor-pointer group"
                 >
                   <p className="text-xs text-white/90 leading-snug line-clamp-2 break-words">
                     {item.text}

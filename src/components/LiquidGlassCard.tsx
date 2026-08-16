@@ -18,7 +18,7 @@ export interface LiquidGlassCardProps {
 
 export const LiquidGlassCard: React.FC<LiquidGlassCardProps> = ({
   glowIntensity = 'sm',
-  shadowIntensity = 'sm',
+  shadowIntensity = 'none',
   blurIntensity = 'sm',
   borderRadius = '0px',
   draggable = false,
