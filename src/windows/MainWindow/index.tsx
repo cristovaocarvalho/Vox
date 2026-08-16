@@ -1513,8 +1513,8 @@ export const MainWindow: React.FC = () => {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md"
           >
-            <LiquidGlassCard className="w-full max-w-md p-6 space-y-5 border border-border/60 shadow-2xl text-left">
-              <div className="space-y-3">
+            <LiquidGlassCard className="w-full max-w-md p-6 border border-border/60 shadow-2xl text-left">
+              <div className="space-y-2">
                 <h3 className="text-sm font-semibold font-heading tracking-tight text-text-primary">
                   {t('settings.clearHistory')}
                 </h3>
@@ -1522,7 +1522,7 @@ export const MainWindow: React.FC = () => {
                   {t('settings.clearConfirm')}
                 </p>
               </div>
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex items-center justify-end gap-3 pt-6">
                 <button
                   type="button"
                   onClick={() => setShowClearConfirmModal(false)}
