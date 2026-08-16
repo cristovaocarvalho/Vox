@@ -39,7 +39,11 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null) {
   })
 
   autoUpdater.on('error', (err) => {
-    notify({ status: 'error', error: err?.message })
+    let msg = err?.message || 'Erro ao conectar ao servidor de atualizações.'
+    if (msg.includes('404') && msg.includes('releases.atom')) {
+      msg = 'Repositório privado: as releases precisam ser públicas para download automático.'
+    }
+    notify({ status: 'error', error: msg })
   })
 
   ipcMain.handle('vox:check-for-updates', async () => {
@@ -50,7 +54,11 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null) {
       const result = await autoUpdater.checkForUpdates()
       return { success: true, version: result?.updateInfo?.version }
     } catch (e: any) {
-      return { success: false, error: e?.message }
+      let msg = e?.message || 'Erro ao verificar atualizações.'
+      if (msg.includes('404') && msg.includes('releases.atom')) {
+        msg = 'Repositório privado: as releases precisam ser públicas para download automático.'
+      }
+      return { success: false, error: msg }
     }
   })
 
