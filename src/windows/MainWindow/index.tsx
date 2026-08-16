@@ -836,7 +836,7 @@ export const MainWindow: React.FC = () => {
                     </div>
                   </div>
 
-                  <Badge variant={isRecording ? 'accent' : 'neutral'}>
+                  <Badge variant={isRecording ? 'accent' : 'neutral'} className="px-2 py-0.5 text-[10px] font-medium tracking-wide mx-auto inline-flex items-center justify-center">
                     {isRecording && <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-dot" />}
                     {isRecording ? t('type.recording') : t('type.waiting')}
                   </Badge>
