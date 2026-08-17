@@ -63,7 +63,7 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null) {
   })
 
   ipcMain.handle('vox:restart-and-install-update', () => {
-    autoUpdater.quitAndInstall()
+    autoUpdater.quitAndInstall(true, true)
   })
 
   if (app.isPackaged) {
