@@ -2460,8 +2460,10 @@ class WakeWordDetector extends events.EventEmitter {
   constructor() {
     super();
   }
-  async init(_modelPath, sensitivity = 0.5) {
-    this.setSensitivity(sensitivity);
+  async init(_modelPath, sensitivity) {
+    if (sensitivity !== void 0) {
+      this.setSensitivity(sensitivity);
+    }
     this.modelLoaded = true;
     return true;
   }
@@ -2725,6 +2727,24 @@ async function disableWindowsShadow(win) {
     console.warn("[Main] Falha ao remover sombra da janela:", err);
   }
 }
+function hideMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send("vox:window-visibility", false);
+  mainWindow.hide();
+}
+function showMainWindow() {
+  if (mainWindow && mainWindow.isDestroyed()) {
+    mainWindow = null;
+  }
+  if (!mainWindow) {
+    createMainWindow();
+  }
+  if (!mainWindow) return;
+  mainWindow.webContents.send("vox:window-visibility", true);
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -2742,14 +2762,15 @@ function createMainWindow() {
       preload: path.join(__dirname, "../preload/preload.js"),
       sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      backgroundThrottling: true
     }
   });
   mainWindow?.setMenu(null);
   mainWindow?.on("close", (e) => {
     if (!isQuitting) {
       e.preventDefault();
-      mainWindow?.hide();
+      hideMainWindow();
     }
   });
   const devUrl = getDevUrl();
@@ -3519,7 +3540,6 @@ app.whenReady().then(async () => {
   setupCommandExecutorEvents();
   const settings = getAllSettings();
   const sensitivity = parseFloat(settings.wakeWordSensitivity || "0.5");
-  await wakewordDetector.init(void 0, sensitivity);
   wakewordDetector.on("detected", () => {
     if (recorder.getIsRecording()) return;
     console.log('[Main] 🎙️ Wake Word "Vox" detectada! Capturando janela ativa e iniciando ditado por voz...');
@@ -3557,6 +3577,7 @@ app.whenReady().then(async () => {
     await processTranscriptionResult(buffer);
   });
   if (settings.wakeWordEnabled !== "false") {
+    await wakewordDetector.init(void 0, sensitivity);
     wakewordDetector.start();
   }
   const autoStart = settings.autoStartEnabled !== "false";
@@ -3577,7 +3598,7 @@ app.whenReady().then(async () => {
   const isEn = lang === "en" || lang.startsWith("en");
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: isEn ? "Open Vox" : "Abrir Vox", click: () => {
-      mainWindow?.show();
+      showMainWindow();
     } },
     { type: "separator" },
     { label: isEn ? "Quit" : "Sair", click: () => {
@@ -3587,13 +3608,10 @@ app.whenReady().then(async () => {
     } }
   ]));
   tray.on("double-click", () => {
-    mainWindow?.show();
+    showMainWindow();
   });
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
-      createDockWindow();
-    }
+    showMainWindow();
   });
 });
 app.on("before-quit", () => {
