@@ -1,5 +1,6 @@
 import { useRef, useEffect, CSSProperties, MouseEventHandler, ReactNode } from 'react'
 import { Renderer, Program, Mesh, Triangle, Color } from 'ogl'
+import { useAnimationGate, isAnimationActive } from '../lib/animationGate'
 import './SpecularButton.css'
 
 const PAD = 20
@@ -198,11 +199,17 @@ const SpecularButton = ({
     let bright = 0
     let last = performance.now()
     let raf = 0
+    let running = false
 
     const lineC = new Color()
     const baseC = new Color()
 
     const update = (now: number) => {
+      if (!isAnimationActive()) {
+        running = false
+        raf = 0
+        return
+      }
       raf = requestAnimationFrame(update)
       const dt = Math.min((now - last) / 1000, 0.05)
       last = now
@@ -229,10 +236,29 @@ const SpecularButton = ({
       program.uniforms.uThickness.value = p.thickness * dpr
       renderer.render({ scene: mesh })
     }
-    raf = requestAnimationFrame(update)
+
+    const start = () => {
+      if (running) return
+      running = true
+      last = performance.now()
+      raf = requestAnimationFrame(update)
+    }
+
+    const stop = () => {
+      if (raf) cancelAnimationFrame(raf)
+      raf = 0
+      running = false
+    }
+
+    if (isAnimationActive()) start()
+
+    const unsubscribe = useAnimationGate.subscribe((state) => {
+      if (state.micActive && state.windowVisible) start()
+    })
 
     return () => {
-      cancelAnimationFrame(raf)
+      stop()
+      unsubscribe()
       ro.disconnect()
       window.removeEventListener('pointermove', onPointerMove)
       if (gl.canvas.parentNode === fx) fx.removeChild(gl.canvas)

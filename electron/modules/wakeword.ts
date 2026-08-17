@@ -66,8 +66,10 @@ export class WakeWordDetector extends EventEmitter {
     super()
   }
 
-  public async init(_modelPath?: string, sensitivity = 0.5): Promise<boolean> {
-    this.setSensitivity(sensitivity)
+  public async init(_modelPath?: string, sensitivity?: number): Promise<boolean> {
+    if (sensitivity !== undefined) {
+      this.setSensitivity(sensitivity)
+    }
     this.modelLoaded = true
     return true
   }

@@ -2,6 +2,7 @@
 import React, { forwardRef, useImperativeHandle, useEffect, useRef, useMemo } from 'react'
 import * as THREE from 'three'
 import { Canvas, useFrame } from '@react-three/fiber'
+import { useAnimationGate } from '../lib/animationGate'
 import './Beams.css'
 
 function extendMaterial(BaseMaterial: any, cfg: any) {
@@ -50,11 +51,19 @@ function extendMaterial(BaseMaterial: any, cfg: any) {
   }
 }
 
-const CanvasWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <Canvas dpr={[1, 1.5]} frameloop="always" camera={{ position: [0, 0, 20], fov: 30 }} className="beams-container">
-    {children}
-  </Canvas>
-)
+const CanvasWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const active = useAnimationGate((s) => s.micActive && s.windowVisible)
+  return (
+    <Canvas
+      dpr={[1, 1.5]}
+      frameloop={active ? 'always' : 'demand'}
+      camera={{ position: [0, 0, 20], fov: 30 }}
+      className="beams-container"
+    >
+      {children}
+    </Canvas>
+  )
+}
 
 const hexToNormalizedRGB = (hex: string): [number, number, number] => {
   const clean = hex.replace('#', '')
@@ -314,7 +323,7 @@ const MergedPlanes = forwardRef(({ material, width, count, height }: any, ref: a
   )
   useFrame((_: any, delta: number) => {
     if (mesh.current?.material?.uniforms?.time) {
-      mesh.current.material.uniforms.time.value += 0.1 * delta
+      mesh.current.material.uniforms.time.value += 0.1 * Math.min(delta, 0.05)
     }
   })
   return <mesh ref={mesh} geometry={geometry} material={material} />

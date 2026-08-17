@@ -101,6 +101,27 @@ async function disableWindowsShadow(win: BrowserWindowType | null): Promise<void
   }
 }
 
+function hideMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.webContents.send('vox:window-visibility', false)
+  mainWindow.hide()
+}
+
+function showMainWindow() {
+  if (mainWindow && mainWindow.isDestroyed()) {
+    mainWindow = null
+  }
+  if (!mainWindow) {
+    createMainWindow()
+  }
+  if (!mainWindow) return
+
+  mainWindow.webContents.send('vox:window-visibility', true)
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -118,7 +139,8 @@ function createMainWindow() {
       preload: path.join(__dirname, '../preload/preload.js'),
       sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      backgroundThrottling: true
     }
   })
 
@@ -127,7 +149,7 @@ function createMainWindow() {
   mainWindow?.on('close', (e) => {
     if (!isQuitting) {
       e.preventDefault()
-      mainWindow?.hide()
+      hideMainWindow()
     }
   })
 
@@ -1040,10 +1062,9 @@ app.whenReady().then(async () => {
   setupIpcHandlers()
   setupCommandExecutorEvents()
 
-  // Inicializa o módulo Wake Word
+  // Wake Word: modelo/detecção inicializado sob demanda (somente quando habilitado nas configurações)
   const settings = getAllSettings()
   const sensitivity = parseFloat(settings.wakeWordSensitivity || '0.5')
-  await wakewordDetector.init(undefined, sensitivity)
 
   // Acionamento por comando de voz "Vox"
   wakewordDetector.on('detected', () => {
@@ -1089,6 +1110,7 @@ app.whenReady().then(async () => {
   })
 
   if (settings.wakeWordEnabled !== 'false') {
+    await wakewordDetector.init(undefined, sensitivity)
     wakewordDetector.start()
   }
 
@@ -1113,17 +1135,14 @@ app.whenReady().then(async () => {
   const lang = (settings.language || 'pt-BR').toLowerCase()
   const isEn = lang === 'en' || lang.startsWith('en')
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: isEn ? 'Open Vox' : 'Abrir Vox', click: () => { mainWindow?.show() } },
+    { label: isEn ? 'Open Vox' : 'Abrir Vox', click: () => { showMainWindow() } },
     { type: 'separator' },
     { label: isEn ? 'Quit' : 'Sair', click: () => { tray?.destroy(); wakewordDetector.stop(); app.exit(0) } }
   ]))
-  tray.on('double-click', () => { mainWindow?.show() })
+  tray.on('double-click', () => { showMainWindow() })
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow()
-      createDockWindow()
-    }
+    showMainWindow()
   })
 })
 

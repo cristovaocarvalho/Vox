@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useVoxStore, type AppLocale, type VoxState } from '../../stores/useVoxStore'
+import { useAnimationGate, initAnimationGate } from '../../lib/animationGate'
 import { useI18n } from '../../i18n'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -637,6 +638,18 @@ export const MainWindow: React.FC = () => {
       setIsRecording(false)
     }
   }, [setIsRecording])
+
+  React.useEffect(() => {
+    initAnimationGate()
+    const unsubVisibility = window.vox?.onWindowVisibility?.((visible: boolean) => {
+      useAnimationGate.getState().setWindowVisible(visible)
+    })
+    return () => unsubVisibility?.()
+  }, [])
+
+  React.useEffect(() => {
+    useAnimationGate.getState().setMicActive(isRecording || isTranscribing)
+  }, [isRecording, isTranscribing])
 
   const handleToggleRecording = () => {
     const nextState = !isRecording

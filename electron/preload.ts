@@ -142,6 +142,11 @@ export const voxApi = {
     ipcRenderer.on('vox:dock-hide', handler)
     return () => ipcRenderer.removeListener('vox:dock-hide', handler)
   },
+  onWindowVisibility: (callback: (visible: boolean) => void) => {
+    const handler = (_event: unknown, visible: boolean) => callback(visible)
+    ipcRenderer.on('vox:window-visibility', handler)
+    return () => ipcRenderer.removeListener('vox:window-visibility', handler)
+  },
   onClipboardRefresh: (callback: () => void) => {
     const handler = () => callback()
     ipcRenderer.on('vox:clipboard-refresh', handler)
