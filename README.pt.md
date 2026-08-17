@@ -23,7 +23,7 @@
 ---
 
 <div align="center">
-  <img src="src/assets/preview.png" alt="Vox Interface Preview" width="850" />
+  <img src="src/assets/Vox - UI.png" alt="Vox Interface Preview" width="850" />
 </div>
 
 <br />
