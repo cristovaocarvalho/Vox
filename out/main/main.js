@@ -2644,7 +2644,7 @@ function initAutoUpdater(getMainWindow) {
     }
   });
   ipcMain$1.handle("vox:restart-and-install-update", () => {
-    electronUpdater.autoUpdater.quitAndInstall();
+    electronUpdater.autoUpdater.quitAndInstall(true, true);
   });
   if (app$1.isPackaged) {
     setTimeout(() => {
