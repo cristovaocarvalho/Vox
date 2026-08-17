@@ -51,7 +51,7 @@ function extendMaterial(BaseMaterial: any, cfg: any) {
 }
 
 const CanvasWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const active = useAnimationGate((s) => s.micActive && s.windowVisible)
+  const active = useAnimationGate((s) => s.windowVisible)
   return (
     <Canvas
       dpr={[1, 1.5]}

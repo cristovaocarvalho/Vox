@@ -647,10 +647,6 @@ export const MainWindow: React.FC = () => {
     return () => unsubVisibility?.()
   }, [])
 
-  React.useEffect(() => {
-    useAnimationGate.getState().setMicActive(isRecording || isTranscribing)
-  }, [isRecording, isTranscribing])
-
   const handleToggleRecording = () => {
     const nextState = !isRecording
     setIsRecording(nextState)

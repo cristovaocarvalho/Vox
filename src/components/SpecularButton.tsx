@@ -253,7 +253,7 @@ const SpecularButton = ({
     if (isAnimationActive()) start()
 
     const unsubscribe = useAnimationGate.subscribe((state) => {
-      if (state.micActive && state.windowVisible) start()
+      if (state.windowVisible) start()
     })
 
     return () => {

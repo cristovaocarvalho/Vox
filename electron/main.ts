@@ -132,6 +132,7 @@ function createMainWindow() {
     maximizable: true,
     minimizable: true,
     autoHideMenuBar: true,
+    show: false,
     title: 'Vox',
     icon: getAppIconPath(),
     backgroundColor: '#0D0D0F',
@@ -145,6 +146,19 @@ function createMainWindow() {
   })
 
   mainWindow?.setMenu(null)
+
+  mainWindow?.once('ready-to-show', () => {
+    if (isQuitting || !mainWindow || mainWindow.isDestroyed()) return
+    mainWindow.show()
+    mainWindow.focus()
+  })
+
+  // Fallback: garante que a janela apareça mesmo se 'ready-to-show' não disparar
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.isVisible() && !isQuitting) {
+      mainWindow.show()
+    }
+  }, 3000)
 
   mainWindow?.on('close', (e) => {
     if (!isQuitting) {
