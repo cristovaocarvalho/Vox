@@ -77,6 +77,30 @@ function getAppIconPath() {
     : path.join(app.getAppPath(), 'src/assets/Logo-Vox1.ico')
 }
 
+async function disableWindowsShadow(win: BrowserWindowType | null): Promise<void> {
+  if (process.platform !== 'win32' || !win) return
+  try {
+    const handle = win.getNativeWindowHandle()
+    const hwnd = handle.length >= 8 ? handle.readBigUInt64LE(0).toString() : handle.readUInt32LE(0).toString()
+    const psScript = [
+      '$src = @\'',
+      'using System;',
+      'using System.Runtime.InteropServices;',
+      'public static class VoxDwm {',
+      '  [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);',
+      '}',
+      '\'@',
+      'Add-Type -TypeDefinition $src',
+      '$policy = 1',
+      `[void][VoxDwm]::DwmSetWindowAttribute([IntPtr]${hwnd}, 2, [ref]$policy, 4)`
+    ].join('\n')
+    const encoded = Buffer.from(psScript, 'utf16le').toString('base64')
+    await execFileAsync('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', encoded], { timeout: 2000, encoding: 'utf8' })
+  } catch (err) {
+    console.warn('[Main] Falha ao remover sombra da janela:', err)
+  }
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -145,6 +169,8 @@ function createDockWindow() {
       nodeIntegration: false
     }
   })
+
+  void disableWindowsShadow(dockWindow)
 
   const devUrl = getDevUrl()
   if (devUrl) {
@@ -220,6 +246,8 @@ function createClipboardWindow() {
   })
 
   win.setMenu(null)
+
+  void disableWindowsShadow(win)
 
   win.on('close', (e: Electron.Event) => {
     e.preventDefault()

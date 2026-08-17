@@ -2622,7 +2622,11 @@ function initAutoUpdater(getMainWindow) {
     notify({ status: "downloaded", version: info.version });
   });
   electronUpdater.autoUpdater.on("error", (err) => {
-    notify({ status: "error", error: err?.message });
+    let msg = err?.message || "Erro ao conectar ao servidor de atualizações.";
+    if (msg.includes("404") && msg.includes("releases.atom")) {
+      msg = "Repositório privado: as releases precisam ser públicas para download automático.";
+    }
+    notify({ status: "error", error: msg });
   });
   ipcMain$1.handle("vox:check-for-updates", async () => {
     if (!app$1.isPackaged) {
@@ -2632,7 +2636,11 @@ function initAutoUpdater(getMainWindow) {
       const result = await electronUpdater.autoUpdater.checkForUpdates();
       return { success: true, version: result?.updateInfo?.version };
     } catch (e) {
-      return { success: false, error: e?.message };
+      let msg = e?.message || "Erro ao verificar atualizações.";
+      if (msg.includes("404") && msg.includes("releases.atom")) {
+        msg = "Repositório privado: as releases precisam ser públicas para download automático.";
+      }
+      return { success: false, error: msg };
     }
   });
   ipcMain$1.handle("vox:restart-and-install-update", () => {
@@ -2693,6 +2701,29 @@ async function captureActiveWindow() {
 const getDevUrl = () => process.env["ELECTRON_RENDERER_URL"] || process.env["VITE_DEV_SERVER_URL"];
 function getAppIconPath() {
   return app.isPackaged ? path.join(process.resourcesPath, "Logo-Vox1.ico") : path.join(app.getAppPath(), "src/assets/Logo-Vox1.ico");
+}
+async function disableWindowsShadow(win) {
+  if (process.platform !== "win32" || !win) return;
+  try {
+    const handle = win.getNativeWindowHandle();
+    const hwnd = handle.length >= 8 ? handle.readBigUInt64LE(0).toString() : handle.readUInt32LE(0).toString();
+    const psScript = [
+      "$src = @'",
+      "using System;",
+      "using System.Runtime.InteropServices;",
+      "public static class VoxDwm {",
+      '  [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);',
+      "}",
+      "'@",
+      "Add-Type -TypeDefinition $src",
+      "$policy = 1",
+      `[void][VoxDwm]::DwmSetWindowAttribute([IntPtr]${hwnd}, 2, [ref]$policy, 4)`
+    ].join("\n");
+    const encoded = Buffer.from(psScript, "utf16le").toString("base64");
+    await execFileAsync("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-EncodedCommand", encoded], { timeout: 2e3, encoding: "utf8" });
+  } catch (err) {
+    console.warn("[Main] Falha ao remover sombra da janela:", err);
+  }
 }
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -2757,6 +2788,7 @@ function createDockWindow() {
       nodeIntegration: false
     }
   });
+  void disableWindowsShadow(dockWindow);
   const devUrl = getDevUrl();
   if (devUrl) {
     dockWindow?.loadURL(`${devUrl}#/dock`);
@@ -2825,6 +2857,7 @@ function createClipboardWindow() {
     }
   });
   win.setMenu(null);
+  void disableWindowsShadow(win);
   win.on("close", (e) => {
     e.preventDefault();
     win.hide();
