@@ -12,11 +12,13 @@ console.log(`[Release] Iniciando build e publicação da versão ${tag}...`)
 execSync('npm run build:win', { stdio: 'inherit', cwd: path.join(__dirname, '..') })
 
 const distDir = path.join(__dirname, '../dist-build')
-const setupExe = path.join(distDir, 'Vox Setup.exe')
+const setupExe = fs.existsSync(path.join(distDir, 'Vox-Setup.exe'))
+  ? path.join(distDir, 'Vox-Setup.exe')
+  : path.join(distDir, 'Vox Setup.exe')
 const latestYml = path.join(distDir, 'latest.yml')
 
 if (!fs.existsSync(setupExe) || !fs.existsSync(latestYml)) {
-  console.error('[Release] Erro: Arquivos Vox Setup.exe ou latest.yml não encontrados em dist-build.')
+  console.error('[Release] Erro: Arquivo do instalador (Vox-Setup.exe) ou latest.yml não encontrados em dist-build.')
   process.exit(1)
 }
 

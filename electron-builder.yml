@@ -20,7 +20,7 @@ win:
     - dir
     - nsis
 nsis:
-  artifactName: "Vox Setup.${ext}"
+  artifactName: "Vox-Setup.${ext}"
   uninstallDisplayName: "Vox"
   shortcutName: "Vox"
   installerIcon: src/assets/Logo-Vox1.ico
