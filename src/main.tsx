@@ -1,5 +1,6 @@
 import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
+import './fonts.css'
 import './index.css'
 
 const MainWindow = lazy(() => import('./windows/MainWindow'))
