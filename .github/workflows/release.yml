@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: code/package-lock.json
+
+      - name: Install dependencies
+        working-directory: code
+        run: npm ci
+
+      - name: Build and Package (Windows)
+        if: runner.os == 'Windows'
+        working-directory: code
+        run: npm run build:win
+
+      - name: Build and Package (macOS)
+        if: runner.os == 'macOS'
+        working-directory: code
+        run: npm run build:mac:universal
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            code/dist-build/*.exe
+            code/dist-build/*.dmg
+            code/dist-build/*.zip
+            code/dist-build/latest*.yml
+            code/dist-build/latest*.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
