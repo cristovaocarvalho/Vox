@@ -4,13 +4,13 @@
 
 # Vox
 
-### Präzises KI-Sprachdiktat — Direkt an Ihrer aktiven Cursorposition
+### Die Souveräne Sprachbedienungsebene für den Desktop
 
-*Ein kompromissloses, privates und quelloffenes Diktiersystem für Windows.*
+*Ein kompromissloses, privates und hochmodernes Sprachdiktiersystem und Workflow-Automatisierungswerkzeug, entwickelt für Windows und macOS.*
 
 <br />
 
-[Deutsch](README.de.md) &nbsp;·&nbsp; [English](README.md) &nbsp;·&nbsp; [Português](README.pt.md) &nbsp;·&nbsp; [Español](README.es.md) &nbsp;·&nbsp; [Français](README.fr.md) &nbsp;·&nbsp; [简体中文](README.zh-CN.md) &nbsp;·&nbsp; [日本語](README.ja.md) &nbsp;·&nbsp; [Italiano](README.it.md)
+[English](README.md) &nbsp;·&nbsp; [Português](README.pt.md) &nbsp;·&nbsp; [Español](README.es.md) &nbsp;·&nbsp; [Français](README.fr.md) &nbsp;·&nbsp; [Deutsch](README.de.md) &nbsp;·&nbsp; [Italiano](README.it.md) &nbsp;·&nbsp; [日本語](README.ja.md) &nbsp;·&nbsp; [简体中文](README.zh-CN.md)
 
 <br />
 
@@ -19,64 +19,99 @@
 ---
 
 <div align="center">
-  <img src="src/assets/Vox - UI.png" alt="Vox Benutzeroberfläche" width="820" />
+  <img src="src/assets/Vox - UI.png" alt="Vox Benutzeroberfläche" width="840" />
 </div>
 
 <br />
 
-## Warum Vox
+## Die Souveräne Alternative zu Abonnements
 
-Herkömmliche Diktieranwendungen verlangen monatliche Abonnements, begrenzen das Wortvolumen und leiten vertrauliche Audiodaten über proprietäre Cloud-Server weiter.
+Herkömmliche kommerzielle Sprachdiktierprogramme binden Fachleute an monatliche Gebühren, erzwingen künstliche Wortkontingente und leiten vertrauliche Gedanken sowie Quellcode über Drittanbieter-Server weiter.
 
-**Vox setzt auf eine unabhängige Architektur.** Es bietet ein Diktiererlebnis auf Betriebssystemebene, transkribiert Sprache über Whisper, veredelt Zeichensetzung mit modernen Sprachmodellen und fügt formatierten Text direkt am aktiven Cursor in jeder Windows-Anwendung ein.
-
-<br />
-
-## Kernprinzipien
-
-### Vollständige Architektonische Autonomie (BYOK)
-Verbinden Sie sich direkt mit führenden Inferenz-Anbietern — darunter Groq, OpenAI und Azure OpenAI — über Ihre eigenen API-Schlüssel, oder betreiben Sie Vox vollständig lokal und offline mit **Ollama** und **LM Studio**. Keine Zwischenserver, keine Telemetrie, keine Datenspeicherung.
-
-### Native Mehrsprachige Präzision
-Entwickelt für nahtlose Erkennung und Formatierung in **8 Hauptsprachen** — Deutsch, Englisch, Portugiesisch, Spanisch, Französisch, Mandarin, Japanisch und Italienisch — ohne erzwungene Übersetzungen.
-
-### Kontextsensitive Semantische Korrektur
-Vox analysiert die aktive Anwendungsumgebung. Ob beim Schreiben von Quellcode in einer IDE, beim Verfassen geschäftlicher E-Mails oder beim Notieren kurzer Gedanken: Die Korrektur passt Zeichensetzung, Groß- und Kleinschreibung präzise an.
-
-### Nahtlose Cursor-Einfügung
-Starten Sie das Diktat über globale Tastenkombinationen (`F10` / `F9`) oder per Sprachbefehl (*"Vox"*). Die integrierte Spracherkennung (VAD) beendet die Aufnahme bei Sprechpausen und fügt den fertigen Text sofort am Cursor ein.
-
-### Uneingeschränkt und Quelloffen
-Veröffentlicht unter der MIT-Lizenz. Frei von Abogebühren, künstlichen Limits und versteckten Kosten.
+**Vox ist ein architektonischer Meilenstein.** Entwickelt in eleganter Glassmorphism-Ästhetik und angetrieben von einem nativen Hochleistungskern, wandelt Vox gesprochene Sprache mit Whisper in präzisen Text um, verfeinert die Grammatik und Zeichensetzung über das Sprachmodell Ihrer Wahl und fügt das formatierte Ergebnis direkt an der aktiven Cursorposition in jeder Anwendung ein — ohne Abonnements, ohne Tracking und mit vollständiger Privatsphäre.
 
 <br />
 
 ---
 
-## Vergleich
+## Funktionsumfang
 
-| Dimension | Vox | Proprietäre Lösungen |
+### Native Plattformübergreifende Ausführung
+Nativ entwickelt für **Windows 10/11 (64-Bit)** und **macOS (Apple Silicon M1/M2/M3/M4 & Intel)**. Vox integriert sich nahtlos in das Betriebssystem, unterstützt barrierefreie Schnittstellen, erkennt Vordergrundprozesse und reagiert auf globale Tastenkürzel.
+
+### Integrierte Lokale Whisper-Verwaltung (100% Offline)
+Laden Sie Whisper GGML-Modelle (Tiny, Base, Small, Medium, Large v3, Distil-Whisper) mit nur einem Klick direkt über die Vox-Oberfläche herunter und führen Sie diese aus. Keine externe Python-Installation erforderlich. Arbeiten Sie vollständig offline mit null Latenz und absoluter kryptografischer Datensouveränität.
+
+### Eigene Schlüssel Nutzen (BYOK) & Freie Modellwahl
+Sie haben die uneingeschränkte Kontrolle darüber, welche Modelle Ihre Produktivität antreiben. Verbinden Sie sich direkt mit führenden KI-Inferenzanbietern oder nutzen Sie lokale Server:
+* **Cloud-Anbieter:** Groq, OpenAI, Azure OpenAI, Deepgram, Cerebras, Mistral, Together AI.
+* **Lokale Laufzeiten:** Ollama, LM Studio, vLLM, LocalAI.
+* **Vollständige Modellfreiheit:** Wählen Sie jedes beliebige Spracherkennungsmodell (STT) und Sprachmodell (LLM) Ihres Providers oder lokalen Servers.
+
+### Intelligente Semantische Verfeinerung
+Reine Spracherkennung leidet häufig unter fehlender Zeichensetzung und akustischen Fehlinterpretationen. Vox kombiniert die Transkription mit intelligenten LLM-Korrektoren — angetrieben vom Sprachmodell Ihrer Wahl —, um Satzzeichen präzise zu setzen und Groß-/Kleinschreibung perfekt abzustimmen.
+
+### Sprachbefehle & Sofortiger App-Start
+Führen Sie Desktop-Automatisierungen und Betriebssystemaktionen vollständig freihändig aus. Vox erkennt Sprachbefehle, um jedes installierte Programm auf Ihrem Computer direkt zu öffnen:
+* **Apps Öffnen:** *"VS Code öffnen"*, *"Chrome öffnen"*, *"Slack öffnen"*, *"Terminal öffnen"*, *"Notizen öffnen"*, *"Rechner öffnen"*, oder jedes installierte Programm beim Namen.
+* **Websuche:** *"Chrome öffnen und nach React-Dokumentation suchen"*, *"Auf YouTube nach Lo-Fi Beats suchen"*, *"Nach Quantenphysik suchen"*.
+* **Navigation & Bearbeitung:** *"Neue Zeile"*, *"Neuer Absatz"*, *"Letzten Satz löschen"*, *"Wort löschen"*, *"Alles auswählen"*, *"Rückgängig"*, *"Kopieren"*, *"Einfügen"*.
+* **Vox-Steuerung:** *"Code-Modus"*, *"Text-Modus"*, *"E-Mail-Modus"*, *"Freies Diktat"*, *"Letztes Diktat wiederholen"*, *"Abbrechen"*.
+
+### Kontextbezogene Anwendungsanpassung
+Vox analysiert das aktive Fenster vor der Transkription. Beim Schreiben von Code in VS Code oder im Terminal formatiert Vox Bezeichner und Syntax sauber. Beim Verfassen von E-Mails oder Dokumenten entstehen fließende Absätze.
+
+### Sprachgesteuerte Textbausteine (Snippets)
+Hinterlegen Sie wiederkehrende Textblöcke mit gesprochenen Auslösern. Das Aussprechen von *"Meine Signatur"*, *"E-Mail einfügen"* oder *"Meine Adresse"* fügt vorformatierte mehrzeilige Texte sofort ein.
+
+### Benutzerdefinierte Diktatvorlagen (Templates)
+Erstellen Sie maßgeschneiderte System-Prompts mit individuellen Sprachaktivierungsauslösern. Wechseln Sie per Sprachbefehl zwischen Besprechungsprotokollen, Fehlerberichten und freiem Fließtext.
+
+### Freihändige Aktivierung per Weckwort (*"Vox"*)
+Angetrieben von lokalen neuronalen ONNX OpenWakeWord-Modellen. Sagen Sie einfach *"Vox"*, um das System ohne Berührung der Tastatur aufzuwecken und das Diktat zu starten.
+
+### Sprachaktivitätserkennung (VAD) & Audioschutz
+Der integrierte VAD-Algorithmus erkennt natürliche Sprechpausen und schließt das Diktat automatisch ab. Während Sie sprechen, kann Vox die System-Audioausgabe stummschalten, um Echos zu vermeiden, und aktiviert den Ton nach dem Diktat wieder.
+
+### Technisches Fachvokabular
+Fügen Sie Eigennamen, Firmenjargon und Programmierabkürzungen zu Ihrem persönlichen Wörterbuch hinzu, um eine konsistente Schreibweise sicherzustellen.
+
+### Produktivitäts-Dashboard & Beitragsdiagramm
+Verfolgen Sie Ihre Tippbeschleunigung, die Gesamtzahl der diktierten Wörter, die eingesparten Stunden und visualisieren Sie Ihre tägliche Aktivität über ein Diagramm im GitHub-Stil.
+
+### Datenschutz-Tresor & Transparente Protokolle
+Alle Einstellungen, Vorlagen und Diktatverläufe verbleiben ausschließlich in einer lokalen SQLite-Datenbank auf Ihrem Gerät. Jede API-Anfrage kann transparent im Datenschutzprotokoll überprüft werden.
+
+<br />
+
+---
+
+## Architekturvergleich
+
+| Dimension | Vox | Kommerzielle SaaS-Lösungen |
 |:---|:---|:---|
 | **Lizenz** | Open Source (MIT) | Proprietär / Kommerziell |
-| **Kosten** | Kostenlos und Frei | 180 $ bis 360 $ jährlich |
-| **Datenfluss** | Direkt zum Anbieter oder 100% Lokal | Über fremde Server geroutet |
-| **Offline-Inferenz** | Unterstützt (Ollama / LM Studio) | Nicht verfügbar |
-| **Wortbegrenzung** | Unbegrenzt | Begrenzte Kontingente |
-| **Modellauswahl** | Komplette Whisper-Familie + Beliebige LLMs | Geschlossene Modelle |
-| **Einfügung** | Native Win32-Cursor-Injektion | Variabel |
+| **Kosten** | Dauerhaft Kostenlos (BYOK / Lokal) | 180 € – 360 € / Jahr wiederkehrend |
+| **Datenschutz** | 100% Lokal oder Direkt zum Anbieter | Datenfluss über Drittanbieter-Server |
+| **Lokale Offline-Modelle** | 1-Klick-Download in der App (Whisper) | Meist an teure Abos gebunden |
+| **Modellauswahl** | Vollständige Freiheit (Jedes Cloud/Local LLM) | Starr vorgegebene Modelle |
+| **Sprachbefehle & App-Start** | Öffnet Beliebige Apps, Websuche & Systemsteuerung | Nur einfache Satzzeichen |
+| **Plattformunterstützung** | Windows 10/11 & macOS (Universal) | Auf ein System beschränkt |
+| **Eigenes Vokabular** | Unbegrenzt in lokaler SQLite-DB | Eingeschränkt |
+| **Nutzungslimits** | Unbegrenzt | Strenge Wortbegrenzungen |
 
 <br />
 
 ---
 
-## Globale Tastenkombinationen
+## Standard-Tastenkürzel
 
-| Shortcut | Modus | Aktion |
+| Tastenkürzel (Win / Mac) | Modus | Beschreibung |
 |:---|:---|:---|
-| `F10` | **Umschalten** | Drücken zum Starten; erneut drücken oder still sein zum Einfügen |
-| `F9` | **Push-to-Talk** | Halten während des Sprechens; Loslassen zum Einfügen |
-| `F11` | **Verlauf** | Öffnet die letzten Diktate zur schnellen Wiederverwendung |
-| *"Vox"* | **Aktivierungswort** | Berührungslose Aktivierung per Sprache |
+| `F10` / `Control+Space` | **Diktat Umschalten** | Drücken zum Starten; Pause oder erneutes Drücken fügt den Text ein |
+| `F9` / `Option+Space` | **Push-to-Talk** | Während des Sprechens gedrückt halten; loslassen zum Einfügen |
+| `F11` / `Command+Shift+V` | **Verlauf** | Öffnet das Overlay zur Ansicht und erneuten Nutzung früherer Diktate |
+| *"Vox"* | **Weckwort** | Freihändige Aktivierung im Hintergrund über lokales KI-Modell |
 
 <br />
 
@@ -85,27 +120,38 @@ Veröffentlicht unter der MIT-Lizenz. Frei von Abogebühren, künstlichen Limits
 ## Erste Schritte
 
 ### Voraussetzungen
-* Windows 10 oder 11 (64-Bit)
-* [Node.js](https://nodejs.org) (v20+) und npm
+* **Windows:** Windows 10 oder 11 (64-Bit)
+* **macOS:** macOS 12 Monterey oder neuer (Apple Silicon M1/M2/M3/M4 oder Intel x64)
+* **Node.js:** Node.js 20+ und npm
 
-### Installation
+### Lokale Entwicklung
 
 ```bash
 # Repository klonen
-git clone https://github.com/ihr-benutzername/vox.git
-cd vox/code
+git clone https://github.com/cristovaocarvalho/Vox.git
+cd Vox/code
 
 # Abhängigkeiten installieren
 npm install
 
-# Entwicklungsumgebung starten
+# Entwicklungsserver starten
 npm run dev
 ```
 
-### Produktions-Build
+### Produktiv-Builds Erstellen
 
 ```bash
+# Typprüfung und Bundle-Kompilierung
+npm run build
+
+# Windows-Installer erstellen (.exe)
 npm run build:win
+
+# macOS-Paket erstellen (.dmg und .zip)
+npm run build:mac
+
+# macOS Apple Silicon Build
+npm run build:mac:arm64
 ```
 
 <br />
@@ -114,11 +160,4 @@ npm run build:win
 
 ## Lizenz
 
-Veröffentlicht unter der **MIT-Lizenz**. Siehe [LICENSE](LICENSE) für den vollständigen Lizenztext.
-
-<div align="center">
-<br />
-
-Cristóvão Carvalho &nbsp;·&nbsp; **Vox**
-
-</div>
+Veröffentlicht unter der **MIT-Lizenz**. Entwickelt von [Cristovão Carvalho](https://github.com/cristovaocarvalho) und der Open-Source-Community.
