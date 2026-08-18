@@ -1,9 +1,16 @@
 import { autoUpdater } from 'electron-updater'
 import type { BrowserWindow } from 'electron'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { app, ipcMain } = require('electron')
+const { app, ipcMain, shell } = require('electron')
 
 export function initAutoUpdater(getMainWindow: () => BrowserWindow | null) {
+  // Open external URLs in the default browser
+  ipcMain.handle('vox:open-external', (_event: unknown, url: string) => {
+    if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+      shell.openExternal(url)
+    }
+  })
+
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
 

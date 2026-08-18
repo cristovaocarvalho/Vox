@@ -55,6 +55,7 @@ function actionBadge(action: VoiceCommand['action'], isEn: boolean): React.React
     case 'vox_control':
       return <span className="inline-flex items-center gap-1"><IconMic className="w-3 h-3" />{param}</span>
     case 'open_app':
+    case 'open_search':
     case 'open_url':
       return <span className="inline-flex items-center gap-1"><IconGlobe className="w-3 h-3" />{param}</span>
     case 'run_script':

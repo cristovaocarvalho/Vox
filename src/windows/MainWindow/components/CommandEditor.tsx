@@ -6,7 +6,7 @@ import type { VoiceCommand, CommandAction, CommandActionType, CommandCategory } 
 import { useI18n } from '../../../i18n'
 
 const CATEGORIES: CommandCategory[] = ['punctuation', 'navigation', 'editing', 'vox_control', 'snippets', 'system', 'custom']
-const ACTION_TYPES: CommandActionType[] = ['keystroke', 'keystroke_sequence', 'inject_text', 'inject_snippet', 'insert_dynamic', 'vox_control', 'open_app', 'run_script', 'open_url']
+const ACTION_TYPES: CommandActionType[] = ['keystroke', 'keystroke_sequence', 'inject_text', 'inject_snippet', 'insert_dynamic', 'vox_control', 'open_app', 'open_search', 'run_script', 'open_url']
 const DYNAMIC_VALUES = ['date', 'time', 'datetime']
 const VOX_CONTROLS = ['stop', 'cancel', 'clear', 'repeat']
 

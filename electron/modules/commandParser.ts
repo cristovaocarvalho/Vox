@@ -26,11 +26,12 @@ export class CommandParser {
 
     this.detectedLanguage = language === 'auto' ? this.detectLanguage(normalized) : language
 
-    // a) Full-text command match (isolated or inline).
+    // a) Full-text command match (isolated or inline) + dynamic prefix capture.
+    let dynamicMatch: { cmd: VoiceCommand; rest: string } | null = null
     for (const cmd of this.registry) {
       if (!cmd.isEnabled) continue
       for (const pattern of this.patterns(cmd)) {
-        if (this.fullMatch(normalized, pattern)) {
+        if (!cmd.dynamic && this.fullMatch(normalized, pattern)) {
           return {
             segments: [{ type: 'command', value: cmd.id, command: cmd }],
             hasCommands: true,
@@ -38,6 +39,21 @@ export class CommandParser {
             isMixed: false
           }
         }
+        if (cmd.dynamic && !dynamicMatch) {
+          const rest = this.prefixMatch(normalized, pattern)
+          if (rest) {
+            dynamicMatch = { cmd, rest }
+          }
+        }
+      }
+    }
+
+    if (dynamicMatch) {
+      return {
+        segments: [{ type: 'command', value: dynamicMatch.cmd.id, command: dynamicMatch.cmd, params: [dynamicMatch.rest] }],
+        hasCommands: true,
+        hasContent: false,
+        isMixed: false
       }
     }
 
@@ -99,10 +115,23 @@ export class CommandParser {
   }
 
   private patterns(cmd: VoiceCommand): string[] {
+    if (cmd.dynamic) {
+      return [...(cmd.triggers.en || []), ...(cmd.triggers.pt || [])]
+    }
     const list = cmd.triggers[this.detectedLanguage] && cmd.triggers[this.detectedLanguage].length > 0
       ? cmd.triggers[this.detectedLanguage]
       : cmd.triggers.en
     return list || []
+  }
+
+  private prefixMatch(text: string, pattern: string): string | null {
+    try {
+      const m = new RegExp(`^(?:${pattern})(?:\\s+|$)`, 'i').exec(text)
+      if (!m) return null
+      return text.slice(m[0].length).trim()
+    } catch {
+      return null
+    }
   }
 
   private fullMatch(text: string, pattern: string): boolean {

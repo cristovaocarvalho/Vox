@@ -1,75 +1,90 @@
 import React, { useEffect, useState } from 'react'
 import { useI18n } from '../../../i18n'
-import { IconChevronDown, IconCheck } from '../../../components'
+import { IconCheck } from '../../../components'
 
-export interface WhisperModelInfo {
+// ─── Data ───────────────────────────────────────────────────────────────────
+
+interface WhisperModelInfo {
   id: string
   name: string
-  type: string
-  features: string[]
-  speed: number
-  accuracy: number
+  speed: number      // 1–5
+  accuracy: number   // 1–5
   size: string
+  downloadUrl: string
+  recommended?: boolean
 }
 
-export const WHISPER_MODELS: WhisperModelInfo[] = [
+// Models available via API (Groq / OpenAI / Azure)
+const API_MODELS: WhisperModelInfo[] = [
   {
     id: 'whisper-large-v3-turbo',
     name: 'Whisper Large v3 Turbo',
-    type: 'Cloud / Local',
-    features: ['Recommended', 'Turbo Speed', 'High Precision'],
-    speed: 3.5,
-    accuracy: 4.6,
-    size: '~1.5 GB'
+    speed: 3.5, accuracy: 4.6, size: '—',
+    downloadUrl: 'https://huggingface.co/openai/whisper-large-v3-turbo',
+    recommended: true
   },
   {
     id: 'whisper-large-v3',
     name: 'Whisper Large v3',
-    type: 'Cloud / Local',
-    features: ['Max Accuracy', 'Multilingual'],
-    speed: 1.5,
-    accuracy: 4.7,
-    size: '~3.1 GB'
+    speed: 1.5, accuracy: 4.7, size: '—',
+    downloadUrl: 'https://huggingface.co/openai/whisper-large-v3'
   },
   {
     id: 'whisper-medium',
     name: 'Whisper Medium',
-    type: 'Cloud / Local',
-    features: ['High Precision', 'Balanced'],
-    speed: 2.0,
-    accuracy: 4.3,
-    size: '~1.5 GB'
+    speed: 2.0, accuracy: 4.3, size: '—',
+    downloadUrl: 'https://huggingface.co/openai/whisper-medium'
   },
   {
     id: 'whisper-small',
     name: 'Whisper Small',
-    type: 'Cloud / Local',
-    features: ['Multilingual', 'Lightweight'],
-    speed: 3.0,
-    accuracy: 3.8,
-    size: '~488 MB'
+    speed: 3.0, accuracy: 3.8, size: '—',
+    downloadUrl: 'https://huggingface.co/openai/whisper-small'
+  }
+]
+
+// Models that can be installed locally (whisper.cpp GGUF format)
+const LOCAL_MODELS: WhisperModelInfo[] = [
+  {
+    id: 'whisper-large-v3-turbo',
+    name: 'Whisper Large v3 Turbo',
+    speed: 3.5, accuracy: 4.6, size: '~1.5 GB',
+    downloadUrl: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin',
+    recommended: true
+  },
+  {
+    id: 'whisper-large-v3',
+    name: 'Whisper Large v3',
+    speed: 1.5, accuracy: 4.7, size: '~3.1 GB',
+    downloadUrl: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin'
+  },
+  {
+    id: 'whisper-medium',
+    name: 'Whisper Medium',
+    speed: 2.0, accuracy: 4.3, size: '~1.5 GB',
+    downloadUrl: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin'
+  },
+  {
+    id: 'whisper-small',
+    name: 'Whisper Small',
+    speed: 3.0, accuracy: 3.8, size: '~488 MB',
+    downloadUrl: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin'
   },
   {
     id: 'whisper-base',
     name: 'Whisper Base',
-    type: 'Cloud / Local',
-    features: ['Fast', 'Low Memory'],
-    speed: 4.0,
-    accuracy: 3.0,
-    size: '~148 MB'
+    speed: 4.0, accuracy: 3.0, size: '~148 MB',
+    downloadUrl: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin'
   },
   {
     id: 'whisper-tiny',
     name: 'Whisper Tiny',
-    type: 'Cloud / Local',
-    features: ['Ultra Fast', 'Minimal RAM'],
-    speed: 5.0,
-    accuracy: 2.5,
-    size: '~78 MB'
+    speed: 5.0, accuracy: 2.5, size: '~78 MB',
+    downloadUrl: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin'
   }
 ]
 
-export interface OllamaCatalogModel {
+interface OllamaCatalogModel {
   id: string
   name: string
   params: string
@@ -78,7 +93,7 @@ export interface OllamaCatalogModel {
   description: string
 }
 
-export const OLLAMA_CATALOG: OllamaCatalogModel[] = [
+const OLLAMA_CATALOG: OllamaCatalogModel[] = [
   { id: 'llama3.1:8b', name: 'Llama 3.1 8B', params: '8B', size: '~4.9 GB', tags: ['General', 'Fast'], description: 'Versatile general-purpose model for reliable correction.' },
   { id: 'llama3.2:3b', name: 'Llama 3.2 3B', params: '3B', size: '~2.0 GB', tags: ['Lightweight', 'Fast'], description: 'Small and efficient for quick, low-latency correction.' },
   { id: 'llama3.2:1b', name: 'Llama 3.2 1B', params: '1B', size: '~1.3 GB', tags: ['Tiny', 'Fast'], description: 'Minimal footprint for low-memory machines.' },
@@ -86,7 +101,7 @@ export const OLLAMA_CATALOG: OllamaCatalogModel[] = [
   { id: 'mistral-nemo:12b', name: 'Mistral Nemo 12B', params: '12B', size: '~7.1 GB', tags: ['General'], description: 'Higher capacity general-purpose model.' },
   { id: 'qwen2.5:7b', name: 'Qwen 2.5 7B', params: '7B', size: '~4.7 GB', tags: ['General', 'Multilingual'], description: 'Great multilingual performance across many languages.' },
   { id: 'qwen2.5:14b', name: 'Qwen 2.5 14B', params: '14B', size: '~9.0 GB', tags: ['General', 'Multilingual'], description: 'Higher capacity multilingual model.' },
-  { id: 'gemma2:9b', name: 'Gemma 2 9B', params: '9B', size: '~5.4 GB', tags: ['General'], description: 'Google’s open model, balanced quality and speed.' },
+  { id: 'gemma2:9b', name: 'Gemma 2 9B', params: '9B', size: '~5.4 GB', tags: ['General'], description: "Google's open model, balanced quality and speed." },
   { id: 'phi3:mini', name: 'Phi-3 Mini', params: '3.8B', size: '~2.3 GB', tags: ['Lightweight'], description: 'Compact yet capable for everyday correction.' },
   { id: 'codellama:7b', name: 'Code Llama 7B', params: '7B', size: '~3.8 GB', tags: ['Code'], description: 'Specialized for code and technical content.' },
   { id: 'deepseek-r1:8b', name: 'DeepSeek R1 8B', params: '8B', size: '~4.9 GB', tags: ['Reasoning'], description: 'Reasoning model for complex rewrites and edits.' }
@@ -99,6 +114,8 @@ const PROVIDER_LABELS = [
   { id: 'ollama', label: 'Ollama (local)', requiresKey: false },
   { id: 'lmstudio', label: 'LM Studio (local)', requiresKey: false }
 ]
+
+// ─── Props ───────────────────────────────────────────────────────────────────
 
 export interface ModelsTabProps {
   draftSttModel: string
@@ -113,6 +130,41 @@ export interface ModelsTabProps {
   modelsError: string | null
   onRefreshModels: () => Promise<void>
 }
+
+// ─── Sub-components ──────────────────────────────────────────────────────────
+
+function CollapsibleSection({
+  label,
+  defaultOpen = true,
+  children
+}: {
+  label: string
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="border border-border/40 overflow-hidden bg-background/20">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-3.5 py-2.5 bg-surface/20 hover:bg-surface/30 transition-colors cursor-pointer"
+      >
+        <span className="text-[11px] font-semibold text-text-muted uppercase tracking-label-wide">
+          {label}
+        </span>
+        <span
+          className={`text-[10px] text-text-muted transition-transform duration-200 ${open ? 'rotate-0' : '-rotate-90'}`}
+        >
+          ▾
+        </span>
+      </button>
+      {open && <div className="p-1.5 space-y-1">{children}</div>}
+    </div>
+  )
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export const ModelsTab: React.FC<ModelsTabProps> = ({
   draftSttModel,
@@ -141,9 +193,15 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
 
   const prettyModelName = (id: string): string => {
     const base = id.split('/').pop() || id
-    return base
-      .replace(/[-_]/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase())
+    return base.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  }
+
+  const openUrl = (url: string) => {
+    if (window.vox?.openExternal) {
+      window.vox.openExternal(url)
+    } else {
+      window.open(url, '_blank')
+    }
   }
 
   const loadInstalledModels = React.useCallback(async () => {
@@ -162,27 +220,17 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
     }
   }, [isOllama, ollamaBaseUrl])
 
-  useEffect(() => {
-    loadInstalledModels()
-  }, [loadInstalledModels])
+  useEffect(() => { loadInstalledModels() }, [loadInstalledModels])
 
   useEffect(() => {
     const unsub = window.vox?.onOllamaPullProgress?.((data) => {
       const { model, status, completed, total, error } = data
       if (status === 'success') {
-        setInstalledModels((prev) => (prev.includes(model) ? prev : [...prev, model]))
-        setProgress((prev) => {
-          const next = { ...prev }
-          delete next[model]
-          return next
-        })
+        setInstalledModels((prev) => prev.includes(model) ? prev : [...prev, model])
+        setProgress((prev) => { const n = { ...prev }; delete n[model]; return n })
       } else if (status === 'error') {
         setPullError(error || t('modelsTab.downloadFailed'))
-        setProgress((prev) => {
-          const next = { ...prev }
-          delete next[model]
-          return next
-        })
+        setProgress((prev) => { const n = { ...prev }; delete n[model]; return n })
       } else {
         const percent =
           typeof completed === 'number' && typeof total === 'number' && total > 0
@@ -201,25 +249,18 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
     setProgress((prev) => ({ ...prev, [modelId]: 0 }))
     try {
       const res = await window.vox.pullOllamaModel(modelId, ollamaBaseUrl)
-      if (!res?.success) {
-        setPullError(t('modelsTab.downloadFailed'))
-      }
+      if (!res?.success) setPullError(t('modelsTab.downloadFailed'))
     } catch {
       setPullError(t('modelsTab.downloadFailed'))
     } finally {
       setPullingModel(null)
-      setProgress((prev) => {
-        const next = { ...prev }
-        delete next[modelId]
-        return next
-      })
+      setProgress((prev) => { const n = { ...prev }; delete n[modelId]; return n })
     }
   }
 
   const isProviderConnected = (id: string) => {
     const preset = PROVIDER_LABELS.find((p) => p.id === id)
-    if (!preset) return false
-    if (draftProvider !== id) return false
+    if (!preset || draftProvider !== id) return false
     return preset.requiresKey ? Boolean(draftApiKey.trim()) : true
   }
 
@@ -228,36 +269,120 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
     return installedModels.some((m) => m === modelId || m.startsWith(`${base}:`))
   }
 
-  const renderScore = (score: number, max = 5, colorClass = 'bg-accent') => {
-    const filled = Math.round(score)
+  // ── Whisper model card ─────────────────────────────────────────────────────
+  const renderModelCard = (model: WhisperModelInfo, showDownload: boolean) => {
+    const isSelected = draftSttModel === model.id || draftSttModel.endsWith(`/${model.id}`)
+
     return (
-      <div className="flex items-center gap-1.5">
-        <div className="flex items-center gap-1">
-          {Array.from({ length: max }).map((_, i) => (
-            <span
-              key={i}
-              className={`w-2 h-2 rounded-full transition-colors ${
-                i < filled ? colorClass : 'bg-white/10'
-              }`}
-            />
-          ))}
+      <div
+        key={`${model.id}-${showDownload}`}
+        onClick={() => setDraftSttModel(model.id)}
+        className={`group flex items-center justify-between gap-3 px-3 py-2.5 cursor-pointer transition-colors duration-150 border-l-2 ${
+          isSelected
+            ? 'bg-accent/[0.08] border-accent pl-2.5'
+            : 'border-transparent hover:bg-surface/20'
+        }`}
+      >
+        {/* Left: Indicator dot + Model Name + Recommended Badge */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div
+            className={`shrink-0 w-1.5 h-1.5 rounded-full transition-colors ${
+              isSelected ? 'bg-accent' : 'bg-border/50 group-hover:bg-border/80'
+            }`}
+          />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-xs font-semibold leading-none ${isSelected ? 'text-text-primary' : 'text-text-secondary'}`}>
+                {model.name}
+              </span>
+              {model.recommended && (
+                <span className="text-[8px] font-semibold text-accent/90 uppercase tracking-wider bg-accent/10 px-1 py-0.5 rounded border border-accent/20 shrink-0">
+                  Recommended
+                </span>
+              )}
+            </div>
+          </div>
         </div>
-        <span className="text-xs font-mono text-text-secondary ml-1">{score.toFixed(1)}</span>
+
+        {/* Middle: Speed & Accuracy Metrics (Stacked header + bar to avoid text collisions) */}
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Speed Metric */}
+          <div className="flex flex-col gap-1 w-16 sm:w-20">
+            <div className="flex items-center justify-between text-[9px] text-text-muted">
+              <span className="uppercase tracking-wider truncate">{t('modelsTab.speed')}</span>
+              <span className="font-mono text-[9px] opacity-70">{model.speed.toFixed(1)}</span>
+            </div>
+            <div className="w-full h-1 bg-white/[0.08] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white/40 rounded-full transition-all duration-300"
+                style={{ width: `${(model.speed / 5) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Accuracy Metric */}
+          <div className="flex flex-col gap-1 w-16 sm:w-20">
+            <div className="flex items-center justify-between text-[9px] text-text-muted">
+              <span className="uppercase tracking-wider truncate">{t('modelsTab.accuracy')}</span>
+              <span className="font-mono text-[9px] opacity-70">{model.accuracy.toFixed(1)}</span>
+            </div>
+            <div className="w-full h-1 bg-white/[0.08] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white/40 rounded-full transition-all duration-300"
+                style={{ width: `${(model.accuracy / 5) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Right: File Size + Action Button / Badge (Always strictly aligned) */}
+        <div
+          className="flex items-center justify-end gap-2.5 shrink-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="w-14 text-right">
+            {model.size !== '—' && (
+              <span className="text-[10px] font-mono text-text-muted">{model.size}</span>
+            )}
+          </div>
+
+          <div className="w-20 flex justify-end">
+            {showDownload ? (
+              <button
+                type="button"
+                onClick={() => openUrl(model.downloadUrl)}
+                className="w-full py-1 text-[10px] font-medium border border-border/50 text-text-secondary hover:border-border/80 hover:text-text-primary text-center transition-colors cursor-pointer"
+              >
+                {t('modelsTab.download')}
+              </button>
+            ) : (
+              <span
+                className={`w-full py-1 text-[10px] font-medium border text-center transition-colors ${
+                  isSelected
+                    ? 'border-accent/40 bg-accent/10 text-accent font-semibold'
+                    : 'border-border/30 text-text-muted'
+                }`}
+              >
+                {isSelected ? t('modelsTab.selected') : t('modelsTab.select')}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Sub-navigation Pills: Speech / Language */}
-      <div className="flex items-center gap-1.5 p-1 bg-surface/50 border border-border/50 rounded-xl w-fit">
+    <div className="space-y-5">
+      {/* Sub-navigation */}
+      <div className="flex items-center border-b border-border/40">
         <button
           type="button"
           onClick={() => setSubTab('speech')}
-          className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 cursor-pointer ${
+          className={`px-4 py-2 text-xs font-semibold border-b-2 -mb-px transition-all duration-150 cursor-pointer ${
             subTab === 'speech'
-              ? 'bg-accent/20 text-accent shadow-sm'
-              : 'text-text-secondary hover:text-text-primary'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-text-muted hover:text-text-secondary'
           }`}
         >
           {t('modelsTab.speech')}
@@ -265,205 +390,95 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
         <button
           type="button"
           onClick={() => setSubTab('language')}
-          className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200 cursor-pointer ${
+          className={`px-4 py-2 text-xs font-semibold border-b-2 -mb-px transition-all duration-150 cursor-pointer ${
             subTab === 'language'
-              ? 'bg-accent/20 text-accent shadow-sm'
-              : 'text-text-secondary hover:text-text-primary'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-text-muted hover:text-text-secondary'
           }`}
         >
           {t('modelsTab.language')}
         </button>
       </div>
 
+      {/* ── SPEECH TAB ── */}
       {subTab === 'speech' && (
-        <div className="space-y-5">
-          {/* Available Models Table */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">
-                {t('modelsTab.availableModels')}
-              </label>
-              <button
-                type="button"
-                onClick={onRefreshModels}
-                disabled={modelsLoading}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-lg border border-border/60 bg-surface/50 text-text-secondary hover:text-text-primary hover:border-border transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {modelsLoading ? t('modelsTab.syncing') : t('modelsTab.syncModels')}
-              </button>
+        <div className="space-y-2.5">
+          {modelsError && (
+            <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-300">
+              {modelsError}
             </div>
+          )}
 
-            {modelsError && (
-              <div className="p-2.5 mb-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300">
-                {modelsError}
-              </div>
-            )}
+          <CollapsibleSection label="Provider Models" defaultOpen={true}>
+            {API_MODELS.map((m) => renderModelCard(m, false))}
+          </CollapsibleSection>
 
-            <div className="border border-border/50 rounded-xl overflow-hidden bg-background/30">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-border/40 bg-surface/40 text-[10px] font-semibold text-text-muted uppercase tracking-wider">
-                    <th className="py-2.5 px-3.5">{t('modelsTab.model')}</th>
-                    <th className="py-2.5 px-3">{t('modelsTab.features')}</th>
-                    <th className="py-2.5 px-3">{t('modelsTab.speed')}</th>
-                    <th className="py-2.5 px-3">{t('modelsTab.accuracy')}</th>
-                    <th className="py-2.5 px-3.5 text-right">{t('modelsTab.size')}</th>
-                    <th className="py-2.5 px-3.5 text-right">{t('modelsTab.status')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/30">
-                  {WHISPER_MODELS.map((model) => {
-                    const isSelected = draftSttModel === model.id || draftSttModel.endsWith(`/${model.id}`)
-                    return (
-                      <tr
-                        key={model.id}
-                        onClick={() => setDraftSttModel(model.id)}
-                        className={`transition-colors duration-150 cursor-pointer ${
-                          isSelected ? 'bg-accent/[0.08] hover:bg-accent/[0.12]' : 'hover:bg-surface/30'
-                        }`}
-                      >
-                        <td className="py-3 px-3.5">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full ${
-                                isSelected ? 'bg-accent' : 'bg-transparent'
-                              }`}
-                            />
-                            <div>
-                              <div className="font-semibold text-text-primary leading-tight">{model.name}</div>
-                              <div className="text-[10px] text-text-muted mt-0.5">{model.type}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-3 px-3">
-                          <div className="flex flex-wrap gap-1">
-                            {model.features.map((feat) => (
-                              <span
-                                key={feat}
-                                className="px-1.5 py-0.5 text-[9px] font-medium rounded bg-white/[0.04] border border-border/50 text-text-secondary"
-                              >
-                                {feat}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td className="py-3 px-3">{renderScore(model.speed, 5, 'bg-amber-400')}</td>
-                        <td className="py-3 px-3">{renderScore(model.accuracy, 5, 'bg-emerald-400')}</td>
-                        <td className="py-3 px-3.5 text-right">
-                          <span className="text-[11px] font-mono text-text-muted">{model.size}</span>
-                        </td>
-                        <td className="py-3 px-3.5 text-right">
-                          {isOllama ? (
-                            isModelInstalled(model.id) ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-semibold text-emerald-400">
-                                <IconCheck className="w-3 h-3" strokeWidth={2.6} />
-                                {t('modelsTab.installed')}
-                              </span>
-                            ) : pullingModel === model.id ? (
-                              <div className="inline-flex flex-col items-end gap-1 w-24">
-                                <div className="w-full h-1 rounded-full bg-surface overflow-hidden">
-                                  <div
-                                    className="h-full bg-accent transition-all duration-300"
-                                    style={{ width: `${progress[model.id] ?? 0}%` }}
-                                  />
-                                </div>
-                                <span className="text-[9px] font-mono text-text-muted">{progress[model.id] ?? 0}%</span>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handlePullModel(model.id)
-                                }}
-                                className="px-2.5 py-1 rounded-md border border-accent/40 bg-accent/10 text-accent text-[10px] font-semibold hover:bg-accent/20 transition-colors cursor-pointer"
-                              >
-                                {t('modelsTab.download')}
-                              </button>
-                            )
-                          ) : (
-                            <span
-                              className={`px-2 py-0.5 text-[10px] font-semibold rounded-md border transition-colors ${
-                                isSelected
-                                  ? 'bg-accent/15 border-accent/40 text-accent'
-                                  : 'bg-surface/40 border-border/50 text-text-muted'
-                              }`}
-                            >
-                              {isSelected ? t('modelsTab.selected') : t('modelsTab.select')}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <CollapsibleSection label="Local Models" defaultOpen={false}>
+            <p className="px-3 pb-1 text-[10px] text-text-muted leading-relaxed">
+              Download the model file and configure your local runtime (whisper.cpp, faster-whisper).
+            </p>
+            {LOCAL_MODELS.map((m) => renderModelCard(m, true))}
+          </CollapsibleSection>
         </div>
       )}
 
+      {/* ── LANGUAGE TAB ── */}
       {subTab === 'language' && (
         <div className="space-y-5">
-          {/* Provider Connection Status */}
+          {/* Provider status */}
           <div className="space-y-2">
-            <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">
+            <p className="text-[11px] font-semibold text-text-muted uppercase tracking-label-wide">
               {t('modelsTab.providerStatus')}
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {PROVIDER_LABELS.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between p-3 bg-background/40 border border-border/50 rounded-xl text-xs"
-                >
-                  <span className="font-medium text-text-primary">{p.label}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`w-2 h-2 rounded-full ${
-                        isProviderConnected(p.id) ? 'bg-emerald-500' : 'bg-rose-500/70'
-                      }`}
-                    />
-                    <span
-                      className={`text-[10px] font-medium ${
-                        isProviderConnected(p.id) ? 'text-emerald-400' : 'text-rose-400/80'
-                      }`}
-                    >
-                      {isProviderConnected(p.id) ? t('modelsTab.connected') : t('modelsTab.disconnected')}
-                    </span>
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {PROVIDER_LABELS.map((p) => {
+                const connected = isProviderConnected(p.id)
+                return (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between px-3 py-2.5 bg-background/20 border border-border/40 text-xs"
+                  >
+                    <span className="font-medium text-text-secondary">{p.label}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-emerald-500' : 'bg-rose-500/50'}`} />
+                      <span className={`text-[10px] font-medium ${connected ? 'text-emerald-400' : 'text-text-muted'}`}>
+                        {connected ? t('modelsTab.connected') : t('modelsTab.disconnected')}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 
-          {/* Synced Models from connected provider */}
-          <div className="space-y-3 pt-2">
+          {/* Synced models */}
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide">
+              <p className="text-[11px] font-semibold text-text-muted uppercase tracking-label-wide">
                 {t('modelsTab.syncedModels')}
-              </label>
+              </p>
               <button
                 type="button"
                 onClick={onRefreshModels}
                 disabled={modelsLoading}
-                className="px-2.5 py-1 text-[11px] font-medium rounded-lg border border-border/60 bg-surface/50 text-text-secondary hover:text-text-primary hover:border-border transition-colors cursor-pointer disabled:opacity-50"
+                className="px-2.5 py-1 text-[11px] font-medium border border-border/50 text-text-muted hover:text-text-secondary hover:border-border/80 transition-colors cursor-pointer disabled:opacity-40"
               >
                 {modelsLoading ? t('modelsTab.syncing') : t('modelsTab.syncModels')}
               </button>
             </div>
 
             {modelsError && (
-              <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300">
+              <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-300">
                 {modelsError}
               </div>
             )}
 
             {availableModels.llm.length === 0 ? (
-              <div className="p-6 text-center border border-border/40 rounded-xl bg-background/20">
-                <p className="text-xs text-text-muted">{t('modelsTab.noModelsSynced')}</p>
+              <div className="py-8 text-center border border-border/30 bg-background/10">
+                <p className="text-[11px] text-text-muted">{t('modelsTab.noModelsSynced')}</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-48 overflow-y-auto custom-scrollbar p-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-52 overflow-y-auto custom-scrollbar">
                 {availableModels.llm.map((modelId) => {
                   const isSelected = draftLlmModel === modelId
                   return (
@@ -471,10 +486,10 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
                       key={modelId}
                       type="button"
                       onClick={() => setDraftLlmModel(modelId)}
-                      className={`p-2.5 text-xs text-left rounded-xl border transition-all cursor-pointer truncate ${
+                      className={`px-3 py-2.5 text-xs text-left border transition-all cursor-pointer truncate ${
                         isSelected
-                          ? 'bg-accent/15 border-accent/40 text-accent font-semibold'
-                          : 'bg-background/40 border-border/50 text-text-secondary hover:text-text-primary hover:border-border'
+                          ? 'bg-accent/[0.07] border-accent/25 text-accent font-semibold'
+                          : 'bg-background/20 border-border/40 text-text-muted hover:text-text-secondary hover:border-border/60'
                       }`}
                     >
                       {prettyModelName(modelId)}
@@ -485,14 +500,14 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
             )}
           </div>
 
-          {/* Download Models */}
-          <div className="space-y-3 pt-2">
+          {/* Ollama catalog */}
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block">
+                <p className="text-[11px] font-semibold text-text-muted uppercase tracking-label-wide">
                   {t('modelsTab.downloadModels')}
-                </label>
-                <p className="text-[11px] text-text-muted leading-relaxed mt-0.5">
+                </p>
+                <p className="text-[11px] text-text-muted/70 mt-0.5">
                   {isOllama ? t('modelsTab.downloadHint') : t('modelsTab.cloudProviderHint')}
                 </p>
               </div>
@@ -501,7 +516,7 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
                   type="button"
                   onClick={loadInstalledModels}
                   disabled={installedLoading}
-                  className="px-2.5 py-1 text-[11px] font-medium rounded-lg border border-border/60 bg-surface/50 text-text-secondary hover:text-text-primary hover:border-border transition-colors cursor-pointer disabled:opacity-50"
+                  className="px-2.5 py-1 text-[11px] font-medium border border-border/50 text-text-muted hover:text-text-secondary hover:border-border/80 transition-colors cursor-pointer disabled:opacity-40"
                 >
                   {installedLoading ? t('modelsTab.checking') : t('modelsTab.installedModels')}
                 </button>
@@ -509,14 +524,14 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
             </div>
 
             {pullError && (
-              <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300">
+              <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-300">
                 {pullError}
               </div>
             )}
 
             {!isOllama ? (
-              <div className="p-6 text-center border border-border/40 rounded-xl bg-background/20">
-                <p className="text-xs text-text-muted">{t('modelsTab.cloudProviderHint')}</p>
+              <div className="py-8 text-center border border-border/30 bg-background/10">
+                <p className="text-[11px] text-text-muted">{t('modelsTab.cloudProviderHint')}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -528,37 +543,22 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
                   return (
                     <div
                       key={model.id}
-                      className="flex flex-col justify-between gap-3 p-3.5 bg-background/40 border border-border/50 rounded-xl"
+                      className="flex flex-col justify-between gap-3 p-3.5 bg-background/20 border border-border/40"
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <div className="text-xs font-semibold text-text-primary">{model.name}</div>
-                            <div className="text-[10px] text-text-muted mt-0.5">
-                              {model.params} · {model.size}
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap gap-1 shrink-0">
-                            {model.tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="px-1.5 py-0.5 text-[9px] font-medium rounded bg-white/[0.04] border border-border/50 text-text-secondary"
-                              >
-                                {tag}
-                              </span>
-                            ))}
+                            <div className="text-xs font-semibold text-text-secondary">{model.name}</div>
+                            <div className="text-[10px] text-text-muted mt-0.5">{model.params} · {model.size}</div>
                           </div>
                         </div>
-                        <p className="text-[11px] text-text-secondary leading-relaxed">{model.description}</p>
+                        <p className="text-[11px] text-text-muted leading-relaxed">{model.description}</p>
                       </div>
 
                       {isPulling ? (
                         <div className="space-y-1.5">
-                          <div className="h-1.5 rounded-full bg-surface overflow-hidden">
-                            <div
-                              className="h-full bg-accent transition-all duration-300"
-                              style={{ width: `${percent}%` }}
-                            />
+                          <div className="h-px bg-surface overflow-hidden">
+                            <div className="h-full bg-accent transition-all duration-300" style={{ width: `${percent}%` }} />
                           </div>
                           <div className="flex items-center justify-between text-[10px] text-text-muted">
                             <span>{t('modelsTab.downloadingProgress')}</span>
@@ -566,7 +566,7 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
                           </div>
                         </div>
                       ) : installed ? (
-                        <div className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-semibold text-emerald-400">
+                        <div className="flex items-center justify-center gap-1.5 py-1.5 border border-emerald-500/20 text-[11px] font-semibold text-emerald-400">
                           <IconCheck className="w-3.5 h-3.5" strokeWidth={2.6} />
                           {t('modelsTab.installed')}
                         </div>
@@ -574,7 +574,7 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
                         <button
                           type="button"
                           onClick={() => handlePullModel(model.id)}
-                          className="w-full py-1.5 rounded-lg border border-accent/40 bg-accent/10 text-accent text-[11px] font-semibold hover:bg-accent/20 transition-colors cursor-pointer"
+                          className="w-full py-1.5 border border-accent/25 text-accent text-[11px] font-semibold hover:bg-accent/10 transition-colors cursor-pointer"
                         >
                           {t('modelsTab.download')}
                         </button>

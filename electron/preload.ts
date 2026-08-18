@@ -193,7 +193,10 @@ export const voxApi = {
     const handler = (_event: unknown, data: any) => callback(data)
     ipcRenderer.on('vox:updater-status', handler)
     return () => ipcRenderer.removeListener('vox:updater-status', handler)
-  }
+  },
+
+  // Utilities
+  openExternal: (url: string) => ipcRenderer.invoke('vox:open-external', url)
 }
 
 contextBridge.exposeInMainWorld('vox', voxApi)

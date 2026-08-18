@@ -7,6 +7,7 @@ export type CommandActionType =
   | 'change_profile'
   | 'vox_control'
   | 'open_app'
+  | 'open_search'
   | 'run_script'
   | 'open_url'
 
@@ -56,6 +57,7 @@ export interface VoiceCommand {
   }
   action: CommandAction
   matchMode: 'isolated' | 'inline'
+  dynamic?: boolean
   createdAt?: string
   updatedAt?: string
 }
@@ -75,6 +77,7 @@ export interface ParsedSegment {
   value: string
   command?: VoiceCommand
   contentText?: string
+  params?: string[]
 }
 
 export interface ParseResult {

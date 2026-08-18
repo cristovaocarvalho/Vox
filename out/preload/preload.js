@@ -189,7 +189,9 @@ const voxApi = {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on("vox:updater-status", handler);
     return () => ipcRenderer.removeListener("vox:updater-status", handler);
-  }
+  },
+  // Utilities
+  openExternal: (url) => ipcRenderer.invoke("vox:open-external", url)
 };
 contextBridge.exposeInMainWorld("vox", voxApi);
 exports.voxApi = voxApi;

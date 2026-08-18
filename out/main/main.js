@@ -2122,7 +2122,7 @@ class CommandParser {
     return { segments, hasCommands, hasContent, isMixed: hasCommands && hasContent };
   }
 }
-const { shell, clipboard } = require("electron");
+const { shell: shell$2, clipboard } = require("electron");
 function runPowerShell(command) {
   return new Promise((resolve, reject) => {
     child_process.exec(`powershell -NoProfile -WindowStyle Hidden -Command ${command}`, (err) => {
@@ -2208,7 +2208,7 @@ async function openApp(name) {
       await runPowerShell("Start-Process 'explorer.exe'");
       break;
     case "browser":
-      await shell.openExternal("https://");
+      await shell$2.openExternal("https://");
       break;
     default:
       await runPowerShell(`Start-Process '${name}'`);
@@ -2278,7 +2278,7 @@ class CommandExecutor extends events.EventEmitter {
           this.emit("change_profile", String(action.parameter));
           break;
         case "open_url":
-          await shell.openExternal(String(action.parameter));
+          await shell$2.openExternal(String(action.parameter));
           break;
         case "open_app":
           await openApp(String(action.parameter));
@@ -2830,8 +2830,13 @@ async function pullOllamaModel(model, baseUrl, onProgress) {
     return false;
   }
 }
-const { app: app$1, ipcMain: ipcMain$1 } = require("electron");
+const { app: app$1, ipcMain: ipcMain$1, shell: shell$1 } = require("electron");
 function initAutoUpdater(getMainWindow) {
+  ipcMain$1.handle("vox:open-external", (_event, url) => {
+    if (typeof url === "string" && (url.startsWith("https://") || url.startsWith("http://"))) {
+      shell$1.openExternal(url);
+    }
+  });
   electronUpdater.autoUpdater.autoDownload = true;
   electronUpdater.autoUpdater.autoInstallOnAppQuit = true;
   const notify = (data) => {
@@ -2892,7 +2897,7 @@ function initAutoUpdater(getMainWindow) {
     }, 6e3);
   }
 }
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage } = require("electron");
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage, shell } = require("electron");
 const execFileAsync = util.promisify(child_process.execFile);
 let mainWindow = null;
 let dockWindow = null;
@@ -3607,6 +3612,11 @@ function setupIpcHandlers() {
     } catch (err) {
       console.error("[Main] Erro ao baixar modelo do Ollama:", err);
       return { success: false, error: String(err?.message || err) };
+    }
+  });
+  ipcMain.handle("vox:open-external", (_event, url) => {
+    if (typeof url === "string" && (url.startsWith("https://") || url.startsWith("http://"))) {
+      shell.openExternal(url);
     }
   });
   ipcMain.handle("vox:list-sessions", (_event, limit, type) => {

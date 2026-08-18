@@ -1,6 +1,6 @@
 import type { BrowserWindow as BrowserWindowType } from 'electron'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage } = require('electron')
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage, shell } = require('electron')
 import path from 'path'
 import recorder from './modules/recorder'
 import { transcribeAudio } from './modules/stt'
@@ -471,7 +471,8 @@ async function processCommandSegments(parseResult: ParseResult, language: 'pt' |
         windowRef: targetWindowRef || {},
         lastTranscription: lastSuccessfulTranscription,
         language,
-        snippets
+        snippets,
+        params: seg.params
       })
     } else if (seg.type === 'content' && seg.contentText) {
       const corrected = await correctTranscription(seg.contentText, buildContextHint(targetWindowRef), templateManager.getActiveTemplate())
@@ -860,6 +861,12 @@ function setupIpcHandlers() {
     } catch (err) {
       console.error('[Main] Erro ao baixar modelo do Ollama:', err)
       return { success: false, error: String((err as Error)?.message || err) }
+    }
+  })
+
+  ipcMain.handle('vox:open-external', (_event: unknown, url: string) => {
+    if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+      shell.openExternal(url)
     }
   })
 
