@@ -7,7 +7,7 @@ import { CommandEditor } from '../components/CommandEditor'
 import { SnippetEditor } from '../components/SnippetEditor'
 import { useI18n } from '../../../i18n'
 
-const CATEGORY_ORDER: CommandCategory[] = ['punctuation', 'navigation', 'editing', 'vox_control', 'snippets', 'system', 'custom']
+const CATEGORY_ORDER: CommandCategory[] = ['punctuation', 'navigation', 'editing', 'vox_control', 'system', 'custom']
 
 export const CommandsTab: React.FC = () => {
   const { t } = useI18n()
@@ -178,7 +178,7 @@ export const CommandsTab: React.FC = () => {
                 <div className="min-w-0 flex-1">
                   <span className="text-xs font-semibold text-text-primary block truncate">{snip.name}</span>
                   <div className="flex items-center gap-4 mt-1.5 flex-wrap">
-                    <span className="text-[10px] text-text-muted font-mono min-w-[280px]">{snip.triggerPt} · {snip.triggerEn}</span>
+                    <span className="text-[10px] text-text-muted font-mono">{[snip.triggerPt, snip.triggerEn].filter(Boolean).join(' · ')}</span>
                     {snip.content ? (
                       <span className="text-[10px] text-text-muted">{t('templates.charCount', { n: snip.content.length })}</span>
                     ) : (

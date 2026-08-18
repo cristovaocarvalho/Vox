@@ -124,17 +124,23 @@ const APP_LAUNCH_MAP: Record<string, string[] | string> = {
   explorer: ['explorer.exe'],
   'file explorer': ['explorer.exe'],
   'explorador de arquivos': ['explorer.exe'],
+  arquivos: ['explorer.exe'],
+  pasta: ['explorer.exe'],
+  pastas: ['explorer.exe'],
   files: ['explorer.exe'],
   google: 'https://www.google.com',
   drive: 'https://drive.google.com',
+  'google drive': 'https://drive.google.com',
   gmail: 'https://mail.google.com',
   'google mail': 'https://mail.google.com',
   email: 'https://mail.google.com',
+  'e-mail': 'https://mail.google.com',
   youtube: 'https://www.youtube.com',
   maps: 'https://www.google.com/maps',
   'google maps': 'https://www.google.com/maps',
   github: 'https://github.com',
   whatsapp: 'https://web.whatsapp.com',
+  whats: 'https://web.whatsapp.com',
   telegram: 'https://web.telegram.org',
   slack: 'https://app.slack.com',
   discord: 'https://discord.com/app',
@@ -142,6 +148,10 @@ const APP_LAUNCH_MAP: Record<string, string[] | string> = {
   netflix: 'https://www.netflix.com',
   linkedin: 'https://www.linkedin.com',
   instagram: 'https://www.instagram.com',
+  chatgpt: 'https://chatgpt.com',
+  claude: 'https://claude.ai',
+  notion: ['Notion.exe', 'https://www.notion.so'],
+  figma: ['Figma.exe', 'https://www.figma.com'],
   x: 'https://x.com',
   twitter: 'https://x.com',
   reddit: 'https://www.reddit.com',
@@ -169,15 +179,17 @@ const BROWSER_EXE: Record<string, string> = {
 }
 
 function cleanAppName(raw: string): string {
-  return (raw || '')
-    .trim()
-    .replace(/[.!?,]+$/, '')
-    .replace(/^(the|o|a|os|as|um|uma|my|meu|minha|meus|minhas)\s+/i, '')
-    .trim()
+  let s = (raw || '').trim().replace(/[.!?,]+$/, '')
+  let prev = ''
+  while (s !== prev) {
+    prev = s
+    s = s.replace(/^(the|o|a|os|as|um|uma|my|meu|minha|meus|minhas|app|aplicativo|programa|site|página|pagina)\s+/i, '').trim()
+  }
+  return s
 }
 
 function parseOpenSearch(input: string): { app: string; query: string } | null {
-  const m = /^(.+?)\s+(?:and|e|y)\s+(?:search|pesquisar|pesquise|pesquisa|buscar|busque|procura|procurar)\b\s*(.*)$/i.exec(input)
+  const m = /^(.+?)\s+(?:and|e|y|pra|para)\s+(?:search|pesquisar|pesquise|pesquisa|buscar|busque|procura|procurar)\b\s*(.*)$/i.exec(input)
   if (!m || !m[2] || !m[2].trim()) return null
   return { app: m[1].trim(), query: m[2].trim() }
 }
@@ -319,7 +331,10 @@ export class CommandExecutor extends EventEmitter {
           break
 
         case 'inject_snippet': {
-          const snippet = (context.snippets || []).find((s) => s.name === action.parameter)
+          const param = String(action.parameter || '').toLowerCase().trim()
+          const snippet = (context.snippets || []).find(
+            (s) => (s.name || '').toLowerCase().trim() === param || s.id === action.parameter
+          )
           if (snippet && snippet.content) {
             await injectText(snippet.content, context.windowRef)
           } else {

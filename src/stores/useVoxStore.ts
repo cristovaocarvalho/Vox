@@ -156,11 +156,13 @@ export const useVoxStore = create<VoxState>((set) => ({
   saveSnippet: async (snippet) => {
     if (window.vox?.saveSnippet) await window.vox.saveSnippet(snippet)
     const snippets = await window.vox.getSnippets()
-    set({ snippets: snippets || [] })
+    const commands = await window.vox.getCommands()
+    set({ snippets: snippets || [], commands: commands || [] })
   },
   deleteSnippet: async (id) => {
     if (window.vox?.deleteSnippet) await window.vox.deleteSnippet(id)
-    set((state) => ({ snippets: state.snippets.filter((s) => s.id !== id) }))
+    const commands = await window.vox.getCommands()
+    set((state) => ({ snippets: state.snippets.filter((s) => s.id !== id), commands: commands || [] }))
   },
   setInlineMode: async (enabled) => {
     if (window.vox?.setInlineMode) await window.vox.setInlineMode(enabled)

@@ -18,6 +18,13 @@ import wakewordDetector from './modules/wakeword'
 import { muteSystemAudio, unmuteSystemAudio, unmuteSystemAudioSync } from './modules/audioMute'
 import { listOllamaModels, pullOllamaModel } from './modules/ollama'
 import { resolveProvider, PROVIDER_PRESETS, type ResolvedProvider } from './modules/providers'
+import {
+  listDownloadedWhisperModels,
+  downloadWhisperModel,
+  cancelWhisperDownload,
+  deleteWhisperModel,
+  getDownloadedWhisperModelPath
+} from './modules/whisperManager'
 import { initAutoUpdater } from './modules/updater'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
@@ -868,6 +875,53 @@ function setupIpcHandlers() {
     if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
       shell.openExternal(url)
     }
+  })
+
+  // Whisper Local Models Handlers
+  ipcMain.handle('vox:list-downloaded-whisper-models', () => {
+    try {
+      return listDownloadedWhisperModels()
+    } catch (err) {
+      console.error('[Main] Erro ao listar modelos Whisper baixados:', err)
+      return []
+    }
+  })
+
+  ipcMain.handle('vox:download-whisper-model', async (_event: unknown, modelId: string) => {
+    if (!modelId || typeof modelId !== 'string') {
+      return { success: false, error: 'modelId obrigatório' }
+    }
+    try {
+      return await downloadWhisperModel(modelId.trim(), (progress) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('vox:whisper-download-progress', progress)
+        }
+      })
+    } catch (err: any) {
+      console.error('[Main] Erro ao baixar modelo Whisper:', err)
+      return { success: false, error: err?.message || 'Falha no download' }
+    }
+  })
+
+  ipcMain.handle('vox:cancel-whisper-download', (_event: unknown, modelId: string) => {
+    if (typeof modelId === 'string') {
+      return { success: cancelWhisperDownload(modelId.trim()) }
+    }
+    return { success: false }
+  })
+
+  ipcMain.handle('vox:delete-whisper-model', (_event: unknown, modelId: string) => {
+    if (typeof modelId === 'string') {
+      return { success: deleteWhisperModel(modelId.trim()) }
+    }
+    return { success: false }
+  })
+
+  ipcMain.handle('vox:get-whisper-model-path', (_event: unknown, modelId: string) => {
+    if (typeof modelId === 'string') {
+      return getDownloadedWhisperModelPath(modelId.trim())
+    }
+    return null
   })
 
   // Transcriptions History Handlers

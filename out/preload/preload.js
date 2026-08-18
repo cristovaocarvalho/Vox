@@ -190,6 +190,29 @@ const voxApi = {
     ipcRenderer.on("vox:updater-status", handler);
     return () => ipcRenderer.removeListener("vox:updater-status", handler);
   },
+  // Local Whisper Models Management
+  listDownloadedWhisperModels: () => ipcRenderer.invoke("vox:list-downloaded-whisper-models"),
+  downloadWhisperModel: (modelId) => {
+    if (typeof modelId !== "string") return Promise.reject(new TypeError("modelId deve ser string"));
+    return ipcRenderer.invoke("vox:download-whisper-model", modelId);
+  },
+  cancelWhisperDownload: (modelId) => {
+    if (typeof modelId !== "string") return Promise.reject(new TypeError("modelId deve ser string"));
+    return ipcRenderer.invoke("vox:cancel-whisper-download", modelId);
+  },
+  deleteWhisperModel: (modelId) => {
+    if (typeof modelId !== "string") return Promise.reject(new TypeError("modelId deve ser string"));
+    return ipcRenderer.invoke("vox:delete-whisper-model", modelId);
+  },
+  getWhisperModelPath: (modelId) => {
+    if (typeof modelId !== "string") return Promise.reject(new TypeError("modelId deve ser string"));
+    return ipcRenderer.invoke("vox:get-whisper-model-path", modelId);
+  },
+  onWhisperDownloadProgress: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("vox:whisper-download-progress", handler);
+    return () => ipcRenderer.removeListener("vox:whisper-download-progress", handler);
+  },
   // Utilities
   openExternal: (url) => ipcRenderer.invoke("vox:open-external", url)
 };

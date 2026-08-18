@@ -5,7 +5,29 @@ const fs = require("fs");
 const crypto = require("crypto");
 const child_process = require("child_process");
 const util = require("util");
+const https = require("https");
+const http = require("http");
 const electronUpdater = require("electron-updater");
+function _interopNamespaceDefault(e) {
+  const n = Object.create(null, { [Symbol.toStringTag]: { value: "Module" } });
+  if (e) {
+    for (const k in e) {
+      if (k !== "default") {
+        const d = Object.getOwnPropertyDescriptor(e, k);
+        Object.defineProperty(n, k, d.get ? d : {
+          enumerable: true,
+          get: () => e[k]
+        });
+      }
+    }
+  }
+  n.default = e;
+  return Object.freeze(n);
+}
+const path__namespace = /* @__PURE__ */ _interopNamespaceDefault(path);
+const fs__namespace = /* @__PURE__ */ _interopNamespaceDefault(fs);
+const https__namespace = /* @__PURE__ */ _interopNamespaceDefault(https);
+const http__namespace = /* @__PURE__ */ _interopNamespaceDefault(http);
 class AudioRecorder extends events.EventEmitter {
   isRecording = false;
   chunks = [];
@@ -117,7 +139,7 @@ class AudioRecorder extends events.EventEmitter {
   }
 }
 const recorder = new AudioRecorder();
-const { app: app$2, safeStorage } = require("electron");
+const { app: app$3, safeStorage } = require("electron");
 let Database = null;
 try {
   Database = require("better-sqlite3");
@@ -175,7 +197,7 @@ function cachedStmt(sql) {
 }
 function initDatabase() {
   try {
-    const userDataPath = app$2.getPath("userData");
+    const userDataPath = app$3.getPath("userData");
     if (!fs.existsSync(userDataPath)) {
       fs.mkdirSync(userDataPath, { recursive: true });
     }
@@ -349,7 +371,7 @@ function setSetting(key, value) {
 function getAllSettings() {
   let systemLanguage = "pt-BR";
   try {
-    const locale = app$2.getLocale() || "pt-BR";
+    const locale = app$3.getLocale() || "pt-BR";
     if (locale.toLowerCase().startsWith("en")) {
       systemLanguage = "en";
     }
@@ -1055,15 +1077,71 @@ function parseSnippetRow(row) {
     updatedAt: row.updated_at
   };
 }
+function cleanupDuplicateSnippets() {
+  try {
+    if (dbInstance) {
+      const allRows = dbInstance.prepare(`
+        SELECT * FROM snippets 
+        ORDER BY CASE WHEN content IS NOT NULL AND content != '' THEN 0 ELSE 1 END,
+                 datetime(updated_at) DESC,
+                 datetime(created_at) DESC
+      `).all();
+      const seen = /* @__PURE__ */ new Set();
+      const idsToDelete = [];
+      for (const row of allRows) {
+        const key = (row.name || "").trim().toLowerCase();
+        if (seen.has(key)) {
+          idsToDelete.push(row.id);
+        } else {
+          seen.add(key);
+        }
+      }
+      if (idsToDelete.length > 0) {
+        const deleteStmt = dbInstance.prepare("DELETE FROM snippets WHERE id = ?");
+        for (const id of idsToDelete) {
+          deleteStmt.run(id);
+        }
+        console.log(`[DB] Limpeza de snippets: ${idsToDelete.length} duplicados removidos com sucesso.`);
+      }
+      return;
+    }
+    if (fallbackFileSnippets && fs.existsSync(fallbackFileSnippets)) {
+      let snippets = [];
+      try {
+        snippets = JSON.parse(fs.readFileSync(fallbackFileSnippets, "utf-8"));
+      } catch {
+        snippets = [];
+      }
+      const seen = /* @__PURE__ */ new Set();
+      const uniqueSnippets = [];
+      for (const s of snippets) {
+        const key = (s.name || "").trim().toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniqueSnippets.push(s);
+        }
+      }
+      if (uniqueSnippets.length !== snippets.length) {
+        fs.writeFileSync(fallbackFileSnippets, JSON.stringify(uniqueSnippets, null, 2), "utf-8");
+      }
+    }
+  } catch (err) {
+    console.error("[DB] Erro ao limpar snippets duplicados:", err);
+  }
+}
 function seedSnippets(placeholders) {
   try {
+    cleanupDuplicateSnippets();
     const now = (/* @__PURE__ */ new Date()).toISOString();
     for (const p of placeholders) {
       if (dbInstance) {
-        dbInstance.prepare(`
-          INSERT OR IGNORE INTO snippets (id, name, trigger_pt, trigger_en, content, created_at, updated_at)
-          VALUES (?, ?, ?, ?, '', ?, ?)
-        `).run(crypto.randomUUID(), p.name, p.triggerPt, p.triggerEn, now, now);
+        const existing = dbInstance.prepare("SELECT id FROM snippets WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))").get(p.name);
+        if (!existing) {
+          dbInstance.prepare(`
+            INSERT INTO snippets (id, name, trigger_pt, trigger_en, content, created_at, updated_at)
+            VALUES (?, ?, ?, ?, '', ?, ?)
+          `).run(crypto.randomUUID(), p.name, p.triggerPt, p.triggerEn, now, now);
+        }
       } else if (fallbackFileSnippets) {
         let snippets = [];
         if (fs.existsSync(fallbackFileSnippets)) {
@@ -1073,7 +1151,7 @@ function seedSnippets(placeholders) {
             snippets = [];
           }
         }
-        if (!snippets.some((s) => s.name === p.name)) {
+        if (!snippets.some((s) => s.name.trim().toLowerCase() === p.name.trim().toLowerCase())) {
           snippets.push({ id: crypto.randomUUID(), name: p.name, triggerPt: p.triggerPt, triggerEn: p.triggerEn, content: "", createdAt: now, updatedAt: now });
           fs.writeFileSync(fallbackFileSnippets, JSON.stringify(snippets, null, 2), "utf-8");
         }
@@ -1085,6 +1163,7 @@ function seedSnippets(placeholders) {
 }
 function listSnippets() {
   try {
+    cleanupDuplicateSnippets();
     if (dbInstance) {
       const rows = dbInstance.prepare("SELECT * FROM snippets ORDER BY datetime(created_at) ASC").all();
       return rows.map(parseSnippetRow);
@@ -2018,10 +2097,11 @@ class CommandParser {
       return { segments: [], hasCommands: false, hasContent: false, isMixed: false };
     }
     this.detectedLanguage = language === "auto" ? this.detectLanguage(normalized) : language;
+    let dynamicMatch = null;
     for (const cmd of this.registry) {
       if (!cmd.isEnabled) continue;
       for (const pattern of this.patterns(cmd)) {
-        if (this.fullMatch(normalized, pattern)) {
+        if (!cmd.dynamic && this.fullMatch(normalized, pattern)) {
           return {
             segments: [{ type: "command", value: cmd.id, command: cmd }],
             hasCommands: true,
@@ -2029,7 +2109,21 @@ class CommandParser {
             isMixed: false
           };
         }
+        if (cmd.dynamic && !dynamicMatch) {
+          const rest = this.prefixMatch(normalized, pattern);
+          if (rest) {
+            dynamicMatch = { cmd, rest };
+          }
+        }
       }
+    }
+    if (dynamicMatch) {
+      return {
+        segments: [{ type: "command", value: dynamicMatch.cmd.id, command: dynamicMatch.cmd, params: [dynamicMatch.rest] }],
+        hasCommands: true,
+        hasContent: false,
+        isMixed: false
+      };
     }
     if (this.inlineModeEnabled) {
       const spans = [];
@@ -2080,8 +2174,20 @@ class CommandParser {
     return matches >= 3 ? "pt" : "en";
   }
   patterns(cmd) {
+    if (cmd.dynamic) {
+      return [...cmd.triggers.en || [], ...cmd.triggers.pt || []];
+    }
     const list = cmd.triggers[this.detectedLanguage] && cmd.triggers[this.detectedLanguage].length > 0 ? cmd.triggers[this.detectedLanguage] : cmd.triggers.en;
     return list || [];
+  }
+  prefixMatch(text, pattern) {
+    try {
+      const m = new RegExp(`^(?:${pattern})(?:\\s+|$)`, "i").exec(text);
+      if (!m) return null;
+      return text.slice(m[0].length).trim();
+    } catch {
+      return null;
+    }
   }
   fullMatch(text, pattern) {
     try {
@@ -2199,20 +2305,174 @@ function dynamicValue(kind, language) {
       return "";
   }
 }
-async function openApp(name) {
-  switch (name) {
-    case "terminal":
-      await runPowerShell("Start-Process 'wt.exe'").catch(() => runPowerShell("Start-Process 'cmd.exe'"));
-      break;
-    case "explorer":
-      await runPowerShell("Start-Process 'explorer.exe'");
-      break;
-    case "browser":
-      await shell$2.openExternal("https://");
-      break;
-    default:
-      await runPowerShell(`Start-Process '${name}'`);
+const APP_LAUNCH_MAP = {
+  chrome: ["chrome.exe", "chrome"],
+  "google chrome": ["chrome.exe", "chrome"],
+  chromium: ["chrome.exe", "chrome"],
+  edge: ["msedge.exe"],
+  "microsoft edge": ["msedge.exe"],
+  firefox: ["firefox.exe"],
+  brave: ["brave.exe"],
+  opera: ["opera.exe"],
+  vscode: ["code", "Code.exe"],
+  "visual studio code": ["code", "Code.exe"],
+  "vs code": ["code", "Code.exe"],
+  code: ["code", "Code.exe"],
+  notepad: ["notepad.exe"],
+  "bloco de notas": ["notepad.exe"],
+  calculator: ["calc.exe"],
+  calculadora: ["calc.exe"],
+  paint: ["mspaint.exe"],
+  cmd: ["cmd.exe"],
+  "prompt de comando": ["cmd.exe"],
+  powershell: ["powershell.exe"],
+  terminal: ["wt.exe", "cmd.exe"],
+  explorer: ["explorer.exe"],
+  "file explorer": ["explorer.exe"],
+  "explorador de arquivos": ["explorer.exe"],
+  arquivos: ["explorer.exe"],
+  pasta: ["explorer.exe"],
+  pastas: ["explorer.exe"],
+  files: ["explorer.exe"],
+  google: "https://www.google.com",
+  drive: "https://drive.google.com",
+  "google drive": "https://drive.google.com",
+  gmail: "https://mail.google.com",
+  "google mail": "https://mail.google.com",
+  email: "https://mail.google.com",
+  "e-mail": "https://mail.google.com",
+  youtube: "https://www.youtube.com",
+  maps: "https://www.google.com/maps",
+  "google maps": "https://www.google.com/maps",
+  github: "https://github.com",
+  whatsapp: "https://web.whatsapp.com",
+  whats: "https://web.whatsapp.com",
+  telegram: "https://web.telegram.org",
+  slack: "https://app.slack.com",
+  discord: "https://discord.com/app",
+  spotify: "https://open.spotify.com",
+  netflix: "https://www.netflix.com",
+  linkedin: "https://www.linkedin.com",
+  instagram: "https://www.instagram.com",
+  chatgpt: "https://chatgpt.com",
+  claude: "https://claude.ai",
+  notion: ["Notion.exe", "https://www.notion.so"],
+  figma: ["Figma.exe", "https://www.figma.com"],
+  x: "https://x.com",
+  twitter: "https://x.com",
+  reddit: "https://www.reddit.com",
+  browser: "browser",
+  navegador: "browser"
+};
+const SEARCH_ENGINES = {
+  google: "https://www.google.com/search?q=",
+  youtube: "https://www.youtube.com/results?search_query=",
+  bing: "https://www.bing.com/search?q=",
+  duckduckgo: "https://duckduckgo.com/?q=",
+  ddg: "https://duckduckgo.com/?q="
+};
+const BROWSER_EXE = {
+  chrome: "chrome.exe",
+  "google chrome": "chrome.exe",
+  edge: "msedge.exe",
+  "microsoft edge": "msedge.exe",
+  firefox: "firefox.exe",
+  brave: "brave.exe",
+  browser: "",
+  navegador: ""
+};
+function cleanAppName(raw) {
+  let s = (raw || "").trim().replace(/[.!?,]+$/, "");
+  let prev = "";
+  while (s !== prev) {
+    prev = s;
+    s = s.replace(/^(the|o|a|os|as|um|uma|my|meu|minha|meus|minhas|app|aplicativo|programa|site|página|pagina)\s+/i, "").trim();
   }
+  return s;
+}
+function parseOpenSearch(input) {
+  const m = /^(.+?)\s+(?:and|e|y|pra|para)\s+(?:search|pesquisar|pesquise|pesquisa|buscar|busque|procura|procurar)\b\s*(.*)$/i.exec(input);
+  if (!m || !m[2] || !m[2].trim()) return null;
+  return { app: m[1].trim(), query: m[2].trim() };
+}
+async function openApp(name) {
+  const rawName = cleanAppName(name).toLowerCase();
+  if (!rawName) return;
+  const searchIntent = parseOpenSearch(rawName);
+  if (searchIntent) {
+    await openAppWithSearch(searchIntent.app, searchIntent.query);
+    return;
+  }
+  await openPlainApp(rawName);
+}
+async function openPlainApp(name) {
+  const target = APP_LAUNCH_MAP[name];
+  if (Array.isArray(target)) {
+    for (const candidate of target) {
+      try {
+        await runPowerShell(`Start-Process '${candidate.replace(/'/g, "''")}'`);
+        return;
+      } catch {
+      }
+    }
+    return;
+  }
+  if (typeof target === "string") {
+    if (/^https?:\/\//i.test(target)) {
+      await shell$2.openExternal(target);
+      return;
+    }
+    if (target === "browser") {
+      await shell$2.openExternal("https://");
+      return;
+    }
+  }
+  try {
+    await runPowerShell(`Start-Process '${name.replace(/'/g, "''")}'`);
+  } catch {
+    try {
+      await runPowerShell(`Start-Process '${name.replace(/'/g, "''")}.exe'`);
+    } catch {
+      await shell$2.openExternal(`https://${name}`).catch(() => {
+      });
+    }
+  }
+}
+async function openAppWithSearch(app2, query) {
+  const url = SEARCH_ENGINES.google + encodeURIComponent(query);
+  const appKey = cleanAppName(app2).toLowerCase();
+  const exe = BROWSER_EXE[appKey];
+  if (exe) {
+    await runPowerShell(`Start-Process '${exe}' '${url}'`).catch(() => shell$2.openExternal(url).catch(() => {
+    }));
+  } else {
+    await shell$2.openExternal(url);
+  }
+}
+function parseSearchIntent(query, defaultEngine) {
+  const q = (query || "").trim();
+  const engineMap = [
+    [/(?:on|in|no|em|na|para)\s+youtube$/i, "youtube"],
+    [/(?:on|in|no|em|na|para)\s+(google)/i, "google"],
+    [/(?:on|in|no|em|na|para)\s+(bing)$/i, "bing"],
+    [/(?:on|in|no|em|na|para)\s+(duckduckgo|ddg)$/i, "duckduckgo"]
+  ];
+  for (const [re, engine] of engineMap) {
+    if (re.test(q)) {
+      return { engine, query: q.replace(re, "").trim() };
+    }
+  }
+  return { engine: defaultEngine, query: q };
+}
+async function openSearch(defaultEngine, query) {
+  const cleanedQuery = (query || "").replace(/^(the|o|a|os|as|um|uma|my|meu|minha|meus|minhas)\s+/i, "").trim();
+  const { engine, query: finalQuery } = parseSearchIntent(cleanedQuery, defaultEngine);
+  if (!finalQuery) {
+    await shell$2.openExternal(SEARCH_ENGINES[engine || defaultEngine].replace(/=.*$/, ""));
+    return;
+  }
+  const base = SEARCH_ENGINES[engine] || SEARCH_ENGINES.google;
+  await shell$2.openExternal(base + encodeURIComponent(finalQuery));
 }
 function findLastSentenceBoundary(text) {
   for (let i = text.length - 2; i >= 0; i--) {
@@ -2252,7 +2512,10 @@ class CommandExecutor extends events.EventEmitter {
           await injectText(String(action.parameter), context.windowRef);
           break;
         case "inject_snippet": {
-          const snippet = (context.snippets || []).find((s) => s.name === action.parameter);
+          const param = String(action.parameter || "").toLowerCase().trim();
+          const snippet = (context.snippets || []).find(
+            (s) => (s.name || "").toLowerCase().trim() === param || s.id === action.parameter
+          );
           if (snippet && snippet.content) {
             await injectText(snippet.content, context.windowRef);
           } else {
@@ -2280,8 +2543,11 @@ class CommandExecutor extends events.EventEmitter {
         case "open_url":
           await shell$2.openExternal(String(action.parameter));
           break;
+        case "open_search":
+          await openSearch(String(action.parameter || "google"), context.params?.[0] || "");
+          break;
         case "open_app":
-          await openApp(String(action.parameter));
+          await openApp(String(action.parameter || context.params?.[0] || ""));
           break;
         case "run_script":
           await this.runScript(String(action.parameter));
@@ -2356,36 +2622,77 @@ const DEFAULT_COMMANDS = [
   { id: "vox_mode_text", isDefault: true, isEnabled: true, category: "vox_control", label: "Text Mode / Modo Texto", description: "", triggers: { pt: ["modo\\s*texto", "ativar?\\s*modo\\s*texto", "modo\\s*prosa"], en: ["text\\s*mode", "prose\\s*mode", "switch\\s*to\\s*text"] }, action: { type: "change_profile", parameter: "text" }, matchMode: "isolated" },
   { id: "vox_mode_email", isDefault: true, isEnabled: true, category: "vox_control", label: "Email Mode / Modo Email", description: "", triggers: { pt: ["modo\\s*email", "ativar?\\s*modo\\s*email"], en: ["email\\s*mode", "switch\\s*to\\s*email"] }, action: { type: "change_profile", parameter: "email" }, matchMode: "isolated" },
   { id: "template_deactivate", isDefault: true, isEnabled: true, category: "vox_control", label: "Deactivate Template / Desativar Template", description: "", triggers: { pt: ["desativar template", "sem template", "ditado livre", "modo padrão", "remover template"], en: ["deactivate template", "no template", "free dictation", "default mode", "remove template"] }, action: { type: "vox_control", parameter: "deactivate_template" }, matchMode: "isolated" },
-  { id: "vox_mode_code", isDefault: true, isEnabled: true, category: "vox_control", label: "Code Mode / Modo Código", description: "", triggers: { pt: ["modo\\s*c[oó]digo", "ativar?\\s*modo\\s*c[oó]digo"], en: ["code\\s*mode", "coding\\s*mode", "switch\\s*to\\s*code"] }, action: { type: "change_profile", parameter: "code" }, matchMode: "isolated" },
-  { id: "vox_mode_text", isDefault: true, isEnabled: true, category: "vox_control", label: "Text Mode / Modo Texto", description: "", triggers: { pt: ["modo\\s*texto", "ativar?\\s*modo\\s*texto", "modo\\s*prosa"], en: ["text\\s*mode", "prose\\s*mode", "switch\\s*to\\s*text"] }, action: { type: "change_profile", parameter: "text" }, matchMode: "isolated" },
-  { id: "vox_mode_email", isDefault: true, isEnabled: true, category: "vox_control", label: "Email Mode / Modo Email", description: "", triggers: { pt: ["modo\\s*email", "ativar?\\s*modo\\s*email"], en: ["email\\s*mode", "switch\\s*to\\s*email"] }, action: { type: "change_profile", parameter: "email" }, matchMode: "isolated" },
-  { id: "template_deactivate", isDefault: true, isEnabled: true, category: "vox_control", label: "Deactivate Template / Desativar Template", description: "", triggers: { pt: ["desativar template", "sem template", "ditado livre", "modo padrão", "remover template"], en: ["deactivate template", "no template", "free dictation", "default mode", "remove template"] }, action: { type: "vox_control", parameter: "deactivate_template" }, matchMode: "isolated" },
-  // ───────────────────────────── snippets (dynamic) ─────────────────────────────
-  { id: "snippet_date", isDefault: true, isEnabled: true, category: "snippets", label: "Insert Date / Inserir Data", description: "", triggers: { pt: ["inserir?\\s*data", "insere\\s*data", "data\\s*de\\s*hoje"], en: ["insert\\s*(the\\s*)?date", "today'?s?\\s*date", "current\\s*date"] }, action: { type: "insert_dynamic", parameter: "date" }, matchMode: "isolated" },
-  { id: "snippet_time", isDefault: true, isEnabled: true, category: "snippets", label: "Insert Time / Inserir Hora", description: "", triggers: { pt: ["inserir?\\s*hora", "insere\\s*hora", "hora\\s*atual"], en: ["insert\\s*(the\\s*)?time", "current\\s*time"] }, action: { type: "insert_dynamic", parameter: "time" }, matchMode: "isolated" },
-  { id: "snippet_datetime", isDefault: true, isEnabled: true, category: "snippets", label: "Insert Date and Time / Inserir Data e Hora", description: "", triggers: { pt: ["inserir?\\s*data\\s*e\\s*hora", "data\\s*e\\s*hora"], en: ["insert\\s*(date\\s*and\\s*time|datetime)", "date\\s*and\\s*time"] }, action: { type: "insert_dynamic", parameter: "datetime" }, matchMode: "isolated" },
-  { id: "snippet_signature", isDefault: true, isEnabled: true, category: "snippets", label: "Insert Signature / Inserir Assinatura", description: "", triggers: { pt: ["inserir?\\s*assinatura", "insere\\s*assinatura", "minha\\s*assinatura"], en: ["insert\\s*(my\\s*)?signature", "my\\s*signature"] }, action: { type: "inject_snippet", parameter: "signature" }, matchMode: "isolated" },
-  { id: "snippet_email_address", isDefault: true, isEnabled: true, category: "snippets", label: "Insert Email Address / Inserir Email", description: "", triggers: { pt: ["inserir?\\s*(meu\\s*)?e?\\s*mail", "insere\\s*(meu\\s*)?e?\\s*mail"], en: ["insert\\s*(my\\s*)?email(\\s*address)?", "my\\s*email"] }, action: { type: "inject_snippet", parameter: "email_address" }, matchMode: "isolated" },
-  { id: "snippet_address", isDefault: true, isEnabled: true, category: "snippets", label: "Insert Address / Inserir Endereço", description: "", triggers: { pt: ["inserir?\\s*(meu\\s*)?endere(ço|co)", "insere\\s*endere(ço|co)"], en: ["insert\\s*(my\\s*)?address", "my\\s*address"] }, action: { type: "inject_snippet", parameter: "address" }, matchMode: "isolated" },
+  // ───────────────────────────── system (dynamic date/time & apps) ─────────────────────────────
+  { id: "snippet_date", isDefault: true, isEnabled: true, category: "system", label: "Insert Date / Inserir Data", description: "Inserts current date", descriptionPt: "Insere a data atual", descriptionEn: "Inserts current date", triggers: { pt: ["inserir?\\s*data", "insere\\s*data", "data\\s*de\\s*hoje"], en: ["insert\\s*(the\\s*)?date", "today'?s?\\s*date", "current\\s*date"] }, action: { type: "insert_dynamic", parameter: "date" }, matchMode: "isolated" },
+  { id: "snippet_time", isDefault: true, isEnabled: true, category: "system", label: "Insert Time / Inserir Hora", description: "Inserts current time", descriptionPt: "Insere a hora atual", descriptionEn: "Inserts current time", triggers: { pt: ["inserir?\\s*hora", "insere\\s*hora", "hora\\s*atual"], en: ["insert\\s*(the\\s*)?time", "current\\s*time"] }, action: { type: "insert_dynamic", parameter: "time" }, matchMode: "isolated" },
+  { id: "snippet_datetime", isDefault: true, isEnabled: true, category: "system", label: "Insert Date and Time / Inserir Data e Hora", description: "Inserts date and time", descriptionPt: "Insere data e hora atuais", descriptionEn: "Inserts date and time", triggers: { pt: ["inserir?\\s*data\\s*e\\s*hora", "data\\s*e\\s*hora"], en: ["insert\\s*(date\\s*and\\s*time|datetime)", "date\\s*and\\s*time"] }, action: { type: "insert_dynamic", parameter: "datetime" }, matchMode: "isolated" },
   // ───────────────────────────── system ─────────────────────────────
   { id: "sys_terminal", isDefault: true, isEnabled: true, category: "system", label: "Open Terminal / Abrir Terminal", description: "", triggers: { pt: ["abrir?\\s*terminal", "abre\\s*terminal"], en: ["open\\s*terminal", "open\\s*(the\\s*)?console"] }, action: { type: "open_app", parameter: "terminal" }, matchMode: "isolated" },
   { id: "sys_browser", isDefault: true, isEnabled: true, category: "system", label: "Open Browser / Abrir Navegador", description: "", triggers: { pt: ["abrir?\\s*navegador", "abre\\s*navegador", "abrir?\\s*browser"], en: ["open\\s*(the\\s*)?(browser|web\\s*browser)"] }, action: { type: "open_app", parameter: "browser" }, matchMode: "isolated" },
   { id: "sys_explorer", isDefault: true, isEnabled: true, category: "system", label: "Open File Explorer / Abrir Explorador", description: "", triggers: { pt: ["abrir?\\s*explorador", "abre\\s*explorador", "abrir?\\s*arquivos", "abrir?\\s*pasta"], en: ["open\\s*(the\\s*)?(file\\s*)?explorer", "open\\s*(the\\s*)?finder"] }, action: { type: "open_app", parameter: "explorer" }, matchMode: "isolated" },
-  { id: "sys_screenshot", isDefault: true, isEnabled: true, category: "system", label: "Take Screenshot / Tirar Print", description: "", triggers: { pt: ["tirar?\\s*print", "tira\\s*print", "captura\\s*de\\s*tela", "screenshot"], en: ["(take\\s*(a\\s*)?)?screenshot", "print\\s*screen"] }, action: { type: "keystroke", parameter: "PrintScreen" }, matchMode: "isolated" }
+  { id: "sys_screenshot", isDefault: true, isEnabled: true, category: "system", label: "Take Screenshot / Tirar Print", description: "", triggers: { pt: ["tirar?\\s*print", "tira\\s*print", "captura\\s*de\\s*tela", "screenshot"], en: ["(take\\s*(a\\s*)?)?screenshot", "print\\s*screen"] }, action: { type: "keystroke", parameter: "PrintScreen" }, matchMode: "isolated" },
+  // ───────────────────────────── system (dynamic) ─────────────────────────────
+  { id: "sys_open", isDefault: true, isEnabled: true, category: "system", label: "Open Application / Abrir Aplicativo", description: 'Opens any application or website by name (e.g. "open chrome", "open gmail", "open vs code")', descriptionPt: 'Abre qualquer aplicativo ou site pelo nome (ex.: "abrir chrome", "abrir gmail", "abrir vs code")', descriptionEn: 'Opens any application or website by name (e.g. "open chrome", "open gmail", "open vs code")', triggers: { pt: ["abrir", "abre", "abra", "iniciar", "inicia", "inicie", "executar", "executa"], en: ["open up", "open", "launch", "start"] }, action: { type: "open_app", parameter: "" }, matchMode: "isolated", dynamic: true },
+  { id: "sys_search_youtube", isDefault: true, isEnabled: true, category: "system", label: "Search on YouTube / Pesquisar no YouTube", description: "Searches YouTube for anything you say", descriptionPt: "Pesquisa no YouTube o que você disser", descriptionEn: "Searches YouTube for anything you say", triggers: { pt: ["pesquisar no youtube", "buscar no youtube", "procurar no youtube", "youtube"], en: ["search on youtube", "youtube search", "youtube"] }, action: { type: "open_search", parameter: "youtube" }, matchMode: "isolated", dynamic: true },
+  { id: "sys_search", isDefault: true, isEnabled: true, category: "system", label: "Web Search / Pesquisar na Web", description: "Searches the web for anything you say", descriptionPt: "Pesquisa na web o que você disser", descriptionEn: "Searches the web for anything you say", triggers: { pt: ["pesquisar por", "pesquisar", "pesquise por", "pesquise", "pesquisa", "buscar por", "buscar", "busque por", "busque", "procurar por", "procurar", "procura"], en: ["search for", "search", "google", "look up"] }, action: { type: "open_search", parameter: "google" }, matchMode: "isolated", dynamic: true }
 ];
+function makeFlexibleTrigger(trigger) {
+  const trimmed = (trigger || "").trim();
+  if (!trimmed) return "";
+  if (/[\\^$*+?.()|[\]{}]/.test(trimmed)) return trimmed;
+  const escaped = trimmed.replace(/[aáàãâä]/gi, "[aáàãâä]").replace(/[eéèêë]/gi, "[eéèêë]").replace(/[iíìîï]/gi, "[iíìîï]").replace(/[oóòõôö]/gi, "[oóòõôö]").replace(/[uúùûü]/gi, "[uúùûü]").replace(/[cç]/gi, "[cç]").replace(/\s+/g, "\\s+");
+  return `^${escaped}$`;
+}
 function applyOverrides() {
   const overrides = listDefaultOverrides();
   const overrideMap = new Map(overrides.map((o) => [o.commandId, o]));
   const defaults = DEFAULT_COMMANDS.map((cmd) => {
     const o = overrideMap.get(cmd.id);
-    if (!o) return cmd;
+    if (!o) return { ...cmd, triggers: { pt: [...cmd.triggers.pt], en: [...cmd.triggers.en] } };
     return {
       ...cmd,
+      triggers: { pt: [...cmd.triggers.pt], en: [...cmd.triggers.en] },
       isEnabled: o.isEnabled,
       matchMode: o.matchMode || cmd.matchMode
     };
   });
-  return [...defaults, ...listCustomCommands()];
+  let userSnippets = [];
+  try {
+    userSnippets = listSnippets();
+  } catch {
+    userSnippets = [];
+  }
+  const snippetCommands = [];
+  for (const s of userSnippets) {
+    const existingDefault = defaults.find((d) => d.action.type === "inject_snippet" && d.action.parameter === s.name);
+    if (existingDefault) {
+      if (s.triggerPt) {
+        const flexPt = makeFlexibleTrigger(s.triggerPt);
+        if (flexPt) existingDefault.triggers.pt = [flexPt, ...existingDefault.triggers.pt.filter((t) => t !== flexPt)];
+      }
+      if (s.triggerEn) {
+        const flexEn = makeFlexibleTrigger(s.triggerEn);
+        if (flexEn) existingDefault.triggers.en = [flexEn, ...existingDefault.triggers.en.filter((t) => t !== flexEn)];
+      }
+    } else {
+      const ptTriggers = s.triggerPt ? [makeFlexibleTrigger(s.triggerPt)].filter(Boolean) : [];
+      const enTriggers = s.triggerEn ? [makeFlexibleTrigger(s.triggerEn)].filter(Boolean) : [];
+      if (ptTriggers.length > 0 || enTriggers.length > 0) {
+        snippetCommands.push({
+          id: `snippet_${s.id}`,
+          isDefault: false,
+          isEnabled: true,
+          category: "snippets",
+          label: s.name,
+          description: s.content ? s.content.slice(0, 60) : "Snippet",
+          triggers: { pt: ptTriggers, en: enTriggers },
+          action: { type: "inject_snippet", parameter: s.name || s.id },
+          matchMode: "isolated"
+        });
+      }
+    }
+  }
+  return [...defaults, ...snippetCommands, ...listCustomCommands()];
 }
 function getAllCommands() {
   return applyOverrides();
@@ -2829,6 +3136,301 @@ async function pullOllamaModel(model, baseUrl, onProgress) {
     onProgress({ status: "error", error: err?.message || String(err) });
     return false;
   }
+}
+const { app: app$2 } = require("electron");
+const WHISPER_LOCAL_CATALOG = [
+  {
+    id: "whisper-large-v3-turbo",
+    name: "Whisper Large v3 Turbo",
+    filename: "ggml-large-v3-turbo.bin",
+    downloadUrl: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin",
+    size: 1.5 * 1024 * 1024 * 1024,
+    sizeFormatted: "~1.5 GB",
+    speed: 3.5,
+    accuracy: 4.6,
+    recommended: true
+  },
+  {
+    id: "whisper-large-v3",
+    name: "Whisper Large v3",
+    filename: "ggml-large-v3.bin",
+    downloadUrl: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin",
+    size: 3.1 * 1024 * 1024 * 1024,
+    sizeFormatted: "~3.1 GB",
+    speed: 1.5,
+    accuracy: 4.7
+  },
+  {
+    id: "whisper-medium",
+    name: "Whisper Medium",
+    filename: "ggml-medium.bin",
+    downloadUrl: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin",
+    size: 1.5 * 1024 * 1024 * 1024,
+    sizeFormatted: "~1.5 GB",
+    speed: 2,
+    accuracy: 4.3
+  },
+  {
+    id: "whisper-small",
+    name: "Whisper Small",
+    filename: "ggml-small.bin",
+    downloadUrl: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin",
+    size: 488 * 1024 * 1024,
+    sizeFormatted: "~488 MB",
+    speed: 3,
+    accuracy: 3.8
+  },
+  {
+    id: "whisper-base",
+    name: "Whisper Base",
+    filename: "ggml-base.bin",
+    downloadUrl: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",
+    size: 148 * 1024 * 1024,
+    sizeFormatted: "~148 MB",
+    speed: 4,
+    accuracy: 3
+  },
+  {
+    id: "whisper-tiny",
+    name: "Whisper Tiny",
+    filename: "ggml-tiny.bin",
+    downloadUrl: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
+    size: 78 * 1024 * 1024,
+    sizeFormatted: "~78 MB",
+    speed: 5,
+    accuracy: 2.5
+  }
+];
+const activeDownloads = /* @__PURE__ */ new Map();
+function getModelsDirectory() {
+  const modelsDir = path__namespace.join(app$2.getPath("userData"), "models");
+  if (!fs__namespace.existsSync(modelsDir)) {
+    fs__namespace.mkdirSync(modelsDir, { recursive: true });
+  }
+  return modelsDir;
+}
+function listDownloadedWhisperModels() {
+  const modelsDir = getModelsDirectory();
+  const downloaded = [];
+  for (const model of WHISPER_LOCAL_CATALOG) {
+    const filePath = path__namespace.join(modelsDir, model.filename);
+    try {
+      if (fs__namespace.existsSync(filePath)) {
+        const stats = fs__namespace.statSync(filePath);
+        if (stats.size > 1024 * 1024) {
+          downloaded.push(model.id);
+        }
+      }
+    } catch {
+    }
+  }
+  return downloaded;
+}
+function getDownloadedWhisperModelPath(modelId) {
+  const model = WHISPER_LOCAL_CATALOG.find((m) => m.id === modelId);
+  if (!model) return null;
+  const filePath = path__namespace.join(getModelsDirectory(), model.filename);
+  if (fs__namespace.existsSync(filePath)) {
+    return filePath;
+  }
+  return null;
+}
+function deleteWhisperModel(modelId) {
+  const model = WHISPER_LOCAL_CATALOG.find((m) => m.id === modelId);
+  if (!model) return false;
+  const filePath = path__namespace.join(getModelsDirectory(), model.filename);
+  try {
+    if (fs__namespace.existsSync(filePath)) {
+      fs__namespace.unlinkSync(filePath);
+      return true;
+    }
+  } catch (err) {
+    console.error("[WhisperManager] Erro ao deletar modelo:", err);
+  }
+  return false;
+}
+function cancelWhisperDownload(modelId) {
+  const active = activeDownloads.get(modelId);
+  if (active) {
+    active.abort();
+    activeDownloads.delete(modelId);
+    const model = WHISPER_LOCAL_CATALOG.find((m) => m.id === modelId);
+    if (model) {
+      const tempPath = path__namespace.join(getModelsDirectory(), `${model.filename}.tmp`);
+      try {
+        if (fs__namespace.existsSync(tempPath)) fs__namespace.unlinkSync(tempPath);
+      } catch {
+      }
+    }
+    return true;
+  }
+  return false;
+}
+function fetchWithRedirects(url, onResponse, onError, maxRedirects = 5) {
+  let currentReq = null;
+  let aborted = false;
+  const handleRequest = (currentUrl, redirectsLeft) => {
+    if (aborted) return;
+    if (redirectsLeft < 0) {
+      onError(new Error("Too many redirects"));
+      return;
+    }
+    const client = currentUrl.startsWith("https:") ? https__namespace : http__namespace;
+    const parsedUrl = new URL(currentUrl);
+    currentReq = client.get(
+      parsedUrl,
+      {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Vox/2.0"
+        }
+      },
+      (res) => {
+        if (aborted) {
+          res.resume();
+          return;
+        }
+        if (res.statusCode && [301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+          res.resume();
+          const nextUrl = new URL(res.headers.location, currentUrl).href;
+          handleRequest(nextUrl, redirectsLeft - 1);
+          return;
+        }
+        if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+          res.resume();
+          onError(new Error(`HTTP error: ${res.statusCode} ${res.statusMessage || ""}`));
+          return;
+        }
+        onResponse(res);
+      }
+    );
+    currentReq.on("error", (err) => {
+      if (!aborted) onError(err);
+    });
+  };
+  handleRequest(url, maxRedirects);
+  return {
+    abort: () => {
+      aborted = true;
+      currentReq?.destroy();
+    }
+  };
+}
+async function downloadWhisperModel(modelId, onProgress) {
+  const model = WHISPER_LOCAL_CATALOG.find((m) => m.id === modelId);
+  if (!model) {
+    return { success: false, error: "Modelo não encontrado no catálogo" };
+  }
+  if (activeDownloads.has(modelId)) {
+    return { success: false, error: "Download já em andamento" };
+  }
+  const modelsDir = getModelsDirectory();
+  const finalPath = path__namespace.join(modelsDir, model.filename);
+  const tempPath = path__namespace.join(modelsDir, `${model.filename}.tmp`);
+  return new Promise((resolve) => {
+    let bytesDownloaded = 0;
+    let totalBytes = model.size;
+    let lastProgressTime = 0;
+    const fileStream = fs__namespace.createWriteStream(tempPath);
+    const handle = fetchWithRedirects(
+      model.downloadUrl,
+      (res) => {
+        const headerLen = parseInt(res.headers["content-length"] || "0", 10);
+        if (headerLen > 0) {
+          totalBytes = headerLen;
+        }
+        res.on("data", (chunk) => {
+          fileStream.write(chunk);
+          bytesDownloaded += chunk.length;
+          const now = Date.now();
+          if (now - lastProgressTime > 100 || bytesDownloaded === totalBytes) {
+            lastProgressTime = now;
+            const percent = totalBytes > 0 ? Math.min(100, Math.round(bytesDownloaded / totalBytes * 100)) : 0;
+            onProgress({
+              modelId,
+              status: "downloading",
+              progress: percent,
+              bytesDownloaded,
+              totalBytes
+            });
+          }
+        });
+        res.on("end", () => {
+          fileStream.end(() => {
+            activeDownloads.delete(modelId);
+            try {
+              if (fs__namespace.existsSync(finalPath)) {
+                fs__namespace.unlinkSync(finalPath);
+              }
+              fs__namespace.renameSync(tempPath, finalPath);
+              onProgress({
+                modelId,
+                status: "completed",
+                progress: 100,
+                bytesDownloaded: totalBytes,
+                totalBytes
+              });
+              resolve({ success: true });
+            } catch (err) {
+              const errMsg = err?.message || "Falha ao salvar arquivo final";
+              onProgress({
+                modelId,
+                status: "error",
+                progress: 0,
+                bytesDownloaded,
+                totalBytes,
+                error: errMsg
+              });
+              resolve({ success: false, error: errMsg });
+            }
+          });
+        });
+        res.on("error", (err) => {
+          fileStream.close();
+          activeDownloads.delete(modelId);
+          try {
+            if (fs__namespace.existsSync(tempPath)) fs__namespace.unlinkSync(tempPath);
+          } catch {
+          }
+          onProgress({
+            modelId,
+            status: "error",
+            progress: 0,
+            bytesDownloaded,
+            totalBytes,
+            error: err.message
+          });
+          resolve({ success: false, error: err.message });
+        });
+      },
+      (err) => {
+        fileStream.close();
+        activeDownloads.delete(modelId);
+        try {
+          if (fs__namespace.existsSync(tempPath)) fs__namespace.unlinkSync(tempPath);
+        } catch {
+        }
+        onProgress({
+          modelId,
+          status: "error",
+          progress: 0,
+          bytesDownloaded,
+          totalBytes,
+          error: err.message
+        });
+        resolve({ success: false, error: err.message });
+      }
+    );
+    activeDownloads.set(modelId, {
+      abort: () => {
+        handle.abort();
+        fileStream.close();
+        try {
+          if (fs__namespace.existsSync(tempPath)) fs__namespace.unlinkSync(tempPath);
+        } catch {
+        }
+      }
+    });
+  });
 }
 const { app: app$1, ipcMain: ipcMain$1, shell: shell$1 } = require("electron");
 function initAutoUpdater(getMainWindow) {
@@ -3286,7 +3888,8 @@ async function processCommandSegments(parseResult, language) {
         windowRef: targetWindowRef || {},
         lastTranscription: lastSuccessfulTranscription,
         language,
-        snippets
+        snippets,
+        params: seg.params
       });
     } else if (seg.type === "content" && seg.contentText) {
       const corrected = await correctTranscription(seg.contentText, buildContextHint(targetWindowRef), templateManager.getActiveTemplate());
@@ -3618,6 +4221,47 @@ function setupIpcHandlers() {
     if (typeof url === "string" && (url.startsWith("https://") || url.startsWith("http://"))) {
       shell.openExternal(url);
     }
+  });
+  ipcMain.handle("vox:list-downloaded-whisper-models", () => {
+    try {
+      return listDownloadedWhisperModels();
+    } catch (err) {
+      console.error("[Main] Erro ao listar modelos Whisper baixados:", err);
+      return [];
+    }
+  });
+  ipcMain.handle("vox:download-whisper-model", async (_event, modelId) => {
+    if (!modelId || typeof modelId !== "string") {
+      return { success: false, error: "modelId obrigatório" };
+    }
+    try {
+      return await downloadWhisperModel(modelId.trim(), (progress) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("vox:whisper-download-progress", progress);
+        }
+      });
+    } catch (err) {
+      console.error("[Main] Erro ao baixar modelo Whisper:", err);
+      return { success: false, error: err?.message || "Falha no download" };
+    }
+  });
+  ipcMain.handle("vox:cancel-whisper-download", (_event, modelId) => {
+    if (typeof modelId === "string") {
+      return { success: cancelWhisperDownload(modelId.trim()) };
+    }
+    return { success: false };
+  });
+  ipcMain.handle("vox:delete-whisper-model", (_event, modelId) => {
+    if (typeof modelId === "string") {
+      return { success: deleteWhisperModel(modelId.trim()) };
+    }
+    return { success: false };
+  });
+  ipcMain.handle("vox:get-whisper-model-path", (_event, modelId) => {
+    if (typeof modelId === "string") {
+      return getDownloadedWhisperModelPath(modelId.trim());
+    }
+    return null;
   });
   ipcMain.handle("vox:list-sessions", (_event, limit, type) => {
     return listSessions(limit || 50, type);

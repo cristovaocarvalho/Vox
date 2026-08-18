@@ -1178,7 +1178,7 @@ export const MainWindow: React.FC = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full max-w-3xl h-[620px] max-h-[85vh] flex flex-col"
+              className="w-full max-w-4xl h-[640px] max-h-[85vh] flex flex-col"
             >
               <LiquidGlassCard
                 glowIntensity="md"

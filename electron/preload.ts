@@ -195,6 +195,30 @@ export const voxApi = {
     return () => ipcRenderer.removeListener('vox:updater-status', handler)
   },
 
+  // Local Whisper Models Management
+  listDownloadedWhisperModels: () => ipcRenderer.invoke('vox:list-downloaded-whisper-models'),
+  downloadWhisperModel: (modelId: string) => {
+    if (typeof modelId !== 'string') return Promise.reject(new TypeError('modelId deve ser string'))
+    return ipcRenderer.invoke('vox:download-whisper-model', modelId)
+  },
+  cancelWhisperDownload: (modelId: string) => {
+    if (typeof modelId !== 'string') return Promise.reject(new TypeError('modelId deve ser string'))
+    return ipcRenderer.invoke('vox:cancel-whisper-download', modelId)
+  },
+  deleteWhisperModel: (modelId: string) => {
+    if (typeof modelId !== 'string') return Promise.reject(new TypeError('modelId deve ser string'))
+    return ipcRenderer.invoke('vox:delete-whisper-model', modelId)
+  },
+  getWhisperModelPath: (modelId: string) => {
+    if (typeof modelId !== 'string') return Promise.reject(new TypeError('modelId deve ser string'))
+    return ipcRenderer.invoke('vox:get-whisper-model-path', modelId)
+  },
+  onWhisperDownloadProgress: (callback: (data: { modelId: string; status: 'downloading' | 'completed' | 'error' | 'cancelled'; progress: number; bytesDownloaded?: number; totalBytes?: number; error?: string }) => void) => {
+    const handler = (_event: unknown, data: any) => callback(data)
+    ipcRenderer.on('vox:whisper-download-progress', handler)
+    return () => ipcRenderer.removeListener('vox:whisper-download-progress', handler)
+  },
+
   // Utilities
   openExternal: (url: string) => ipcRenderer.invoke('vox:open-external', url)
 }

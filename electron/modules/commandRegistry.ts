@@ -1,6 +1,13 @@
 import crypto from 'crypto'
 import type { VoiceCommand } from '../../src/types/commands'
-import { listCustomCommands, saveCustomCommand, deleteCustomCommand as dbDeleteCustomCommand, listDefaultOverrides, setDefaultOverride } from './db'
+import {
+  listCustomCommands,
+  saveCustomCommand,
+  deleteCustomCommand as dbDeleteCustomCommand,
+  listDefaultOverrides,
+  setDefaultOverride,
+  listSnippets
+} from './db'
 
 // Full default command registry. Trigger patterns are case-insensitive regex
 // strings that tolerate common Whisper variations (accents, trailing punctuation).
@@ -55,18 +62,11 @@ export const DEFAULT_COMMANDS: VoiceCommand[] = [
   { id: 'vox_mode_text', isDefault: true, isEnabled: true, category: 'vox_control', label: 'Text Mode / Modo Texto', description: '', triggers: { pt: ['modo\\s*texto', 'ativar?\\s*modo\\s*texto', 'modo\\s*prosa'], en: ['text\\s*mode', 'prose\\s*mode', 'switch\\s*to\\s*text'] }, action: { type: 'change_profile', parameter: 'text' }, matchMode: 'isolated' },
   { id: 'vox_mode_email', isDefault: true, isEnabled: true, category: 'vox_control', label: 'Email Mode / Modo Email', description: '', triggers: { pt: ['modo\\s*email', 'ativar?\\s*modo\\s*email'], en: ['email\\s*mode', 'switch\\s*to\\s*email'] }, action: { type: 'change_profile', parameter: 'email' }, matchMode: 'isolated' },
   { id: 'template_deactivate', isDefault: true, isEnabled: true, category: 'vox_control', label: 'Deactivate Template / Desativar Template', description: '', triggers: { pt: ['desativar template', 'sem template', 'ditado livre', 'modo padrão', 'remover template'], en: ['deactivate template', 'no template', 'free dictation', 'default mode', 'remove template'] }, action: { type: 'vox_control', parameter: 'deactivate_template' }, matchMode: 'isolated' },
-  { id: 'vox_mode_code', isDefault: true, isEnabled: true, category: 'vox_control', label: 'Code Mode / Modo Código', description: '', triggers: { pt: ['modo\\s*c[oó]digo', 'ativar?\\s*modo\\s*c[oó]digo'], en: ['code\\s*mode', 'coding\\s*mode', 'switch\\s*to\\s*code'] }, action: { type: 'change_profile', parameter: 'code' }, matchMode: 'isolated' },
-  { id: 'vox_mode_text', isDefault: true, isEnabled: true, category: 'vox_control', label: 'Text Mode / Modo Texto', description: '', triggers: { pt: ['modo\\s*texto', 'ativar?\\s*modo\\s*texto', 'modo\\s*prosa'], en: ['text\\s*mode', 'prose\\s*mode', 'switch\\s*to\\s*text'] }, action: { type: 'change_profile', parameter: 'text' }, matchMode: 'isolated' },
-  { id: 'vox_mode_email', isDefault: true, isEnabled: true, category: 'vox_control', label: 'Email Mode / Modo Email', description: '', triggers: { pt: ['modo\\s*email', 'ativar?\\s*modo\\s*email'], en: ['email\\s*mode', 'switch\\s*to\\s*email'] }, action: { type: 'change_profile', parameter: 'email' }, matchMode: 'isolated' },
-  { id: 'template_deactivate', isDefault: true, isEnabled: true, category: 'vox_control', label: 'Deactivate Template / Desativar Template', description: '', triggers: { pt: ['desativar template', 'sem template', 'ditado livre', 'modo padrão', 'remover template'], en: ['deactivate template', 'no template', 'free dictation', 'default mode', 'remove template'] }, action: { type: 'vox_control', parameter: 'deactivate_template' }, matchMode: 'isolated' },
 
-  // ───────────────────────────── snippets (dynamic) ─────────────────────────────
-  { id: 'snippet_date', isDefault: true, isEnabled: true, category: 'snippets', label: 'Insert Date / Inserir Data', description: '', triggers: { pt: ['inserir?\\s*data', 'insere\\s*data', 'data\\s*de\\s*hoje'], en: ['insert\\s*(the\\s*)?date', "today'?s?\\s*date", 'current\\s*date'] }, action: { type: 'insert_dynamic', parameter: 'date' }, matchMode: 'isolated' },
-  { id: 'snippet_time', isDefault: true, isEnabled: true, category: 'snippets', label: 'Insert Time / Inserir Hora', description: '', triggers: { pt: ['inserir?\\s*hora', 'insere\\s*hora', 'hora\\s*atual'], en: ['insert\\s*(the\\s*)?time', 'current\\s*time'] }, action: { type: 'insert_dynamic', parameter: 'time' }, matchMode: 'isolated' },
-  { id: 'snippet_datetime', isDefault: true, isEnabled: true, category: 'snippets', label: 'Insert Date and Time / Inserir Data e Hora', description: '', triggers: { pt: ['inserir?\\s*data\\s*e\\s*hora', 'data\\s*e\\s*hora'], en: ['insert\\s*(date\\s*and\\s*time|datetime)', 'date\\s*and\\s*time'] }, action: { type: 'insert_dynamic', parameter: 'datetime' }, matchMode: 'isolated' },
-  { id: 'snippet_signature', isDefault: true, isEnabled: true, category: 'snippets', label: 'Insert Signature / Inserir Assinatura', description: '', triggers: { pt: ['inserir?\\s*assinatura', 'insere\\s*assinatura', 'minha\\s*assinatura'], en: ['insert\\s*(my\\s*)?signature', 'my\\s*signature'] }, action: { type: 'inject_snippet', parameter: 'signature' }, matchMode: 'isolated' },
-  { id: 'snippet_email_address', isDefault: true, isEnabled: true, category: 'snippets', label: 'Insert Email Address / Inserir Email', description: '', triggers: { pt: ['inserir?\\s*(meu\\s*)?e?\\s*mail', 'insere\\s*(meu\\s*)?e?\\s*mail'], en: ['insert\\s*(my\\s*)?email(\\s*address)?', 'my\\s*email'] }, action: { type: 'inject_snippet', parameter: 'email_address' }, matchMode: 'isolated' },
-  { id: 'snippet_address', isDefault: true, isEnabled: true, category: 'snippets', label: 'Insert Address / Inserir Endereço', description: '', triggers: { pt: ['inserir?\\s*(meu\\s*)?endere(ço|co)', 'insere\\s*endere(ço|co)'], en: ['insert\\s*(my\\s*)?address', 'my\\s*address'] }, action: { type: 'inject_snippet', parameter: 'address' }, matchMode: 'isolated' },
+  // ───────────────────────────── system (dynamic date/time & apps) ─────────────────────────────
+  { id: 'snippet_date', isDefault: true, isEnabled: true, category: 'system', label: 'Insert Date / Inserir Data', description: 'Inserts current date', descriptionPt: 'Insere a data atual', descriptionEn: 'Inserts current date', triggers: { pt: ['inserir?\\s*data', 'insere\\s*data', 'data\\s*de\\s*hoje'], en: ['insert\\s*(the\\s*)?date', "today'?s?\\s*date", 'current\\s*date'] }, action: { type: 'insert_dynamic', parameter: 'date' }, matchMode: 'isolated' },
+  { id: 'snippet_time', isDefault: true, isEnabled: true, category: 'system', label: 'Insert Time / Inserir Hora', description: 'Inserts current time', descriptionPt: 'Insere a hora atual', descriptionEn: 'Inserts current time', triggers: { pt: ['inserir?\\s*hora', 'insere\\s*hora', 'hora\\s*atual'], en: ['insert\\s*(the\\s*)?time', 'current\\s*time'] }, action: { type: 'insert_dynamic', parameter: 'time' }, matchMode: 'isolated' },
+  { id: 'snippet_datetime', isDefault: true, isEnabled: true, category: 'system', label: 'Insert Date and Time / Inserir Data e Hora', description: 'Inserts date and time', descriptionPt: 'Insere data e hora atuais', descriptionEn: 'Inserts date and time', triggers: { pt: ['inserir?\\s*data\\s*e\\s*hora', 'data\\s*e\\s*hora'], en: ['insert\\s*(date\\s*and\\s*time|datetime)', 'date\\s*and\\s*time'] }, action: { type: 'insert_dynamic', parameter: 'datetime' }, matchMode: 'isolated' },
 
   // ───────────────────────────── system ─────────────────────────────
   { id: 'sys_terminal', isDefault: true, isEnabled: true, category: 'system', label: 'Open Terminal / Abrir Terminal', description: '', triggers: { pt: ['abrir?\\s*terminal', 'abre\\s*terminal'], en: ['open\\s*terminal', 'open\\s*(the\\s*)?console'] }, action: { type: 'open_app', parameter: 'terminal' }, matchMode: 'isolated' },
@@ -75,10 +75,25 @@ export const DEFAULT_COMMANDS: VoiceCommand[] = [
   { id: 'sys_screenshot', isDefault: true, isEnabled: true, category: 'system', label: 'Take Screenshot / Tirar Print', description: '', triggers: { pt: ['tirar?\\s*print', 'tira\\s*print', 'captura\\s*de\\s*tela', 'screenshot'], en: ['(take\\s*(a\\s*)?)?screenshot', 'print\\s*screen'] }, action: { type: 'keystroke', parameter: 'PrintScreen' }, matchMode: 'isolated' },
 
   // ───────────────────────────── system (dynamic) ─────────────────────────────
-  { id: 'sys_open', isDefault: true, isEnabled: true, category: 'system', label: 'Open Application / Abrir Aplicativo', description: 'Opens any application or website by name (e.g. "open chrome", "open gmail", "open vs code")', descriptionPt: 'Abre qualquer aplicativo ou site pelo nome (ex.: "abrir chrome", "abrir gmail", "abrir vs code")', descriptionEn: 'Opens any application or website by name (e.g. "open chrome", "open gmail", "open vs code")', triggers: { pt: ['abrir', 'abre', 'abra'], en: ['open up', 'open'] }, action: { type: 'open_app', parameter: '' }, matchMode: 'isolated', dynamic: true },
-  { id: 'sys_search_youtube', isDefault: true, isEnabled: true, category: 'system', label: 'Search on YouTube / Pesquisar no YouTube', description: 'Searches YouTube for anything you say', descriptionPt: 'Pesquisa no YouTube o que você disser', descriptionEn: 'Searches YouTube for anything you say', triggers: { pt: ['pesquisar no youtube', 'buscar no youtube', 'youtube'], en: ['search on youtube', 'youtube search', 'youtube'] }, action: { type: 'open_search', parameter: 'youtube' }, matchMode: 'isolated', dynamic: true },
-  { id: 'sys_search', isDefault: true, isEnabled: true, category: 'system', label: 'Web Search / Pesquisar na Web', description: 'Searches the web for anything you say', descriptionPt: 'Pesquisa na web o que você disser', descriptionEn: 'Searches the web for anything you say', triggers: { pt: ['pesquisar por', 'pesquisar', 'pesquise', 'pesquisa', 'buscar', 'busque', 'procura', 'procurar por', 'procurar'], en: ['search for', 'search', 'google', 'look up'] }, action: { type: 'open_search', parameter: 'google' }, matchMode: 'isolated', dynamic: true }
+  { id: 'sys_open', isDefault: true, isEnabled: true, category: 'system', label: 'Open Application / Abrir Aplicativo', description: 'Opens any application or website by name (e.g. "open chrome", "open gmail", "open vs code")', descriptionPt: 'Abre qualquer aplicativo ou site pelo nome (ex.: "abrir chrome", "abrir gmail", "abrir vs code")', descriptionEn: 'Opens any application or website by name (e.g. "open chrome", "open gmail", "open vs code")', triggers: { pt: ['abrir', 'abre', 'abra', 'iniciar', 'inicia', 'inicie', 'executar', 'executa'], en: ['open up', 'open', 'launch', 'start'] }, action: { type: 'open_app', parameter: '' }, matchMode: 'isolated', dynamic: true },
+  { id: 'sys_search_youtube', isDefault: true, isEnabled: true, category: 'system', label: 'Search on YouTube / Pesquisar no YouTube', description: 'Searches YouTube for anything you say', descriptionPt: 'Pesquisa no YouTube o que você disser', descriptionEn: 'Searches YouTube for anything you say', triggers: { pt: ['pesquisar no youtube', 'buscar no youtube', 'procurar no youtube', 'youtube'], en: ['search on youtube', 'youtube search', 'youtube'] }, action: { type: 'open_search', parameter: 'youtube' }, matchMode: 'isolated', dynamic: true },
+  { id: 'sys_search', isDefault: true, isEnabled: true, category: 'system', label: 'Web Search / Pesquisar na Web', description: 'Searches the web for anything you say', descriptionPt: 'Pesquisa na web o que você disser', descriptionEn: 'Searches the web for anything you say', triggers: { pt: ['pesquisar por', 'pesquisar', 'pesquise por', 'pesquise', 'pesquisa', 'buscar por', 'buscar', 'busque por', 'busque', 'procurar por', 'procurar', 'procura'], en: ['search for', 'search', 'google', 'look up'] }, action: { type: 'open_search', parameter: 'google' }, matchMode: 'isolated', dynamic: true }
 ]
+
+function makeFlexibleTrigger(trigger: string): string {
+  const trimmed = (trigger || '').trim()
+  if (!trimmed) return ''
+  if (/[\\^$*+?.()|[\]{}]/.test(trimmed)) return trimmed
+  const escaped = trimmed
+    .replace(/[aáàãâä]/gi, '[aáàãâä]')
+    .replace(/[eéèêë]/gi, '[eéèêë]')
+    .replace(/[iíìîï]/gi, '[iíìîï]')
+    .replace(/[oóòõôö]/gi, '[oóòõôö]')
+    .replace(/[uúùûü]/gi, '[uúùûü]')
+    .replace(/[cç]/gi, '[cç]')
+    .replace(/\s+/g, '\\s+')
+  return `^${escaped}$`
+}
 
 function applyOverrides(): VoiceCommand[] {
   const overrides = listDefaultOverrides()
@@ -86,15 +101,55 @@ function applyOverrides(): VoiceCommand[] {
 
   const defaults = DEFAULT_COMMANDS.map((cmd) => {
     const o = overrideMap.get(cmd.id)
-    if (!o) return cmd
+    if (!o) return { ...cmd, triggers: { pt: [...cmd.triggers.pt], en: [...cmd.triggers.en] } }
     return {
       ...cmd,
+      triggers: { pt: [...cmd.triggers.pt], en: [...cmd.triggers.en] },
       isEnabled: o.isEnabled,
       matchMode: o.matchMode || cmd.matchMode
     }
   })
 
-  return [...defaults, ...listCustomCommands()]
+  // Dynamic user snippets from database
+  let userSnippets: any[] = []
+  try {
+    userSnippets = listSnippets()
+  } catch {
+    userSnippets = []
+  }
+
+  const snippetCommands: VoiceCommand[] = []
+  for (const s of userSnippets) {
+    const existingDefault = defaults.find((d) => d.action.type === 'inject_snippet' && d.action.parameter === s.name)
+    if (existingDefault) {
+      if (s.triggerPt) {
+        const flexPt = makeFlexibleTrigger(s.triggerPt)
+        if (flexPt) existingDefault.triggers.pt = [flexPt, ...existingDefault.triggers.pt.filter((t) => t !== flexPt)]
+      }
+      if (s.triggerEn) {
+        const flexEn = makeFlexibleTrigger(s.triggerEn)
+        if (flexEn) existingDefault.triggers.en = [flexEn, ...existingDefault.triggers.en.filter((t) => t !== flexEn)]
+      }
+    } else {
+      const ptTriggers = s.triggerPt ? [makeFlexibleTrigger(s.triggerPt)].filter(Boolean) : []
+      const enTriggers = s.triggerEn ? [makeFlexibleTrigger(s.triggerEn)].filter(Boolean) : []
+      if (ptTriggers.length > 0 || enTriggers.length > 0) {
+        snippetCommands.push({
+          id: `snippet_${s.id}`,
+          isDefault: false,
+          isEnabled: true,
+          category: 'snippets',
+          label: s.name,
+          description: s.content ? s.content.slice(0, 60) : 'Snippet',
+          triggers: { pt: ptTriggers, en: enTriggers },
+          action: { type: 'inject_snippet', parameter: s.name || s.id },
+          matchMode: 'isolated'
+        })
+      }
+    }
+  }
+
+  return [...defaults, ...snippetCommands, ...listCustomCommands()]
 }
 
 export function getAllCommands(): VoiceCommand[] {

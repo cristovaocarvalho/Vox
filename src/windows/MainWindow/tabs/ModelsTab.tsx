@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useI18n } from '../../../i18n'
-import { IconCheck } from '../../../components'
+import { IconCheck, IconTrash } from '../../../components'
 
 // ─── Data ───────────────────────────────────────────────────────────────────
 
@@ -10,7 +10,6 @@ interface WhisperModelInfo {
   speed: number      // 1–5
   accuracy: number   // 1–5
   size: string
-  downloadUrl: string
   recommended?: boolean
 }
 
@@ -20,67 +19,57 @@ const API_MODELS: WhisperModelInfo[] = [
     id: 'whisper-large-v3-turbo',
     name: 'Whisper Large v3 Turbo',
     speed: 3.5, accuracy: 4.6, size: '—',
-    downloadUrl: 'https://huggingface.co/openai/whisper-large-v3-turbo',
     recommended: true
   },
   {
     id: 'whisper-large-v3',
     name: 'Whisper Large v3',
-    speed: 1.5, accuracy: 4.7, size: '—',
-    downloadUrl: 'https://huggingface.co/openai/whisper-large-v3'
+    speed: 1.5, accuracy: 4.7, size: '—'
   },
   {
     id: 'whisper-medium',
     name: 'Whisper Medium',
-    speed: 2.0, accuracy: 4.3, size: '—',
-    downloadUrl: 'https://huggingface.co/openai/whisper-medium'
+    speed: 2.0, accuracy: 4.3, size: '—'
   },
   {
     id: 'whisper-small',
     name: 'Whisper Small',
-    speed: 3.0, accuracy: 3.8, size: '—',
-    downloadUrl: 'https://huggingface.co/openai/whisper-small'
+    speed: 3.0, accuracy: 3.8, size: '—'
   }
 ]
 
-// Models that can be installed locally (whisper.cpp GGUF format)
+// Models that can be installed locally (whisper.cpp GGML format)
 const LOCAL_MODELS: WhisperModelInfo[] = [
   {
     id: 'whisper-large-v3-turbo',
     name: 'Whisper Large v3 Turbo',
     speed: 3.5, accuracy: 4.6, size: '~1.5 GB',
-    downloadUrl: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin',
     recommended: true
   },
   {
     id: 'whisper-large-v3',
     name: 'Whisper Large v3',
-    speed: 1.5, accuracy: 4.7, size: '~3.1 GB',
-    downloadUrl: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin'
+    speed: 1.5, accuracy: 4.7, size: '~3.1 GB'
   },
   {
     id: 'whisper-medium',
     name: 'Whisper Medium',
-    speed: 2.0, accuracy: 4.3, size: '~1.5 GB',
-    downloadUrl: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin'
+    speed: 2.0, accuracy: 4.3, size: '~1.5 GB'
   },
   {
     id: 'whisper-small',
     name: 'Whisper Small',
-    speed: 3.0, accuracy: 3.8, size: '~488 MB',
-    downloadUrl: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin'
+    speed: 3.0, accuracy: 3.8, size: '~488 MB'
   },
   {
     id: 'whisper-base',
     name: 'Whisper Base',
-    speed: 4.0, accuracy: 3.0, size: '~148 MB',
-    downloadUrl: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin'
+    speed: 4.0, accuracy: 3.0, size: '~148 MB'
   },
   {
     id: 'whisper-tiny',
     name: 'Whisper Tiny',
-    speed: 5.0, accuracy: 2.5, size: '~78 MB',
-    downloadUrl: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin'
+    speed: 5.0, accuracy: 2.5, size: '~78 MB'
   }
 ]
 
@@ -182,6 +171,13 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
   const { t } = useI18n()
   const [subTab, setSubTab] = useState<'speech' | 'language'>('speech')
 
+  // Local Whisper downloaded models state
+  const [downloadedWhisperModels, setDownloadedWhisperModels] = useState<string[]>([])
+  const [whisperPullingModel, setWhisperPullingModel] = useState<string | null>(null)
+  const [whisperProgress, setWhisperProgress] = useState<Record<string, number>>({})
+  const [whisperError, setWhisperError] = useState<string | null>(null)
+
+  // Ollama models state
   const [installedModels, setInstalledModels] = useState<string[]>([])
   const [installedLoading, setInstalledLoading] = useState(false)
   const [pullingModel, setPullingModel] = useState<string | null>(null)
@@ -196,14 +192,86 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
     return base.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
   }
 
-  const openUrl = (url: string) => {
-    if (window.vox?.openExternal) {
-      window.vox.openExternal(url)
-    } else {
-      window.open(url, '_blank')
+  // Load downloaded Whisper local models from disk
+  const loadDownloadedWhisperModels = React.useCallback(async () => {
+    if (window.vox?.listDownloadedWhisperModels) {
+      try {
+        const list = await window.vox.listDownloadedWhisperModels()
+        setDownloadedWhisperModels(Array.isArray(list) ? list : [])
+      } catch (err) {
+        console.error('Erro ao listar modelos Whisper baixados:', err)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    loadDownloadedWhisperModels()
+  }, [loadDownloadedWhisperModels])
+
+  // Listen to Whisper model download progress
+  useEffect(() => {
+    const unsub = window.vox?.onWhisperDownloadProgress?.((data) => {
+      const { modelId, status, progress: pct, error } = data
+      if (status === 'completed') {
+        setDownloadedWhisperModels((prev) => (prev.includes(modelId) ? prev : [...prev, modelId]))
+        setWhisperPullingModel(null)
+        setWhisperProgress((prev) => {
+          const n = { ...prev }
+          delete n[modelId]
+          return n
+        })
+        // Auto-select downloaded model
+        setDraftSttModel(modelId)
+      } else if (status === 'error') {
+        setWhisperError(error || t('modelsTab.downloadFailed') || 'Download failed')
+        setWhisperPullingModel(null)
+        setWhisperProgress((prev) => {
+          const n = { ...prev }
+          delete n[modelId]
+          return n
+        })
+      } else {
+        setWhisperProgress((prev) => ({ ...prev, [modelId]: pct }))
+      }
+    })
+    return () => unsub?.()
+  }, [t, setDraftSttModel])
+
+  const handleDownloadWhisperModel = async (modelId: string) => {
+    if (whisperPullingModel || !window.vox?.downloadWhisperModel) return
+    setWhisperPullingModel(modelId)
+    setWhisperError(null)
+    setWhisperProgress((prev) => ({ ...prev, [modelId]: 0 }))
+
+    try {
+      const res = await window.vox.downloadWhisperModel(modelId)
+      if (!res?.success) {
+        setWhisperError(res?.error || t('modelsTab.downloadFailed') || 'Download failed')
+        setWhisperPullingModel(null)
+      }
+    } catch (err: any) {
+      setWhisperError(err?.message || t('modelsTab.downloadFailed') || 'Download failed')
+      setWhisperPullingModel(null)
     }
   }
 
+  const handleDeleteWhisperModel = async (modelId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!window.vox?.deleteWhisperModel) return
+    try {
+      const res = await window.vox.deleteWhisperModel(modelId)
+      if (res?.success) {
+        setDownloadedWhisperModels((prev) => prev.filter((id) => id !== modelId))
+        if (draftSttModel === modelId || draftSttModel.endsWith(`/${modelId}`)) {
+          setDraftSttModel('whisper-large-v3-turbo')
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao deletar modelo Whisper:', err)
+    }
+  }
+
+  // Load Ollama installed models
   const loadInstalledModels = React.useCallback(async () => {
     if (!isOllama || !window.vox?.listOllamaModels) {
       setInstalledModels([])
@@ -270,21 +338,28 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
   }
 
   // ── Whisper model card ─────────────────────────────────────────────────────
-  const renderModelCard = (model: WhisperModelInfo, showDownload: boolean) => {
+  const renderModelCard = (model: WhisperModelInfo, isLocalList: boolean) => {
     const isSelected = draftSttModel === model.id || draftSttModel.endsWith(`/${model.id}`)
+    const isInstalled = downloadedWhisperModels.includes(model.id)
+    const isPulling = whisperPullingModel === model.id
+    const currentProgress = whisperProgress[model.id] ?? 0
 
     return (
       <div
-        key={`${model.id}-${showDownload}`}
-        onClick={() => setDraftSttModel(model.id)}
-        className={`group flex items-center justify-between gap-3 px-3 py-2.5 cursor-pointer transition-colors duration-150 border-l-2 ${
+        key={`${model.id}-${isLocalList ? 'local' : 'api'}`}
+        onClick={() => {
+          if (!isLocalList || isInstalled) {
+            setDraftSttModel(model.id)
+          }
+        }}
+        className={`group flex items-center justify-between gap-4 sm:gap-6 px-4 py-3 cursor-pointer transition-colors duration-150 border-l-2 ${
           isSelected
-            ? 'bg-accent/[0.08] border-accent pl-2.5'
+            ? 'bg-accent/[0.08] border-accent pl-3.5'
             : 'border-transparent hover:bg-surface/20'
         }`}
       >
         {/* Left: Indicator dot + Model Name + Recommended Badge */}
-        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <div
             className={`shrink-0 w-1.5 h-1.5 rounded-full transition-colors ${
               isSelected ? 'bg-accent' : 'bg-border/50 group-hover:bg-border/80'
@@ -296,7 +371,7 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
                 {model.name}
               </span>
               {model.recommended && (
-                <span className="text-[8px] font-semibold text-accent/90 uppercase tracking-wider bg-accent/10 px-1 py-0.5 rounded border border-accent/20 shrink-0">
+                <span className="text-[8px] font-semibold text-accent/90 uppercase tracking-wider bg-accent/10 px-1.5 py-0.5 rounded border border-accent/20 shrink-0">
                   Recommended
                 </span>
               )}
@@ -305,9 +380,9 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
         </div>
 
         {/* Middle: Speed & Accuracy Metrics (Stacked header + bar to avoid text collisions) */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-4 sm:gap-6 shrink-0">
           {/* Speed Metric */}
-          <div className="flex flex-col gap-1 w-16 sm:w-20">
+          <div className="flex flex-col gap-1 w-20 sm:w-28">
             <div className="flex items-center justify-between text-[9px] text-text-muted">
               <span className="uppercase tracking-wider truncate">{t('modelsTab.speed')}</span>
               <span className="font-mono text-[9px] opacity-70">{model.speed.toFixed(1)}</span>
@@ -321,7 +396,7 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
           </div>
 
           {/* Accuracy Metric */}
-          <div className="flex flex-col gap-1 w-16 sm:w-20">
+          <div className="flex flex-col gap-1 w-20 sm:w-28">
             <div className="flex items-center justify-between text-[9px] text-text-muted">
               <span className="uppercase tracking-wider truncate">{t('modelsTab.accuracy')}</span>
               <span className="font-mono text-[9px] opacity-70">{model.accuracy.toFixed(1)}</span>
@@ -335,27 +410,64 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
           </div>
         </div>
 
-        {/* Right: File Size + Action Button / Badge (Always strictly aligned) */}
+        {/* Right: File Size + In-App Download / Select Action Button */}
         <div
-          className="flex items-center justify-end gap-2.5 shrink-0"
+          className="flex items-center justify-end gap-3 shrink-0"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="w-14 text-right">
+          <div className="w-16 text-right">
             {model.size !== '—' && (
               <span className="text-[10px] font-mono text-text-muted">{model.size}</span>
             )}
           </div>
 
-          <div className="w-20 flex justify-end">
-            {showDownload ? (
-              <button
-                type="button"
-                onClick={() => openUrl(model.downloadUrl)}
-                className="w-full py-1 text-[10px] font-medium border border-border/50 text-text-secondary hover:border-border/80 hover:text-text-primary text-center transition-colors cursor-pointer"
-              >
-                {t('modelsTab.download')}
-              </button>
+          <div className="w-24 flex justify-end">
+            {isLocalList ? (
+              // Local Models: In-app download with live progress, delete, and automatic activation
+              isInstalled ? (
+                <div className="flex items-center gap-1 w-full justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setDraftSttModel(model.id)}
+                    className={`flex-1 py-1 px-1 text-[10px] font-medium border flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'border-accent/40 bg-accent/10 text-accent font-semibold'
+                        : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+                    }`}
+                  >
+                    <IconCheck className="w-2.5 h-2.5 shrink-0" strokeWidth={2.6} />
+                    <span className="truncate">{isSelected ? t('modelsTab.selected') : t('modelsTab.installed')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    title={t('common.delete') || 'Deletar'}
+                    onClick={(e) => handleDeleteWhisperModel(model.id, e)}
+                    className="p-1 text-text-muted hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors cursor-pointer shrink-0"
+                  >
+                    <IconTrash className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : isPulling ? (
+                <div className="w-full flex flex-col items-center gap-1">
+                  <div className="w-full h-1 bg-surface rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-accent transition-all duration-300"
+                      style={{ width: `${currentProgress}%` }}
+                    />
+                  </div>
+                  <span className="text-[9px] font-mono text-accent">{currentProgress}%</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleDownloadWhisperModel(model.id)}
+                  className="w-full py-1 text-[10px] font-medium border border-border/50 text-text-secondary hover:border-border/80 hover:text-text-primary text-center transition-colors cursor-pointer"
+                >
+                  {t('modelsTab.download')}
+                </button>
+              )
             ) : (
+              // Provider Models (API): Select
               <span
                 className={`w-full py-1 text-[10px] font-medium border text-center transition-colors ${
                   isSelected
@@ -409,13 +521,19 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
             </div>
           )}
 
+          {whisperError && (
+            <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-[11px] text-rose-300">
+              {whisperError}
+            </div>
+          )}
+
           <CollapsibleSection label="Provider Models" defaultOpen={true}>
             {API_MODELS.map((m) => renderModelCard(m, false))}
           </CollapsibleSection>
 
           <CollapsibleSection label="Local Models" defaultOpen={false}>
             <p className="px-3 pb-1 text-[10px] text-text-muted leading-relaxed">
-              Download the model file and configure your local runtime (whisper.cpp, faster-whisper).
+              Baixe os modelos diretamente no app para uso local e privado.
             </p>
             {LOCAL_MODELS.map((m) => renderModelCard(m, true))}
           </CollapsibleSection>

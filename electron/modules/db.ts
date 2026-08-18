@@ -1064,21 +1064,78 @@ function parseSnippetRow(row: any): UserSnippet {
   }
 }
 
+export function cleanupDuplicateSnippets(): void {
+  try {
+    if (dbInstance) {
+      const allRows = dbInstance.prepare(`
+        SELECT * FROM snippets 
+        ORDER BY CASE WHEN content IS NOT NULL AND content != '' THEN 0 ELSE 1 END,
+                 datetime(updated_at) DESC,
+                 datetime(created_at) DESC
+      `).all()
+      
+      const seen = new Set<string>()
+      const idsToDelete: string[] = []
+      
+      for (const row of allRows) {
+        const key = (row.name || '').trim().toLowerCase()
+        if (seen.has(key)) {
+          idsToDelete.push(row.id)
+        } else {
+          seen.add(key)
+        }
+      }
+      
+      if (idsToDelete.length > 0) {
+        const deleteStmt = dbInstance.prepare('DELETE FROM snippets WHERE id = ?')
+        for (const id of idsToDelete) {
+          deleteStmt.run(id)
+        }
+        console.log(`[DB] Limpeza de snippets: ${idsToDelete.length} duplicados removidos com sucesso.`)
+      }
+      return
+    }
+
+    if (fallbackFileSnippets && fs.existsSync(fallbackFileSnippets)) {
+      let snippets: UserSnippet[] = []
+      try { snippets = JSON.parse(fs.readFileSync(fallbackFileSnippets, 'utf-8')) } catch { snippets = [] }
+      const seen = new Set<string>()
+      const uniqueSnippets: UserSnippet[] = []
+      for (const s of snippets) {
+        const key = (s.name || '').trim().toLowerCase()
+        if (!seen.has(key)) {
+          seen.add(key)
+          uniqueSnippets.push(s)
+        }
+      }
+      if (uniqueSnippets.length !== snippets.length) {
+        fs.writeFileSync(fallbackFileSnippets, JSON.stringify(uniqueSnippets, null, 2), 'utf-8')
+      }
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao limpar snippets duplicados:', err)
+  }
+}
+
 export function seedSnippets(placeholders: Array<{ name: string; triggerPt: string; triggerEn: string }>): void {
   try {
+    cleanupDuplicateSnippets()
     const now = new Date().toISOString()
     for (const p of placeholders) {
       if (dbInstance) {
-        dbInstance.prepare(`
-          INSERT OR IGNORE INTO snippets (id, name, trigger_pt, trigger_en, content, created_at, updated_at)
-          VALUES (?, ?, ?, ?, '', ?, ?)
-        `).run(crypto.randomUUID(), p.name, p.triggerPt, p.triggerEn, now, now)
+        const existing = dbInstance.prepare('SELECT id FROM snippets WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))').get(p.name)
+        if (!existing) {
+          dbInstance.prepare(`
+            INSERT INTO snippets (id, name, trigger_pt, trigger_en, content, created_at, updated_at)
+            VALUES (?, ?, ?, ?, '', ?, ?)
+          `).run(crypto.randomUUID(), p.name, p.triggerPt, p.triggerEn, now, now)
+        }
       } else if (fallbackFileSnippets) {
         let snippets: UserSnippet[] = []
         if (fs.existsSync(fallbackFileSnippets)) {
           try { snippets = JSON.parse(fs.readFileSync(fallbackFileSnippets, 'utf-8')) } catch { snippets = [] }
         }
-        if (!snippets.some((s) => s.name === p.name)) {
+        if (!snippets.some((s) => s.name.trim().toLowerCase() === p.name.trim().toLowerCase())) {
           snippets.push({ id: crypto.randomUUID(), name: p.name, triggerPt: p.triggerPt, triggerEn: p.triggerEn, content: '', createdAt: now, updatedAt: now })
           fs.writeFileSync(fallbackFileSnippets, JSON.stringify(snippets, null, 2), 'utf-8')
         }
@@ -1091,6 +1148,7 @@ export function seedSnippets(placeholders: Array<{ name: string; triggerPt: stri
 
 export function listSnippets(): UserSnippet[] {
   try {
+    cleanupDuplicateSnippets()
     if (dbInstance) {
       const rows = dbInstance.prepare('SELECT * FROM snippets ORDER BY datetime(created_at) ASC').all()
       return rows.map(parseSnippetRow)
@@ -1294,6 +1352,7 @@ export default {
   deleteCustomCommand,
   listDefaultOverrides,
   setDefaultOverride,
+  cleanupDuplicateSnippets,
   seedSnippets,
   listSnippets,
   saveSnippet,
