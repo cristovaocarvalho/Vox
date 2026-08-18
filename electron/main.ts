@@ -16,7 +16,8 @@ import { templateManager } from './modules/templateManager'
 import type { ParseResult, VoiceCommand } from '../src/types/commands'
 import wakewordDetector from './modules/wakeword'
 import { muteSystemAudio, unmuteSystemAudio, unmuteSystemAudioSync } from './modules/audioMute'
-import { resolveProvider, getModelsEndpoint, getAuthHeaders, PROVIDER_PRESETS } from './modules/providers'
+import { listOllamaModels, pullOllamaModel } from './modules/ollama'
+import { resolveProvider, PROVIDER_PRESETS, type ResolvedProvider } from './modules/providers'
 import { initAutoUpdater } from './modules/updater'
 import { execFile } from 'child_process'
 import { promisify } from 'util'
@@ -580,15 +581,43 @@ async function processTranscriptionResult(buffer: Buffer): Promise<{ text: strin
   return result
 }
 
-async function fetchAvailableModels(): Promise<{ stt: string[]; llm: string[]; error?: string }> {
-  const provider = resolveProvider()
+interface ModelListOverrides {
+  provider?: string
+  baseUrl?: string
+  apiKey?: string
+  azureApiVersion?: string
+}
+
+async function fetchAvailableModels(overrides?: ModelListOverrides): Promise<{ stt: string[]; llm: string[]; error?: string }> {
+  let provider: ResolvedProvider = resolveProvider()
+  if (overrides) {
+    const id = (overrides.provider || '').trim().toLowerCase()
+    const preset = PROVIDER_PRESETS.find((p) => p.id === id) || PROVIDER_PRESETS[0]
+    provider = {
+      id: preset.id,
+      baseUrl: (overrides.baseUrl || '').trim().replace(/\/+$/, '') || preset.baseUrl,
+      apiKey: (overrides.apiKey || '').trim(),
+      requiresApiKey: preset.requiresApiKey,
+      isAzure: preset.isAzure,
+      apiVersion: (overrides.azureApiVersion || '').trim() || preset.defaultApiVersion
+    }
+  }
+
   if (provider.requiresApiKey && !provider.apiKey) {
     return { stt: [], llm: [], error: 'no-api-key' }
   }
 
-  const response = await fetch(getModelsEndpoint(), {
-    headers: getAuthHeaders()
-  })
+  const endpoint = provider.isAzure
+    ? `${provider.baseUrl}/openai/deployments?api-version=${provider.apiVersion}`
+    : `${provider.baseUrl}/models`
+
+  const headers: Record<string, string> = {}
+  if (provider.apiKey) {
+    if (provider.isAzure) headers['api-key'] = provider.apiKey
+    else headers['Authorization'] = `Bearer ${provider.apiKey}`
+  }
+
+  const response = await fetch(endpoint, { headers })
 
   if (!response.ok) {
     console.warn(`[Main] Erro ao listar modelos (${response.status})`)
@@ -794,9 +823,9 @@ function setupIpcHandlers() {
     return { success: true }
   })
 
-  ipcMain.handle('vox:list-models', async () => {
+  ipcMain.handle('vox:list-models', async (_event: unknown, overrides?: ModelListOverrides) => {
     try {
-      return await fetchAvailableModels()
+      return await fetchAvailableModels(overrides)
     } catch (err) {
       console.error('[Main] Erro ao listar modelos:', err)
       return { stt: [], llm: [], error: 'unknown' }
@@ -805,6 +834,33 @@ function setupIpcHandlers() {
 
   ipcMain.handle('vox:get-providers', () => {
     return PROVIDER_PRESETS.map((p) => ({ ...p }))
+  })
+
+  ipcMain.handle('vox:ollama-tags', async (_event: unknown, baseUrl?: string) => {
+    try {
+      return await listOllamaModels(baseUrl || getSetting('baseUrl', 'http://localhost:11434'))
+    } catch (err) {
+      console.error('[Main] Erro ao listar modelos do Ollama:', err)
+      return []
+    }
+  })
+
+  ipcMain.handle('vox:ollama-pull', async (_event: unknown, model: string, baseUrl?: string) => {
+    if (!model || typeof model !== 'string' || !model.trim()) {
+      return { success: false, error: 'model-required' }
+    }
+    const target = baseUrl || resolveProvider().baseUrl
+    try {
+      const ok = await pullOllamaModel(model.trim(), target, (progress) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('vox:ollama-pull-progress', { model: model.trim(), ...progress })
+        }
+      })
+      return { success: ok }
+    } catch (err) {
+      console.error('[Main] Erro ao baixar modelo do Ollama:', err)
+      return { success: false, error: String((err as Error)?.message || err) }
+    }
   })
 
   // Transcriptions History Handlers

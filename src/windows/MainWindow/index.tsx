@@ -30,6 +30,7 @@ import onSound from '../../assets/On.mp3'
 import offSound from '../../assets/Off.mp3'
 import { CommandsTab } from './tabs/CommandsTab'
 import { TemplatesTab } from './tabs/TemplatesTab'
+import { ModelsTab } from './tabs/ModelsTab'
 
 const prettyModelName = (id: string): string => {
   const base = id.split('/').pop() || id
@@ -382,7 +383,12 @@ export const MainWindow: React.FC = () => {
     setModelsLoading(true)
     setModelsError(null)
     try {
-      const res = await window.vox.listModels()
+      const res = await window.vox.listModels({
+        provider: draftProvider,
+        baseUrl: draftBaseUrl,
+        apiKey: draftApiKey,
+        azureApiVersion: draftAzureApiVersion
+      })
       if (res?.error) {
         setModelsError(res.error === 'no-api-key' ? t('settings.modelsNeedApiKey') : t('settings.modelsError'))
         setAvailableModels({ stt: [], llm: [] })
@@ -395,7 +401,7 @@ export const MainWindow: React.FC = () => {
     } finally {
       setModelsLoading(false)
     }
-  }, [t])
+  }, [t, draftProvider, draftBaseUrl, draftApiKey, draftAzureApiVersion])
 
   const closeModelDropdown = () => {
     setOpenModelDropdown(null)
@@ -1298,35 +1304,19 @@ export const MainWindow: React.FC = () => {
                     )}
 
                     {settingsPage === 'models' && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                            {t('settings.sttModel')}
-                          </label>
-                          <button
-                            type="button"
-                            onClick={(e) => toggleModelDropdown('stt', e)}
-                            className="w-full flex items-center justify-between gap-2 p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary hover:border-border hover:bg-background/80 transition-all duration-250 cursor-pointer"
-                          >
-                            <span className="truncate">{prettyModelName(draftSttModel)}</span>
-                            <IconChevronDown className={`w-3.5 h-3.5 text-text-muted shrink-0 transition-transform duration-250 ${openModelDropdown === 'stt' ? 'rotate-180' : ''}`} />
-                          </button>
-                        </div>
-
-                        <div>
-                          <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
-                            {t('settings.llmModel')}
-                          </label>
-                          <button
-                            type="button"
-                            onClick={(e) => toggleModelDropdown('llm', e)}
-                            className="w-full flex items-center justify-between gap-2 p-2.5 bg-background/60 border border-border/50 rounded-xl text-xs font-medium text-text-primary hover:border-border hover:bg-background/80 transition-all duration-250 cursor-pointer"
-                          >
-                            <span className="truncate">{prettyModelName(draftLlmModel)}</span>
-                            <IconChevronDown className={`w-3.5 h-3.5 text-text-muted shrink-0 transition-transform duration-250 ${openModelDropdown === 'llm' ? 'rotate-180' : ''}`} />
-                          </button>
-                        </div>
-                      </div>
+                      <ModelsTab
+                        draftSttModel={draftSttModel}
+                        setDraftSttModel={setDraftSttModel}
+                        draftLlmModel={draftLlmModel}
+                        setDraftLlmModel={setDraftLlmModel}
+                        draftProvider={draftProvider}
+                        draftApiKey={draftApiKey}
+                        draftBaseUrl={draftBaseUrl}
+                        availableModels={availableModels}
+                        modelsLoading={modelsLoading}
+                        modelsError={modelsError}
+                        onRefreshModels={loadModels}
+                      />
                     )}
 
                     {settingsPage === 'shortcuts' && (

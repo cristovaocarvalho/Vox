@@ -1,130 +1,123 @@
 <div align="center">
 
-<img src="src/assets/logo.png" alt="Vox Logo" width="220" />
+<img src="src/assets/logo.png" alt="Vox Logo" width="160" />
 
 # Vox
 
-**Dictée vocale de haute précision, directement à l'emplacement de votre curseur**
+### Dictée Vocale IA de Haute Précision — Directement sous Votre Curseur Actif
+
+*Un système de dictée vocale ouvert, privé et conçu pour Windows.*
 
 <br />
 
-[![English](https://img.shields.io/badge/English-README-blue?style=flat-square&logo=github)](README.md)
-[![Português](https://img.shields.io/badge/Portugu%C3%AAs-README-green?style=flat-square&logo=github)](README.pt.md)
-[![Español](https://img.shields.io/badge/Espa%C3%B1ol-README-orange?style=flat-square&logo=github)](README.es.md)
-[![Français](https://img.shields.io/badge/Fran%C3%A7ais-README-blueviolet?style=flat-square&logo=github)](README.fr.md)
-[![Deutsch](https://img.shields.io/badge/Deutsch-README-yellow?style=flat-square&logo=github)](README.de.md)
-[![简体中文](https://img.shields.io/badge/%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-README-red?style=flat-square&logo=github)](README.zh-CN.md)
-[![日本語](https://img.shields.io/badge/%E6%97%A5%E6%9C%AC%E8%AA%9E-README-crimson?style=flat-square&logo=github)](README.ja.md)
-[![Italiano](https://img.shields.io/badge/Italiano-README-darkgreen?style=flat-square&logo=github)](README.it.md)
+[Français](README.fr.md) &nbsp;·&nbsp; [English](README.md) &nbsp;·&nbsp; [Português](README.pt.md) &nbsp;·&nbsp; [Español](README.es.md) &nbsp;·&nbsp; [Deutsch](README.de.md) &nbsp;·&nbsp; [简体中文](README.zh-CN.md) &nbsp;·&nbsp; [日本語](README.ja.md) &nbsp;·&nbsp; [Italiano](README.it.md)
 
 <br />
-
-[![Electron](https://img.shields.io/badge/Electron-33-black?style=flat-square&logo=electron&logoColor=white)](https://electronjs.org)
-[![React](https://img.shields.io/badge/React-18-black?style=flat-square&logo=react&logoColor=white)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-black?style=flat-square&logo=typescript&logoColor=white)](https://typescriptlang.org)
-[![Platform](https://img.shields.io/badge/Platform-Windows-black?style=flat-square&logo=electron&logoColor=white)](https://electronjs.org)
-[![License](https://img.shields.io/badge/License-MIT-black?style=flat-square)](LICENSE)
 
 </div>
 
 ---
 
 <div align="center">
-  <img src="src/assets/Vox - UI.png" alt="Aperçu de Vox" width="850" />
+  <img src="src/assets/Vox - UI.png" alt="Interface de Vox" width="820" />
 </div>
 
 <br />
 
-## ◈ Qu'est-ce que Vox ?
+## Pourquoi Vox
 
-**Vox** est un assistant de dictée vocale boosté par l'IA pour **Windows**, conçu avec Electron. Il réside discrètement dans la zone de notification système et, lorsqu'il est déclenché par un raccourci global (`F9`/`F10`), l'historique du presse-papier vocal (`F11`) ou le mot clé (**"Vox"**), enregistre votre voix, s'arrête automatiquement lors des silences, transcrit via **Whisper**, corrige la ponctuation et l'orthographe avec un LLM et injecte le texte **directement sous votre curseur actif** dans n'importe quelle application.
+Les solutions commerciales de dictée vocale imposent des abonnements mensuels, restreignent les volumes de mots et transitent vos enregistrements sur des serveurs tiers pour entraîner leurs propres modèles.
 
-> Imaginez une dictée vocale intégrée au système : que vous soyez dans VS Code, Word, vos e-mails ou Slack, dites *"Vox"*, parlez, et dès que vous vous arrêtez, le texte apparaît exactement là où se trouvait votre curseur.
+**Vox adopte une architecture autonome.** Il offre une expérience de dictée intégrée au système d'exploitation, transmettant l'audio à Whisper, affinant la ponctuation par des modèles de langage et injectant le texte mis en forme directement sous le curseur actif de toute application Windows.
 
-> **Vox est une alternative open-source à [Wispr Flow](https://wisprflow.ai)** — dictée vocale IA, raccourcis globaux, **système de commandes vocales** mains libres, correction contextuelle, modèles structurés et injection native via les API Win32.
+<br />
 
----
+## Principes Fondamentaux
 
-## ◈ Comparatif : Vox vs Wispr Flow
+### Autonomie Architecturale Totale (BYOK)
+Connectez-vous directement aux fournisseurs d'inférence de pointe — tels que Groq, OpenAI ou Azure OpenAI — via vos propres clés d'API, ou exécutez le traitement de manière 100% locale et hors-ligne grâce à **Ollama** et **LM Studio**. Aucun intermédiaire, aucune télémétrie, aucune rétention de données.
 
-| Fonctionnalité | **Vox** | **Wispr Flow** |
-|---|---|---|
-| **Modèle de Licence** | 100% Open-Source (MIT), Gratuit | Propriétaire / Commercial |
-| **Tarification / Plan Gratuit** | Gratuit au quotidien (Groq/OpenAI/modèles locaux) | Limité à 2 000 mots/sem (Pro : 9$ à 29$+/mois) |
-| **Déclenchement Vocal** | Mot clé "Vox" + raccourcis + commandes vocales | Dépend des raccourcis/cloud |
-| **Fournisseurs d'IA** | Groq, OpenAI, Azure OpenAI, Ollama, LM Studio | Cloud propriétaire uniquement |
-| **Confidentialité** | Appel direct aux API sans intermédiaire ; journal auditable | Traitement sur cloud propriétaire |
-| **Systèmes Supportés** | Windows | Mac, Windows, iOS |
-| **Arrêt Automatique (VAD)** | Oui, détection des silences et collage automatique | Oui |
-| **Correction Contextuelle** | Oui (détecte éditeur de code, e-mail, document) | Non |
-| **Modèles de Dictée** | Oui (e-mails, listes à puces, comptes rendus, commits…) | Non |
-| **Commandes Vocales** | Oui (ponctuation, navigation, édition, système, etc.) | Non |
-| **Vocabulaire Personnel** | Oui (termes personnalisés transmis au correcteur) | Non |
-| **Historique Presse-Papier** | Oui (10 dernières dictées réinsérables avec F11) | Non |
+### Précision Multilingue Native
+Conçu pour reconnaître et structurer la dictée dans **8 langues principales** — Français, Anglais, Portugais, Espagnol, Allemand, Chinois, Japonais et Italien — en respectant la cadence naturelle du discours sans traduction forcée.
 
-#### Avantages
+### Correction Sémantique Contextuelle
+Vox prend en compte l'application en cours d'utilisation. Que vous rédigiez du code dans un IDE, un e-mail professionnel ou des notes rapides, le correcteur adapte la syntaxe, la casse et la ponctuation au contexte.
 
-* **100% gratuit et open-source** — sans abonnement, code entièrement vérifiable.
-* **Liberté de choix** — connectez Groq, OpenAI, Azure OpenAI ou exécutez vos modèles localement avec **Ollama** ou **LM Studio** pour une confidentialité totale.
-* **Correction contextuelle** — Vox identifie l'application active et adapte le formatage ("éditeur de code" vs "e-mail").
-* **Système de commandes vocales** — dictez ponctuation, navigation et actions ; créez vos commandes personnalisées.
-* **Historique des habitudes** — après 25 sessions, Vox mémorise vos corrections récurrentes.
-* **Vocabulaire personnalisé** — ajoutez vos acronymes et noms propres pour une transcription sans faille.
-* **Journal de confidentialité** — chaque appel API (requête, endpoint, volume de données) est consigné localement.
-* **Modèles structurés** — dictez directement des e-mails formatés, des listes de tâches, des notes de réunion et des commits.
+### Injection Instantanée au Curseur
+Déclenchez la dictée via des raccourcis globaux (`F10` / `F9`) ou par commande vocale (*"Vox"*). La détection intelligente des silences (VAD) insère le texte formaté à l'endroit précis où se trouve votre curseur.
+
+### Libre et Open Source
+Distribué sous licence MIT. Sans abonnement, sans restrictions artificielles de volume ni frais cachés.
+
+<br />
 
 ---
 
-## ◈ Raccourcis Globaux
+## Comparatif
 
-| Raccourci | Mode | Comportement |
-|---|---|---|
-| `F9` | Push-to-Talk | Maintenir pour enregistrer, relâcher pour transcrire |
-| `F10` | Bascule | Appuyer pour démarrer, réappuyer pour arrêter |
-| `F11` | Historique | Ouvre les 10 dernières dictées pour réinsertion |
+| Dimension | Vox | Solutions Commerciales |
+|:---|:---|:---|
+| **Licence** | Open Source (MIT) | Propriétaire / Commerciale |
+| **Tarification** | Gratuit et Libre | 180 $ à 360 $ par an |
+| **Flux de Données** | Direct au Fournisseur ou 100% Local | Intermédié sur serveurs tiers |
+| **Inférence Hors-ligne** | Prise en charge (Ollama / LM Studio) | Non disponible |
+| **Limite de Mots** | Illimitée | Quotas imposés |
+| **Modèles Vocaux** | Famille Whisper complète + Tout LLM | Modèles propriétaires fermés |
+| **Insertion au Curseur** | Injection Native Win32 | Variable |
 
-Tous les raccourcis sont **personnalisables** dans les Paramètres et restent actifs en arrière-plan.
+<br />
 
 ---
 
-## ◈ Installation & Démarrage
+## Raccourcis Globaux
+
+| Raccourci | Mode | Action |
+|:---|:---|:---|
+| `F10` | **Bascule** | Appuyez pour commencer ; appuyez à nouveau ou faites silence pour insérer |
+| `F9` | **Push-to-Talk** | Maintenez enfoncé pendant le discours ; relâchez pour insérer |
+| `F11` | **Historique** | Accédez aux dernières dictées pour réinsertion rapide |
+| *"Vox"* | **Mot Clé** | Activation vocale mains libres |
+
+<br />
+
+---
+
+## Installation et Démarrage
 
 ### Prérequis
+* Windows 10 ou 11 (64-bit)
+* [Node.js](https://nodejs.org) (v20+) et npm
 
-- **Node.js** 20+
-- **npm** 10+
-- **Système d'exploitation** : Windows 10/11
-
-### Développement
+### Installation
 
 ```bash
+# Cloner le dépôt
+git clone https://github.com/votre-nom/vox.git
+cd vox/code
+
 # Installer les dépendances
 npm install
 
-# Lancer en mode développement (hot-reload)
+# Lancer l'environnement de développement
 npm run dev
 ```
 
 ### Compilation pour Production
 
 ```bash
-# Compiler le projet
-npm run build
-
-# Créer l'exécutable installable Windows
-npx electron-builder --win
-# Fichiers générés dans : dist-build/
+npm run build:win
 ```
 
----
-
-## ◈ Licence
-
-Projet distribué sous la **Licence MIT**. Consultez le fichier [LICENSE](LICENSE) pour plus d'informations.
+<br />
 
 ---
+
+## Licence
+
+Distribué sous la **Licence MIT**. Consultez le fichier [LICENSE](LICENSE) pour plus d'informations.
 
 <div align="center">
+<br />
 
 Cristóvão Carvalho &nbsp;·&nbsp; **Vox**
 

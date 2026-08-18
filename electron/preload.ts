@@ -33,7 +33,14 @@ export const voxApi = {
     }
     return ipcRenderer.invoke('vox:set-wakeword-sensitivity', sensitivity)
   },
-  listModels: () => ipcRenderer.invoke('vox:list-models'),
+  listModels: (overrides?: { provider?: string; baseUrl?: string; apiKey?: string; azureApiVersion?: string }) => ipcRenderer.invoke('vox:list-models', overrides),
+  listOllamaModels: (baseUrl?: string) => ipcRenderer.invoke('vox:ollama-tags', baseUrl),
+  pullOllamaModel: (model: string, baseUrl?: string) => {
+    if (typeof model !== 'string') {
+      return Promise.reject(new TypeError('model deve ser um string'))
+    }
+    return ipcRenderer.invoke('vox:ollama-pull', model, baseUrl)
+  },
   getProviders: () => ipcRenderer.invoke('vox:get-providers'),
 
   // Histórico de Transcrições (Sessions)
@@ -147,6 +154,11 @@ export const voxApi = {
     const handler = (_event: unknown, visible: boolean) => callback(visible)
     ipcRenderer.on('vox:window-visibility', handler)
     return () => ipcRenderer.removeListener('vox:window-visibility', handler)
+  },
+  onOllamaPullProgress: (callback: (data: { model: string; status: string; completed?: number; total?: number; error?: string }) => void) => {
+    const handler = (_event: unknown, data: { model: string; status: string; completed?: number; total?: number; error?: string }) => callback(data)
+    ipcRenderer.on('vox:ollama-pull-progress', handler)
+    return () => ipcRenderer.removeListener('vox:ollama-pull-progress', handler)
   },
   onClipboardRefresh: (callback: () => void) => {
     const handler = () => callback()

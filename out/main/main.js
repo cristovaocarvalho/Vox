@@ -1298,11 +1298,6 @@ function getSttEndpoint(model) {
   if (p.isAzure) return `${p.baseUrl}/openai/deployments/${model}/audio/transcriptions?api-version=${p.apiVersion}`;
   return `${p.baseUrl}/audio/transcriptions`;
 }
-function getModelsEndpoint() {
-  const p = resolveProvider();
-  if (p.isAzure) return `${p.baseUrl}/openai/deployments?api-version=${p.apiVersion}`;
-  return `${p.baseUrl}/models`;
-}
 function getAuthHeaders() {
   const p = resolveProvider();
   if (!p.apiKey) return {};
@@ -2765,6 +2760,76 @@ function unmuteSystemAudioSync() {
     console.warn("[AudioMute] Falha ao restaurar o mute do sistema:", err);
   }
 }
+function toOllamaRoot(baseUrl) {
+  const raw = (baseUrl || "http://localhost:11434").trim();
+  return raw.replace(/\/v1\/?$/, "").replace(/\/+$/, "");
+}
+async function listOllamaModels(baseUrl) {
+  const root = toOllamaRoot(baseUrl);
+  try {
+    const res = await fetch(`${root}/api/tags`, {
+      headers: { Accept: "application/json" }
+    });
+    if (!res.ok) {
+      console.warn(`[Ollama] Erro ao listar modelos (${res.status})`);
+      return [];
+    }
+    const data = await res.json();
+    const models = Array.isArray(data?.models) ? data.models : [];
+    return models.map((m) => (m?.name || "").trim()).filter(Boolean).sort();
+  } catch (err) {
+    console.warn("[Ollama] Não foi possível listar modelos locais:", err);
+    return [];
+  }
+}
+async function pullOllamaModel(model, baseUrl, onProgress) {
+  const root = toOllamaRoot(baseUrl);
+  try {
+    const res = await fetch(`${root}/api/pull`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: model, stream: true })
+    });
+    if (!res.ok || !res.body) {
+      onProgress({ status: "error", error: `HTTP ${res.status}` });
+      return false;
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const obj = JSON.parse(trimmed);
+          if (obj && typeof obj === "object") {
+            if (obj.error) {
+              onProgress({ status: "error", error: String(obj.error) });
+              return false;
+            }
+            onProgress({
+              status: typeof obj.status === "string" ? obj.status : "downloading",
+              completed: typeof obj.completed === "number" ? obj.completed : void 0,
+              total: typeof obj.total === "number" ? obj.total : void 0
+            });
+          }
+        } catch {
+        }
+      }
+    }
+    onProgress({ status: "success" });
+    return true;
+  } catch (err) {
+    onProgress({ status: "error", error: err?.message || String(err) });
+    return false;
+  }
+}
 const { app: app$1, ipcMain: ipcMain$1 } = require("electron");
 function initAutoUpdater(getMainWindow) {
   electronUpdater.autoUpdater.autoDownload = true;
@@ -3309,14 +3374,30 @@ async function processTranscriptionResult(buffer) {
   }
   return result;
 }
-async function fetchAvailableModels() {
-  const provider = resolveProvider();
+async function fetchAvailableModels(overrides) {
+  let provider = resolveProvider();
+  if (overrides) {
+    const id = (overrides.provider || "").trim().toLowerCase();
+    const preset = PROVIDER_PRESETS.find((p) => p.id === id) || PROVIDER_PRESETS[0];
+    provider = {
+      id: preset.id,
+      baseUrl: (overrides.baseUrl || "").trim().replace(/\/+$/, "") || preset.baseUrl,
+      apiKey: (overrides.apiKey || "").trim(),
+      requiresApiKey: preset.requiresApiKey,
+      isAzure: preset.isAzure,
+      apiVersion: (overrides.azureApiVersion || "").trim() || preset.defaultApiVersion
+    };
+  }
   if (provider.requiresApiKey && !provider.apiKey) {
     return { stt: [], llm: [], error: "no-api-key" };
   }
-  const response = await fetch(getModelsEndpoint(), {
-    headers: getAuthHeaders()
-  });
+  const endpoint = provider.isAzure ? `${provider.baseUrl}/openai/deployments?api-version=${provider.apiVersion}` : `${provider.baseUrl}/models`;
+  const headers = {};
+  if (provider.apiKey) {
+    if (provider.isAzure) headers["api-key"] = provider.apiKey;
+    else headers["Authorization"] = `Bearer ${provider.apiKey}`;
+  }
+  const response = await fetch(endpoint, { headers });
   if (!response.ok) {
     console.warn(`[Main] Erro ao listar modelos (${response.status})`);
     return { stt: [], llm: [], error: `http-${response.status}` };
@@ -3492,9 +3573,9 @@ function setupIpcHandlers() {
     wakewordDetector.setSensitivity(sensitivity);
     return { success: true };
   });
-  ipcMain.handle("vox:list-models", async () => {
+  ipcMain.handle("vox:list-models", async (_event, overrides) => {
     try {
-      return await fetchAvailableModels();
+      return await fetchAvailableModels(overrides);
     } catch (err) {
       console.error("[Main] Erro ao listar modelos:", err);
       return { stt: [], llm: [], error: "unknown" };
@@ -3502,6 +3583,31 @@ function setupIpcHandlers() {
   });
   ipcMain.handle("vox:get-providers", () => {
     return PROVIDER_PRESETS.map((p) => ({ ...p }));
+  });
+  ipcMain.handle("vox:ollama-tags", async (_event, baseUrl) => {
+    try {
+      return await listOllamaModels(baseUrl || getSetting("baseUrl", "http://localhost:11434"));
+    } catch (err) {
+      console.error("[Main] Erro ao listar modelos do Ollama:", err);
+      return [];
+    }
+  });
+  ipcMain.handle("vox:ollama-pull", async (_event, model, baseUrl) => {
+    if (!model || typeof model !== "string" || !model.trim()) {
+      return { success: false, error: "model-required" };
+    }
+    const target = baseUrl || resolveProvider().baseUrl;
+    try {
+      const ok = await pullOllamaModel(model.trim(), target, (progress) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("vox:ollama-pull-progress", { model: model.trim(), ...progress });
+        }
+      });
+      return { success: ok };
+    } catch (err) {
+      console.error("[Main] Erro ao baixar modelo do Ollama:", err);
+      return { success: false, error: String(err?.message || err) };
+    }
   });
   ipcMain.handle("vox:list-sessions", (_event, limit, type) => {
     return listSessions(limit || 50, type);

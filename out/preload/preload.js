@@ -32,7 +32,14 @@ const voxApi = {
     }
     return ipcRenderer.invoke("vox:set-wakeword-sensitivity", sensitivity);
   },
-  listModels: () => ipcRenderer.invoke("vox:list-models"),
+  listModels: (overrides) => ipcRenderer.invoke("vox:list-models", overrides),
+  listOllamaModels: (baseUrl) => ipcRenderer.invoke("vox:ollama-tags", baseUrl),
+  pullOllamaModel: (model, baseUrl) => {
+    if (typeof model !== "string") {
+      return Promise.reject(new TypeError("model deve ser um string"));
+    }
+    return ipcRenderer.invoke("vox:ollama-pull", model, baseUrl);
+  },
   getProviders: () => ipcRenderer.invoke("vox:get-providers"),
   // Histórico de Transcrições (Sessions)
   listSessions: (limit, type) => {
@@ -144,6 +151,11 @@ const voxApi = {
     const handler = (_event, visible) => callback(visible);
     ipcRenderer.on("vox:window-visibility", handler);
     return () => ipcRenderer.removeListener("vox:window-visibility", handler);
+  },
+  onOllamaPullProgress: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("vox:ollama-pull-progress", handler);
+    return () => ipcRenderer.removeListener("vox:ollama-pull-progress", handler);
   },
   onClipboardRefresh: (callback) => {
     const handler = () => callback();
