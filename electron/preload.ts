@@ -65,6 +65,7 @@ export const voxApi = {
     }
     return ipcRenderer.invoke('vox:search-sessions', query)
   },
+  getDictationStats: () => ipcRenderer.invoke('vox:get-dictation-stats'),
   listApiLogs: (limit?: number) => ipcRenderer.invoke('vox:list-api-logs', limit),
   clearApiLogs: () => ipcRenderer.invoke('vox:clear-api-logs'),
   listVocabulary: () => ipcRenderer.invoke('vox:list-vocabulary'),

@@ -17,6 +17,15 @@ const en = {
     historyEmpty: 'No dictations recorded yet.',
     delete: 'Delete'
   },
+  stats: {
+    title: 'All Time Words Dictated',
+    words: 'words',
+    wordsCount: '{count} words',
+    sessions: 'sessions',
+    noActivity: 'No activity',
+    last30Days: 'Last 30 days',
+    dictatedOn: 'dictated on'
+  },
   setup: {
     title: 'Configure your API Key',
     description: 'Enter your provider key (e.g. Groq). It will be saved locally and will not be asked again.',
@@ -76,8 +85,21 @@ const en = {
     language: 'Language',
     langEn: 'English',
     langPt: 'Português (BR)',
+    langEs: 'Español',
+    langFr: 'Français',
+    langDe: 'Deutsch',
+    langZh: '简体中文',
+    langJa: '日本語',
+    langIt: 'Italiano',
     autoStart: 'Start with System',
-    autoStartHint: 'Automatically launch Vox when you log in'
+    autoStartHint: 'Automatically launch Vox when you log in',
+    muteSystemAudio: 'Mute system audio during recording',
+    muteSystemAudioHint: 'Silences playback while you dictate, preventing music or videos from being picked up by the microphone.',
+    microphone: 'Preferred microphone',
+    microphoneDefault: 'Default microphone',
+    autoDetectLanguage: 'Automatically detect spoken language',
+    autoDetectLanguageHint: 'Turn off to select specific languages.',
+    speechLanguage: 'Spoken language'
   },
   commands: {
     title: 'Voice Commands',

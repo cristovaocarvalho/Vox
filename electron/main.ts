@@ -7,7 +7,7 @@ import { transcribeAudio } from './modules/stt'
 import { correctTranscription } from './modules/corrector'
 import { injectText, WindowRef } from './modules/injector'
 
-import { initDatabase, getAllSettings, getSetting, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, listApiLogs, clearApiLogs, recordCorrections, addVocabularyTerm, listVocabulary, removeVocabularyTerm, clearVocabulary, seedSnippets, listSnippets, saveSnippet, deleteSnippet, Session } from './modules/db'
+import { initDatabase, getAllSettings, getSetting, setSetting, saveSession, getSession, listSessions, deleteSession, clearAllSessions, searchSessions, getDictationStats, listApiLogs, clearApiLogs, recordCorrections, addVocabularyTerm, listVocabulary, removeVocabularyTerm, clearVocabulary, seedSnippets, listSnippets, saveSnippet, deleteSnippet, Session } from './modules/db'
 import { CommandParser } from './modules/commandParser'
 import { commandExecutor } from './modules/commandExecutor'
 import { getEnabledCommands, getAllCommands, setEnabled, setMatchMode, addCustomCommand, updateCustomCommand, deleteCustomCommand } from './modules/commandRegistry'
@@ -15,6 +15,7 @@ import * as snippetManager from './modules/snippetManager'
 import { templateManager } from './modules/templateManager'
 import type { ParseResult, VoiceCommand } from '../src/types/commands'
 import wakewordDetector from './modules/wakeword'
+import { muteSystemAudio, unmuteSystemAudio, unmuteSystemAudioSync } from './modules/audioMute'
 import { resolveProvider, getModelsEndpoint, getAuthHeaders, PROVIDER_PRESETS } from './modules/providers'
 import { initAutoUpdater } from './modules/updater'
 import { execFile } from 'child_process'
@@ -30,6 +31,7 @@ let tray: InstanceType<typeof Tray> | null = null
 let targetWindowRef: WindowRef | null = null
 let isQuitting = false
 let isDockHiding = false
+let systemMutedByVox = false
 
 async function captureActiveWindow(): Promise<WindowRef | null> {
   try {
@@ -99,6 +101,39 @@ async function disableWindowsShadow(win: BrowserWindowType | null): Promise<void
   } catch (err) {
     console.warn('[Main] Falha ao remover sombra da janela:', err)
   }
+}
+
+async function muteSystemAudioIfEnabled() {
+  if (process.platform !== 'win32') return
+  if (systemMutedByVox) return
+  if (getSetting('muteSystemAudio', 'false') !== 'true') return
+  systemMutedByVox = true
+  await muteSystemAudio()
+}
+
+async function unmuteSystemAudioIfNeeded() {
+  if (!systemMutedByVox) return
+  systemMutedByVox = false
+  await unmuteSystemAudio()
+}
+
+function unmuteSystemAudioOnQuit() {
+  if (!systemMutedByVox) return
+  systemMutedByVox = false
+  unmuteSystemAudioSync()
+}
+
+function getSttLanguage(): string | undefined {
+  if (getSetting('autoDetectLanguage', 'true') !== 'false') return undefined
+  const lang = getSetting('speechLanguage', '').trim()
+  return lang || undefined
+}
+
+function getParserLanguage(): 'pt' | 'en' | 'auto' {
+  if (getSetting('autoDetectLanguage', 'true') !== 'false') return 'auto'
+  const lang = getSetting('speechLanguage', 'pt').trim().toLowerCase()
+  if (lang === 'pt' || lang.startsWith('pt-')) return 'pt'
+  return 'en'
 }
 
 function hideMainWindow() {
@@ -453,7 +488,7 @@ async function processCommandSegments(parseResult: ParseResult, language: 'pt' |
 async function processTranscriptionResult(buffer: Buffer): Promise<{ text: string; rawText?: string }> {
   if (!buffer || buffer.length === 0) return { text: '' }
 
-  const result = await transcribeAudio(buffer)
+  const result = await transcribeAudio(buffer, getSttLanguage())
   const rawText = result.text
   console.log('[Main] Transcrição bruta:', result.text)
 
@@ -483,7 +518,7 @@ async function processTranscriptionResult(buffer: Buffer): Promise<{ text: strin
     }
 
     // 2. Command parsing on the remaining text
-    const parseResult = parser.parse(textToProcess, 'auto')
+    const parseResult = parser.parse(textToProcess, getParserLanguage())
     const language: 'pt' | 'en' = parser.getDetectedLanguage()
 
     if (parseResult.hasCommands) {
@@ -591,6 +626,7 @@ function setupIpcHandlers() {
   ipcMain.handle('vox:start-recording', () => {
     console.log('[Main] IPC vox:start-recording acionado')
     recorder.startRecording()
+    void muteSystemAudioIfEnabled()
     showDock()
     return true
   })
@@ -598,6 +634,7 @@ function setupIpcHandlers() {
   ipcMain.handle('vox:stop-recording', async (_event: unknown, audioData?: ArrayBuffer) => {
     console.log('[Main] IPC vox:stop-recording acionado')
     hideDock()
+    void unmuteSystemAudioIfNeeded()
 
     const hadSpeech = recorder.getHasSpoken()
 
@@ -649,7 +686,7 @@ function setupIpcHandlers() {
 
     try {
       const buffer = Buffer.from(audioData)
-      const result = await transcribeAudio(buffer)
+      const result = await transcribeAudio(buffer, getSttLanguage())
       const text = result.text || ''
 
       if (text && !text.startsWith('[Erro')) {
@@ -791,6 +828,10 @@ function setupIpcHandlers() {
 
   ipcMain.handle('vox:search-sessions', (_event: unknown, query: string) => {
     return searchSessions(query)
+  })
+
+  ipcMain.handle('vox:get-dictation-stats', () => {
+    return getDictationStats()
   })
 
   // Privacy Log Handlers
@@ -974,6 +1015,7 @@ function startPushToTalk() {
   void captureActiveWindow()
   showDock()
   recorder.startRecording({ autoStopOnSilence: useAutoStop })
+  void muteSystemAudioIfEnabled()
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('vox:toggle-recording', true)
   }
@@ -1069,12 +1111,12 @@ app.whenReady().then(async () => {
     { name: 'email_address', triggerPt: 'inserir email', triggerEn: 'insert email' },
     { name: 'address', triggerPt: 'inserir endereço', triggerEn: 'insert address' }
   ])
+  setupIpcHandlers()
+  setupCommandExecutorEvents()
   createMainWindow()
   createDockWindow()
   createClipboardWindow()
   initAutoUpdater(() => mainWindow)
-  setupIpcHandlers()
-  setupCommandExecutorEvents()
 
   // Wake Word: modelo/detecção inicializado sob demanda (somente quando habilitado nas configurações)
   const settings = getAllSettings()
@@ -1086,6 +1128,7 @@ app.whenReady().then(async () => {
     console.log('[Main] 🎙️ Wake Word "Vox" detectada! Capturando janela ativa e iniciando ditado por voz...')
     wakewordDetector.pause()
     recorder.startRecording({ autoStopOnSilence: true })
+    void muteSystemAudioIfEnabled()
     void captureActiveWindow()
     showDock()
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1114,6 +1157,7 @@ app.whenReady().then(async () => {
     console.log('[Main] Finalizando gravação por encerramento de fala...')
     isPushToTalkActive = false
     hideDock()
+    void unmuteSystemAudioIfNeeded()
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('vox:toggle-recording', false)
     }
@@ -1163,6 +1207,7 @@ app.whenReady().then(async () => {
 app.on('before-quit', () => {
   isQuitting = true
   wakewordDetector.stop()
+  unmuteSystemAudioOnQuit()
 })
 
 app.on('will-quit', () => {

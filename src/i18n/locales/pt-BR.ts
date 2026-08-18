@@ -19,6 +19,15 @@ const ptBR: TranslationKeys = {
     historyEmpty: 'Nenhum ditado gravado ainda.',
     delete: 'Excluir'
   },
+  stats: {
+    title: 'Total de Palavras Ditadas',
+    words: 'palavras',
+    wordsCount: '{count} palavras',
+    sessions: 'sessões',
+    noActivity: 'Sem atividade',
+    last30Days: 'Últimos 30 dias',
+    dictatedOn: 'ditadas em'
+  },
   setup: {
     title: 'Configure sua API Key',
     description: 'Informe a chave do seu provedor (ex.: Groq). Ela será salva localmente e não será solicitada novamente.',
@@ -78,8 +87,21 @@ const ptBR: TranslationKeys = {
     language: 'Idioma',
     langEn: 'English',
     langPt: 'Português (BR)',
+    langEs: 'Español',
+    langFr: 'Français',
+    langDe: 'Deutsch',
+    langZh: '简体中文',
+    langJa: '日本語',
+    langIt: 'Italiano',
     autoStart: 'Iniciar com o Sistema',
-    autoStartHint: 'Inicia o Vox automaticamente ao fazer login'
+    autoStartHint: 'Inicia o Vox automaticamente ao fazer login',
+    muteSystemAudio: 'Silenciar áudio do sistema durante a gravação',
+    muteSystemAudioHint: 'Muta a reprodução enquanto você dita, evitando que músicas ou vídeos sejam captados pelo microfone.',
+    microphone: 'Microfone preferido',
+    microphoneDefault: 'Microfone padrão',
+    autoDetectLanguage: 'Detectar idioma automaticamente',
+    autoDetectLanguageHint: 'Desative para selecionar idiomas específicos.',
+    speechLanguage: 'Idioma falado'
   },
   commands: {
     title: 'Comandos de Voz',

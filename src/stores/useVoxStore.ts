@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { VoiceCommand, UserSnippet } from '../types/commands'
 import type { DictationTemplate } from '../types/templates'
 
-export type AppLocale = 'en' | 'pt-BR'
+export type AppLocale = 'en' | 'pt-BR' | 'es' | 'fr' | 'de' | 'zh-CN' | 'ja' | 'it'
 
 export interface VoxState {
   isRecording: boolean
@@ -35,6 +35,14 @@ export interface VoxState {
   setLanguage: (language: AppLocale) => void
   autoStartEnabled: boolean
   setAutoStartEnabled: (enabled: boolean) => void
+  muteSystemAudio: boolean
+  setMuteSystemAudio: (enabled: boolean) => void
+  autoDetectLanguage: boolean
+  setAutoDetectLanguage: (enabled: boolean) => void
+  speechLanguage: string
+  setSpeechLanguage: (language: string) => void
+  microphoneDeviceId: string
+  setMicrophoneDeviceId: (deviceId: string) => void
   commands: VoiceCommand[]
   snippets: UserSnippet[]
   commandInlineMode: boolean
@@ -100,6 +108,14 @@ export const useVoxStore = create<VoxState>((set) => ({
   setLanguage: (language) => set({ language }),
   autoStartEnabled: true,
   setAutoStartEnabled: (autoStartEnabled) => set({ autoStartEnabled }),
+  muteSystemAudio: false,
+  setMuteSystemAudio: (muteSystemAudio) => set({ muteSystemAudio }),
+  autoDetectLanguage: true,
+  setAutoDetectLanguage: (autoDetectLanguage) => set({ autoDetectLanguage }),
+  speechLanguage: 'pt',
+  setSpeechLanguage: (speechLanguage) => set({ speechLanguage }),
+  microphoneDeviceId: '',
+  setMicrophoneDeviceId: (microphoneDeviceId) => set({ microphoneDeviceId }),
   commands: [],
   snippets: [],
   commandInlineMode: false,

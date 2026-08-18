@@ -305,7 +305,11 @@ export function getAllSettings() {
     wakeWordEnabled: 'true',
     wakeWordSensitivity: '0.5',
     language: systemLanguage,
-    autoStartEnabled: 'true'
+    autoStartEnabled: 'true',
+    muteSystemAudio: 'false',
+    autoDetectLanguage: 'true',
+    speechLanguage: 'pt',
+    microphoneDeviceId: ''
   }
 
   const result: Record<string, string> = { ...defaults }
@@ -529,6 +533,52 @@ export function searchSessions(query: string): Session[] {
     console.error(`[DB] Erro ao pesquisar sessões (${query}):`, err)
   }
   return []
+}
+
+export interface DictationStats {
+  totalWords: number
+  totalSessions: number
+  dailyContributions: Record<string, { count: number; words: number }>
+}
+
+export function getDictationStats(): DictationStats {
+  try {
+    let rows: { text: string; createdAt: string }[] = []
+    if (dbInstance) {
+      const stmt = dbInstance.prepare("SELECT text, createdAt FROM sessions WHERE type = 'dictation'")
+      rows = stmt.all() as { text: string; createdAt: string }[]
+    } else if (fallbackFileSessions && fs.existsSync(fallbackFileSessions)) {
+      const sessions: Session[] = JSON.parse(fs.readFileSync(fallbackFileSessions, 'utf-8'))
+      rows = sessions.filter((s) => s.type === 'dictation').map((s) => ({ text: s.text, createdAt: s.createdAt }))
+    }
+
+    let totalWords = 0
+    const dailyContributions: Record<string, { count: number; words: number }> = {}
+
+    for (const row of rows) {
+      if (!row.text) continue
+      const words = row.text.trim().split(/\s+/).filter(Boolean).length
+      totalWords += words
+
+      if (row.createdAt) {
+        const dateKey = row.createdAt.slice(0, 10)
+        if (!dailyContributions[dateKey]) {
+          dailyContributions[dateKey] = { count: 0, words: 0 }
+        }
+        dailyContributions[dateKey].count += 1
+        dailyContributions[dateKey].words += words
+      }
+    }
+
+    return {
+      totalWords,
+      totalSessions: rows.length,
+      dailyContributions
+    }
+  } catch (err) {
+    console.error('[DB] Erro ao obter estatísticas de ditado:', err)
+    return { totalWords: 0, totalSessions: 0, dailyContributions: {} }
+  }
 }
 
 // ================= API Logs (Privacy) =================
@@ -1250,5 +1300,6 @@ export default {
   deleteSnippet,
   listCustomTemplates,
   saveCustomTemplate,
-  deleteCustomTemplate
+  deleteCustomTemplate,
+  getDictationStats
 }

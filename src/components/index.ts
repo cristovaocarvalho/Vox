@@ -27,6 +27,9 @@ export type { CustomSelectProps, SelectOption } from './CustomSelect'
 export { ShortcutInput } from './ShortcutInput'
 export type { ShortcutInputProps } from './ShortcutInput'
 
+export { DictationStatsCard } from './DictationStatsCard'
+export type { DictationStatsCardProps, DictationStatsData } from './DictationStatsCard'
+
 export {
   IconCheck,
   IconClock,

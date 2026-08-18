@@ -12,6 +12,9 @@ import {
   AnimatedContent,
   SmoothInput,
   ShortcutInput,
+  CustomSelect,
+  DictationStatsCard,
+  type DictationStatsData,
   IconCheck,
   IconMic,
   IconTrash,
@@ -33,6 +36,40 @@ const prettyModelName = (id: string): string => {
   return base
     .replace(/[-_]/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+const SPEECH_LANGUAGE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'pt', label: 'Português' },
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Español' },
+  { value: 'fr', label: 'Français' },
+  { value: 'de', label: 'Deutsch' },
+  { value: 'it', label: 'Italiano' },
+  { value: 'ja', label: '日本語' },
+  { value: 'ko', label: '한국어' },
+  { value: 'zh', label: '中文' },
+  { value: 'ru', label: 'Русский' }
+]
+
+const buildAudioConstraints = (deviceId?: string): MediaTrackConstraints => {
+  const base: MediaTrackConstraints = {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true
+  }
+  return deviceId ? { ...base, deviceId: { exact: deviceId } } : base
+}
+
+const getUserAudioStream = async (deviceId?: string): Promise<MediaStream> => {
+  try {
+    return await navigator.mediaDevices.getUserMedia({ audio: buildAudioConstraints(deviceId) })
+  } catch (err) {
+    if (deviceId) {
+      console.warn('[MainWindow] Microfone preferido indisponível, usando o padrão:', err)
+      return await navigator.mediaDevices.getUserMedia({ audio: buildAudioConstraints() })
+    }
+    throw err
+  }
 }
 
 interface ProviderOption {
@@ -98,6 +135,14 @@ export const MainWindow: React.FC = () => {
     setLanguage,
     autoStartEnabled,
     setAutoStartEnabled,
+    muteSystemAudio,
+    setMuteSystemAudio,
+    autoDetectLanguage,
+    setAutoDetectLanguage,
+    speechLanguage,
+    setSpeechLanguage,
+    microphoneDeviceId,
+    setMicrophoneDeviceId,
     commandInlineMode,
     setInlineMode,
     updateSettings
@@ -122,6 +167,10 @@ export const MainWindow: React.FC = () => {
   const [draftWakeWordSensitivity, setDraftWakeWordSensitivity] = useState(wakeWordSensitivity)
   const [draftLanguage, setDraftLanguage] = useState<AppLocale>(language)
   const [draftAutoStartEnabled, setDraftAutoStartEnabled] = useState(autoStartEnabled)
+  const [draftMuteSystemAudio, setDraftMuteSystemAudio] = useState(muteSystemAudio)
+  const [draftAutoDetectLanguage, setDraftAutoDetectLanguage] = useState(autoDetectLanguage)
+  const [draftSpeechLanguage, setDraftSpeechLanguage] = useState(speechLanguage)
+  const [draftMicrophoneDeviceId, setDraftMicrophoneDeviceId] = useState(microphoneDeviceId)
   const [draftSttModel, setDraftSttModel] = useState(sttModel)
   const [draftLlmModel, setDraftLlmModel] = useState(llmModel)
 
@@ -139,12 +188,19 @@ export const MainWindow: React.FC = () => {
 
   const [dictationHistory, setDictationHistory] = useState<any[]>([])
   const [isDictationHistoryOpen, setIsDictationHistoryOpen] = useState(false)
+  const [dictationStats, setDictationStats] = useState<DictationStatsData>({
+    totalWords: 0,
+    totalSessions: 0,
+    dailyContributions: {}
+  })
 
   const [apiLogs, setApiLogs] = useState<any[]>([])
   const [privacyLoading, setPrivacyLoading] = useState(false)
 
   const [vocabulary, setVocabulary] = useState<string[]>([])
   const [newTerm, setNewTerm] = useState('')
+
+  const [microphones, setMicrophones] = useState<{ deviceId: string; label: string }[]>([])
 
   const [updaterState, setUpdaterState] = useState<{
     status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'
@@ -173,8 +229,8 @@ export const MainWindow: React.FC = () => {
   }
 
   React.useEffect(() => {
-    document.documentElement.lang = language === 'en' ? 'en' : 'pt-BR'
-  }, [language])
+    document.documentElement.lang = localeTag
+  }, [localeTag])
 
   const fetchTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -189,6 +245,14 @@ export const MainWindow: React.FC = () => {
           setDictationHistory(dictations || [])
         } catch (err) {
           console.error('Erro ao carregar histórico de sessões:', err)
+        }
+      }
+      if (window.vox?.getDictationStats) {
+        try {
+          const stats = await window.vox.getDictationStats()
+          if (stats) setDictationStats(stats)
+        } catch (err) {
+          console.error('Erro ao carregar estatísticas de ditado:', err)
         }
       }
     }, 150)
@@ -244,6 +308,32 @@ export const MainWindow: React.FC = () => {
     }
   }, [])
 
+  const loadMicrophones = React.useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return
+    try {
+      let devices = await navigator.mediaDevices.enumerateDevices()
+      let audioInputs = devices.filter((d) => d.kind === 'audioinput')
+      if (audioInputs.length > 0 && audioInputs.some((d) => !d.label)) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          stream.getTracks().forEach((track) => track.stop())
+          devices = await navigator.mediaDevices.enumerateDevices()
+          audioInputs = devices.filter((d) => d.kind === 'audioinput')
+        } catch {
+          // permissão negada — mantém os rótulos vazios
+        }
+      }
+      setMicrophones(
+        audioInputs.map((d, i) => ({
+          deviceId: d.deviceId,
+          label: d.label || `Microfone ${i + 1}`
+        }))
+      )
+    } catch (err) {
+      console.error('Erro ao listar microfones:', err)
+    }
+  }, [])
+
   const handleAddVocabularyTerm = async () => {
     const term = newTerm.trim()
     if (!term || !window.vox?.addVocabularyTerm) return
@@ -277,6 +367,10 @@ export const MainWindow: React.FC = () => {
     setDraftWakeWordSensitivity(wakeWordSensitivity)
     setDraftLanguage(language)
     setDraftAutoStartEnabled(autoStartEnabled)
+    setDraftMuteSystemAudio(muteSystemAudio)
+    setDraftAutoDetectLanguage(autoDetectLanguage)
+    setDraftSpeechLanguage(speechLanguage)
+    setDraftMicrophoneDeviceId(microphoneDeviceId)
     setDraftSttModel(sttModel)
     setDraftLlmModel(llmModel)
     setSettingsPage('provider')
@@ -372,7 +466,11 @@ export const MainWindow: React.FC = () => {
       wakeWordEnabled: draftWakeWordEnabled,
       wakeWordSensitivity: draftWakeWordSensitivity,
       language: draftLanguage,
-      autoStartEnabled: draftAutoStartEnabled
+      autoStartEnabled: draftAutoStartEnabled,
+      muteSystemAudio: draftMuteSystemAudio,
+      autoDetectLanguage: draftAutoDetectLanguage,
+      speechLanguage: draftSpeechLanguage,
+      microphoneDeviceId: draftMicrophoneDeviceId
     })
     setIsSettingsOpen(false)
 
@@ -390,7 +488,11 @@ export const MainWindow: React.FC = () => {
         wakeWordEnabled: String(draftWakeWordEnabled),
         wakeWordSensitivity: String(draftWakeWordSensitivity),
         language: draftLanguage,
-        autoStartEnabled: String(draftAutoStartEnabled)
+        autoStartEnabled: String(draftAutoStartEnabled),
+        muteSystemAudio: String(draftMuteSystemAudio),
+        autoDetectLanguage: String(draftAutoDetectLanguage),
+        speechLanguage: draftSpeechLanguage,
+        microphoneDeviceId: draftMicrophoneDeviceId
       }).catch(console.error)
     }
 
@@ -423,6 +525,28 @@ export const MainWindow: React.FC = () => {
           const hasAutoStart = saved.autoStartEnabled === 'true'
           settingsToUpdate.autoStartEnabled = hasAutoStart
           setDraftAutoStartEnabled(hasAutoStart)
+        }
+
+        if (saved.muteSystemAudio !== undefined) {
+          const muteSystemAudioEnabled = saved.muteSystemAudio === 'true'
+          settingsToUpdate.muteSystemAudio = muteSystemAudioEnabled
+          setDraftMuteSystemAudio(muteSystemAudioEnabled)
+        }
+
+        if (saved.autoDetectLanguage !== undefined) {
+          const autoDetectEnabled = saved.autoDetectLanguage === 'true'
+          settingsToUpdate.autoDetectLanguage = autoDetectEnabled
+          setDraftAutoDetectLanguage(autoDetectEnabled)
+        }
+
+        if (saved.speechLanguage !== undefined) {
+          settingsToUpdate.speechLanguage = saved.speechLanguage
+          setDraftSpeechLanguage(saved.speechLanguage)
+        }
+
+        if (saved.microphoneDeviceId !== undefined) {
+          settingsToUpdate.microphoneDeviceId = saved.microphoneDeviceId
+          setDraftMicrophoneDeviceId(saved.microphoneDeviceId)
         }
 
         let initialLang: AppLocale = 'pt-BR'
@@ -478,7 +602,10 @@ export const MainWindow: React.FC = () => {
     if (isSettingsOpen && settingsPage === 'vocabulary') {
       loadVocabulary()
     }
-  }, [isSettingsOpen, settingsPage, loadApiLogs, loadVocabulary])
+    if (isSettingsOpen && settingsPage === 'voice') {
+      loadMicrophones()
+    }
+  }, [isSettingsOpen, settingsPage, loadApiLogs, loadVocabulary, loadMicrophones])
 
   const mediaStreamRef = React.useRef<MediaStream | null>(null)
   const audioContextRef = React.useRef<AudioContext | null>(null)
@@ -568,13 +695,7 @@ export const MainWindow: React.FC = () => {
 
       const [, stream] = await Promise.all([
         window.vox?.startRecording?.() ?? Promise.resolve(),
-        navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          }
-        })
+        getUserAudioStream(microphoneDeviceId)
       ])
       mediaStreamRef.current = stream
 
@@ -637,7 +758,7 @@ export const MainWindow: React.FC = () => {
       console.error('[MainWindow] Erro ao acessar microfone:', err)
       setIsRecording(false)
     }
-  }, [setIsRecording])
+  }, [setIsRecording, microphoneDeviceId])
 
   React.useEffect(() => {
     initAnimationGate()
@@ -684,13 +805,7 @@ export const MainWindow: React.FC = () => {
   const startWakeWordCapture = React.useCallback(async () => {
     stopWakeWordCapture()
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        }
-      })
+      const stream = await getUserAudioStream(microphoneDeviceId)
       wwStreamRef.current = stream
 
       const AudioCtxConstructor = window.AudioContext || (window as any).webkitAudioContext
@@ -718,7 +833,7 @@ export const MainWindow: React.FC = () => {
     } catch (err) {
       console.warn('[MainWindow] Erro ao iniciar captura de wake word:', err)
     }
-  }, [stopWakeWordCapture])
+  }, [stopWakeWordCapture, microphoneDeviceId])
 
   React.useEffect(() => {
     if (wakeWordEnabled && !isRecording && !isTranscribing) {
@@ -851,58 +966,60 @@ export const MainWindow: React.FC = () => {
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto custom-scrollbar">
         <Beams beamWidth={2} beamHeight={15} beamNumber={12} lightColor="#ffffff" speed={2} noiseIntensity={1.75} scale={0.2} rotation={0}>
 
-          <div className="flex items-start justify-center px-4 sm:px-6 pt-10 pb-24">
-            <div className="w-full max-w-3xl space-y-5">
+          <div className="min-h-full flex flex-col items-center justify-between px-4 sm:px-6 py-6 sm:py-8">
+            <div className="w-full max-w-3xl flex-1 flex flex-col justify-between space-y-4">
 
               {/* Main action card */}
-              <AnimatedContent key="type-card-1" distance={30} direction="vertical" duration={1.1} delay={0.05} ease="power3.out">
-                <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-8 flex flex-col items-center text-center">
-                  {/* Mic button */}
-                  <button
-                    onClick={handleToggleRecording}
-                    className={`mx-auto flex items-center justify-center transition-transform duration-450 ease-spring cursor-pointer focus:outline-none ${isRecording ? 'scale-110' : 'hover:scale-105 active:scale-95'
-                      }`}
-                  >
-                    <img
-                      src={logoImg}
-                      alt="Vox"
-                      className={`w-28 h-28 object-contain transition-all duration-500 ease-smooth filter ${isRecording
-                        ? 'drop-shadow-[0_0_28px_rgba(255,255,255,0.75)]'
-                        : 'drop-shadow-[0_0_14px_rgba(255,255,255,0.25)] hover:drop-shadow-[0_0_24px_rgba(255,255,255,0.55)]'
+              <AnimatedContent key="type-card-1" distance={30} direction="vertical" duration={1.1} delay={0.05} ease="power3.out" className="flex-1 flex flex-col min-h-0">
+                <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-6 sm:p-7 flex-1 flex flex-col">
+                  <div className="flex-1 flex flex-col items-center justify-center text-center">
+                    {/* Mic button */}
+                    <button
+                      onClick={handleToggleRecording}
+                      className={`mx-auto flex items-center justify-center transition-transform duration-450 ease-spring cursor-pointer focus:outline-none ${isRecording ? 'scale-110' : 'hover:scale-105 active:scale-95'
                         }`}
-                    />
-                  </button>
+                    >
+                      <img
+                        src={logoImg}
+                        alt="Vox"
+                        className={`w-24 h-24 object-contain transition-all duration-500 ease-smooth filter ${isRecording
+                          ? 'drop-shadow-[0_0_28px_rgba(255,255,255,0.75)]'
+                          : 'drop-shadow-[0_0_14px_rgba(255,255,255,0.25)] hover:drop-shadow-[0_0_22px_rgba(255,255,255,0.55)]'
+                          }`}
+                      />
+                    </button>
 
-                  <p className="mt-4 text-lg font-semibold font-heading tracking-tight text-text-primary">
-                    {isRecording ? t('type.speakNow') : t('type.start')}
-                  </p>
+                    <p className="mt-3 text-lg font-semibold font-heading tracking-tight text-text-primary">
+                      {isRecording ? t('type.speakNow') : t('type.start')}
+                    </p>
 
-                  <div className="mt-5 mb-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-                    <div className="flex items-center gap-2">
-                      <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">"Vox"</kbd>
-                      <span className="text-xs text-text-secondary font-medium">{t('type.voiceCommand')}</span>
+                    <div className="mt-3.5 mb-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+                      <div className="flex items-center gap-2">
+                        <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">"Vox"</kbd>
+                        <span className="text-xs text-text-secondary font-medium">{t('type.voiceCommand')}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">F10</kbd>
+                        <span className="text-xs text-text-secondary font-medium">{t('type.toggle')}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">F9</kbd>
+                        <span className="text-xs text-text-secondary font-medium">{t('type.pushToTalk')}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">F10</kbd>
-                      <span className="text-xs text-text-secondary font-medium">{t('type.toggle')}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">F9</kbd>
-                      <span className="text-xs text-text-secondary font-medium">{t('type.pushToTalk')}</span>
-                    </div>
+
+                    <Badge variant={isRecording ? 'accent' : 'neutral'} className="px-2 py-0.5 text-[10px] font-medium tracking-wide mx-auto inline-flex items-center justify-center">
+                      {isRecording && <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-dot" />}
+                      {isRecording ? t('type.recording') : t('type.waiting')}
+                    </Badge>
                   </div>
-
-                  <Badge variant={isRecording ? 'accent' : 'neutral'} className="px-2 py-0.5 text-[10px] font-medium tracking-wide mx-auto inline-flex items-center justify-center">
-                    {isRecording && <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-dot" />}
-                    {isRecording ? t('type.recording') : t('type.waiting')}
-                  </Badge>
                 </LiquidGlassCard>
               </AnimatedContent>
 
               {/* Transcript output */}
-              <AnimatedContent key="type-card-2" distance={30} direction="vertical" duration={1.1} delay={0.15} ease="power3.out">
-                <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-6">
-                  <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-3 mb-4">
+              <AnimatedContent key="type-card-2" distance={30} direction="vertical" duration={1.1} delay={0.15} ease="power3.out" className="flex-1 flex flex-col min-h-0">
+                <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-5 flex-1 flex flex-col justify-between">
+                  <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-3 mb-3">
                     <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide">{t('type.lastTranscript')}</span>
                     <SpecularButton
                       size="sm"
@@ -924,7 +1041,7 @@ export const MainWindow: React.FC = () => {
                       </span>
                     </SpecularButton>
                   </div>
-                  <div className="p-4 bg-background/60 border border-border/50 rounded-xl text-sm leading-relaxed text-text-primary min-h-[96px] break-words">
+                  <div className="p-3.5 bg-background/60 border border-border/50 rounded-xl text-sm leading-relaxed text-text-primary flex-1 min-h-[64px] overflow-y-auto custom-scrollbar break-words">
                     {isRecording || isTranscribing ? (
                       partialTranscript ? (
                         <span>{partialTranscript}</span>
@@ -940,80 +1057,76 @@ export const MainWindow: React.FC = () => {
                 </LiquidGlassCard>
               </AnimatedContent>
 
-              {/* Histórico de Ditado */}
-              <AnimatedContent key="type-history" distance={30} direction="vertical" duration={1.1} delay={0.25} ease="power3.out">
-                <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-6">
-                  <button
-                    type="button"
-                    onClick={() => setIsDictationHistoryOpen(!isDictationHistoryOpen)}
-                    className="w-full flex items-center justify-between text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide cursor-pointer hover:text-text-primary transition-colors duration-250 ease-smooth"
-                  >
-                    <span>{t('type.history')} ({dictationHistory.length})</span>
-                    <IconChevronDown
-                      className={`w-4 h-4 text-text-muted transition-transform duration-300 ease-smooth ${isDictationHistoryOpen ? 'rotate-180' : ''}`}
-                    />
-                  </button>
+              {/* Grid Lado a Lado: Estatísticas (30 dias) e Histórico de Transcrições */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch shrink-0">
+                {/* All Time Words Dictated & 30 Days Activity */}
+                <AnimatedContent key="type-stats" distance={30} direction="vertical" duration={1.1} delay={0.2} ease="power3.out" className="h-full flex flex-col">
+                  <DictationStatsCard stats={dictationStats} className="h-full flex flex-col justify-between" />
+                </AnimatedContent>
 
-                  <AnimatePresence initial={false}>
-                    {isDictationHistoryOpen && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                        className="overflow-hidden"
-                      >
-                        <div className="mt-4 pt-4 border-t border-border/40">
-                          {dictationHistory.length === 0 ? (
-                            <p className="text-xs text-text-disabled text-center py-4">{t('type.historyEmpty')}</p>
-                          ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[96px] overflow-y-auto pr-1 custom-scrollbar">
-                              {dictationHistory.map((item) => (
-                                <div
-                                  key={item.id}
-                                  onClick={() => setLastTranscript(item.text)}
-                                  className="p-3.5 bg-background/50 border border-border/50 rounded-xl hover:border-accent/40 hover:bg-background/70 transition-[border-color,background-color] duration-250 ease-smooth cursor-pointer flex items-center justify-between gap-3 group"
-                                >
-                                  <div className="flex-1 min-w-0 text-left">
-                                    <p className="text-xs text-text-primary line-clamp-2 text-left leading-relaxed">{item.text}</p>
-                                    <span className="text-[10px] text-text-muted block mt-1.5 text-left tnum">
-                                      {new Date(item.createdAt).toLocaleString(localeTag)}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        navigator.clipboard.writeText(item.text)
-                                      }}
-                                      className="p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer"
-                                      title={t('type.copy')}
-                                    >
-                                      <IconCopy className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleDeleteSession(item.id)
-                                      }}
-                                      className="p-1.5 bg-surface border border-border/70 text-text-secondary rounded-lg hover:text-text-primary hover:border-accent/50 transition-colors duration-200 ease-smooth cursor-pointer"
-                                      title={t('type.delete')}
-                                    >
-                                      <IconTrash className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                {/* Histórico de Ditado */}
+                <AnimatedContent key="type-history" distance={30} direction="vertical" duration={1.1} delay={0.25} ease="power3.out" className="h-full flex flex-col">
+                  <LiquidGlassCard glowIntensity="sm" blurIntensity="md" className="p-5 h-full flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-3 mb-3">
+                        <span className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide">
+                          {t('type.history')}
+                        </span>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-white/[0.04] border border-border/60 text-[11px] font-medium text-text-secondary">
+                          {dictationHistory.length}
+                        </span>
+                      </div>
+
+                      {dictationHistory.length === 0 ? (
+                        <div className="flex items-center justify-center min-h-[80px] py-3">
+                          <p className="text-xs text-text-disabled text-center">{t('type.historyEmpty')}</p>
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </LiquidGlassCard>
-              </AnimatedContent>
+                      ) : (
+                        <div className="space-y-2 max-h-[110px] overflow-y-auto pr-1 custom-scrollbar">
+                          {dictationHistory.map((item) => (
+                            <div
+                              key={item.id}
+                              onClick={() => setLastTranscript(item.text)}
+                              className="p-2.5 bg-background/50 border border-border/50 rounded-xl hover:border-accent/40 hover:bg-background/70 transition-[border-color,background-color] duration-200 ease-smooth cursor-pointer flex items-center justify-between gap-2.5 group"
+                            >
+                              <div className="flex-1 min-w-0 text-left">
+                                <p className="text-xs text-text-primary line-clamp-1 text-left leading-relaxed">{item.text}</p>
+                                <span className="text-[10px] text-text-muted block mt-0.5 text-left tnum">
+                                  {new Date(item.createdAt).toLocaleString(localeTag)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    navigator.clipboard.writeText(item.text)
+                                  }}
+                                  className="p-1.5 bg-surface border border-border/70 text-text-secondary rounded hover:text-text-primary hover:border-accent/50 transition-colors duration-150 cursor-pointer"
+                                  title={t('type.copy')}
+                                >
+                                  <IconCopy className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDeleteSession(item.id)
+                                  }}
+                                  className="p-1.5 bg-surface border border-border/70 text-text-secondary rounded hover:text-text-primary hover:border-accent/50 transition-colors duration-150 cursor-pointer"
+                                  title={t('type.delete')}
+                                >
+                                  <IconTrash className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </LiquidGlassCard>
+                </AnimatedContent>
+              </div>
             </div>
 
           </div>
@@ -1252,6 +1365,57 @@ export const MainWindow: React.FC = () => {
 
                     {settingsPage === 'voice' && (
                       <div className="space-y-4">
+                        {/* Preferred microphone */}
+                        <div>
+                          <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
+                            {t('settings.microphone')}
+                          </label>
+                          <CustomSelect
+                            value={draftMicrophoneDeviceId}
+                            options={[
+                              { value: '', label: t('settings.microphoneDefault') },
+                              ...microphones.map((m) => ({ value: m.deviceId, label: m.label }))
+                            ]}
+                            onChange={(value) => setDraftMicrophoneDeviceId(value)}
+                          />
+                        </div>
+
+                        {/* Language detection */}
+                        <div className="p-4 bg-background/50 border border-border/60 rounded-xl space-y-3">
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <span className="text-xs font-semibold text-text-primary block leading-relaxed">{t('settings.autoDetectLanguage')}</span>
+                              <span className="text-[11px] text-text-secondary leading-relaxed">{t('settings.autoDetectLanguageHint')}</span>
+                            </div>
+                            <div className="switch-button">
+                              <label className="switch-outer">
+                                <input
+                                  type="checkbox"
+                                  checked={draftAutoDetectLanguage}
+                                  onChange={(e) => setDraftAutoDetectLanguage(e.target.checked)}
+                                />
+                                <div className="button">
+                                  <div className="button-toggle"></div>
+                                  <div className="button-indicator"></div>
+                                </div>
+                              </label>
+                            </div>
+                          </div>
+
+                          {!draftAutoDetectLanguage && (
+                            <div className="pt-3 border-t border-border/30">
+                              <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
+                                {t('settings.speechLanguage')}
+                              </label>
+                              <CustomSelect
+                                value={draftSpeechLanguage}
+                                options={SPEECH_LANGUAGE_OPTIONS}
+                                onChange={(value) => setDraftSpeechLanguage(value)}
+                              />
+                            </div>
+                          )}
+                        </div>
+
                         <div className="p-4 bg-background/50 border border-border/60 rounded-xl space-y-3.5">
                           <div className="flex items-center justify-between gap-4">
                             <div>
@@ -1340,10 +1504,16 @@ export const MainWindow: React.FC = () => {
                           <label className="text-[11px] font-semibold text-text-secondary uppercase tracking-label-wide block mb-2">
                             {t('settings.language')}
                           </label>
-                          <div className="grid grid-cols-2 gap-1.5">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                             {([
+                              { id: 'pt-BR' as const, label: t('settings.langPt') },
                               { id: 'en' as const, label: t('settings.langEn') },
-                              { id: 'pt-BR' as const, label: t('settings.langPt') }
+                              { id: 'es' as const, label: t('settings.langEs') },
+                              { id: 'fr' as const, label: t('settings.langFr') },
+                              { id: 'de' as const, label: t('settings.langDe') },
+                              { id: 'zh-CN' as const, label: t('settings.langZh') },
+                              { id: 'ja' as const, label: t('settings.langJa') },
+                              { id: 'it' as const, label: t('settings.langIt') }
                             ]).map((opt) => (
                               <button
                                 key={opt.id}
@@ -1373,6 +1543,29 @@ export const MainWindow: React.FC = () => {
                                   type="checkbox"
                                   checked={draftAutoStartEnabled}
                                   onChange={(e) => setDraftAutoStartEnabled(e.target.checked)}
+                                />
+                                <div className="button">
+                                  <div className="button-toggle"></div>
+                                  <div className="button-indicator"></div>
+                                </div>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Mute System Audio */}
+                        <div className="p-4 bg-background/50 border border-border/60 rounded-xl">
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <span className="text-xs font-semibold text-text-primary block leading-relaxed">{t('settings.muteSystemAudio')}</span>
+                              <span className="text-[11px] text-text-secondary leading-relaxed">{t('settings.muteSystemAudioHint')}</span>
+                            </div>
+                            <div className="switch-button">
+                              <label className="switch-outer">
+                                <input
+                                  type="checkbox"
+                                  checked={draftMuteSystemAudio}
+                                  onChange={(e) => setDraftMuteSystemAudio(e.target.checked)}
                                 />
                                 <div className="button">
                                   <div className="button-toggle"></div>

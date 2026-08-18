@@ -1,12 +1,24 @@
 import en, { type TranslationKeys } from './locales/en'
 import ptBR from './locales/pt-BR'
+import es from './locales/es'
+import fr from './locales/fr'
+import de from './locales/de'
+import zhCN from './locales/zh-CN'
+import ja from './locales/ja'
+import it from './locales/it'
 import { useVoxStore, type AppLocale } from '../stores/useVoxStore'
 
 export type Locale = AppLocale
 
 const catalogs: Record<Locale, TranslationKeys> = {
   en,
-  'pt-BR': ptBR
+  'pt-BR': ptBR,
+  es,
+  fr,
+  de,
+  'zh-CN': zhCN,
+  ja,
+  it
 }
 
 export function normalizeLocale(value?: string | null): Locale {
@@ -14,6 +26,12 @@ export function normalizeLocale(value?: string | null): Locale {
   const v = value.toLowerCase()
   if (v === 'en' || v.startsWith('en-')) return 'en'
   if (v === 'pt-br' || v === 'pt' || v.startsWith('pt')) return 'pt-BR'
+  if (v === 'es' || v.startsWith('es-')) return 'es'
+  if (v === 'fr' || v.startsWith('fr-')) return 'fr'
+  if (v === 'de' || v.startsWith('de-')) return 'de'
+  if (v === 'zh-cn' || v === 'zh' || v.startsWith('zh')) return 'zh-CN'
+  if (v === 'ja' || v.startsWith('ja-')) return 'ja'
+  if (v === 'it' || v.startsWith('it-')) return 'it'
   return 'pt-BR'
 }
 
@@ -54,6 +72,17 @@ export function translate(
   return text
 }
 
+const LOCALE_TAG_MAP: Record<Locale, string> = {
+  en: 'en-US',
+  'pt-BR': 'pt-BR',
+  es: 'es-ES',
+  fr: 'fr-FR',
+  de: 'de-DE',
+  'zh-CN': 'zh-CN',
+  ja: 'ja-JP',
+  it: 'it-IT'
+}
+
 export function useI18n() {
   const language = useVoxStore((s) => s.language)
   const locale = normalizeLocale(language)
@@ -61,9 +90,9 @@ export function useI18n() {
   const t = (key: TranslationKey | string, vars?: Record<string, string | number>) =>
     translate(locale, key, vars)
 
-  const localeTag = locale === 'en' ? 'en-US' : 'pt-BR'
+  const localeTag = LOCALE_TAG_MAP[locale] || 'pt-BR'
 
   return { t, locale, localeTag, language: locale }
 }
 
-export { en, ptBR }
+export { en, ptBR, es, fr, de, zhCN, ja, it }

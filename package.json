@@ -1,6 +1,6 @@
 {
   "name": "vox",
-  "version": "1.5.5",
+  "version": "2.0",
   "description": "Vox - Transcrição via API e Digitação por Voz Nativa",
   "main": "out/main/main.js",
   "author": "Vox Team",

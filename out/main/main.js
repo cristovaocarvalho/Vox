@@ -4,8 +4,8 @@ const events = require("events");
 const fs = require("fs");
 const crypto = require("crypto");
 const child_process = require("child_process");
-const electronUpdater = require("electron-updater");
 const util = require("util");
+const electronUpdater = require("electron-updater");
 class AudioRecorder extends events.EventEmitter {
   isRecording = false;
   chunks = [];
@@ -371,7 +371,11 @@ function getAllSettings() {
     wakeWordEnabled: "true",
     wakeWordSensitivity: "0.5",
     language: systemLanguage,
-    autoStartEnabled: "true"
+    autoStartEnabled: "true",
+    muteSystemAudio: "false",
+    autoDetectLanguage: "true",
+    speechLanguage: "pt",
+    microphoneDeviceId: ""
   };
   const result = { ...defaults };
   for (const k of Object.keys(defaults)) {
@@ -572,6 +576,41 @@ function searchSessions(query) {
     console.error(`[DB] Erro ao pesquisar sessões (${query}):`, err);
   }
   return [];
+}
+function getDictationStats() {
+  try {
+    let rows = [];
+    if (dbInstance) {
+      const stmt = dbInstance.prepare("SELECT text, createdAt FROM sessions WHERE type = 'dictation'");
+      rows = stmt.all();
+    } else if (fallbackFileSessions && fs.existsSync(fallbackFileSessions)) {
+      const sessions = JSON.parse(fs.readFileSync(fallbackFileSessions, "utf-8"));
+      rows = sessions.filter((s) => s.type === "dictation").map((s) => ({ text: s.text, createdAt: s.createdAt }));
+    }
+    let totalWords = 0;
+    const dailyContributions = {};
+    for (const row of rows) {
+      if (!row.text) continue;
+      const words = row.text.trim().split(/\s+/).filter(Boolean).length;
+      totalWords += words;
+      if (row.createdAt) {
+        const dateKey = row.createdAt.slice(0, 10);
+        if (!dailyContributions[dateKey]) {
+          dailyContributions[dateKey] = { count: 0, words: 0 };
+        }
+        dailyContributions[dateKey].count += 1;
+        dailyContributions[dateKey].words += words;
+      }
+    }
+    return {
+      totalWords,
+      totalSessions: rows.length,
+      dailyContributions
+    };
+  } catch (err) {
+    console.error("[DB] Erro ao obter estatísticas de ditado:", err);
+    return { totalWords: 0, totalSessions: 0, dailyContributions: {} };
+  }
 }
 function logApiCall(entry) {
   try {
@@ -1297,14 +1336,16 @@ async function transcribeAudio(audioBuffer, language) {
     model,
     audioSize: audioBuffer.length,
     mimeType,
-    specifiedLanguage: "auto-detect (sem tradução)"
+    specifiedLanguage: language || "auto-detect (sem tradução)"
   });
   try {
     const file = new File([new Uint8Array(audioBuffer)], fileName, { type: mimeType });
     const formData = new FormData();
     formData.append("file", file);
     formData.append("model", model);
-    if (language) ;
+    if (language) {
+      formData.append("language", language);
+    }
     formData.append("response_format", "verbose_json");
     formData.append("prompt", "Transcrição direta e exata da fala no seu idioma original (sem traduzir para outro idioma).");
     formData.append("temperature", "0");
@@ -2594,6 +2635,136 @@ class WakeWordDetector extends events.EventEmitter {
   }
 }
 const wakewordDetector = new WakeWordDetector();
+const execFileAsync$1 = util.promisify(child_process.execFile);
+let restoreMuteState = null;
+function buildScript(muted) {
+  const src = [
+    "using System;",
+    "using System.Runtime.InteropServices;",
+    "",
+    "public static class VoxAudio {",
+    '  [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]',
+    "  private class MMDeviceEnumerator { }",
+    "",
+    '  [Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]',
+    "  private interface IMMDeviceEnumerator {",
+    "    [PreserveSig] int EnumAudioEndpoints(int dataFlow, int stateMask, out object devices);",
+    "    [PreserveSig] int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint);",
+    "    [PreserveSig] int GetDevice(string id, out IMMDevice device);",
+    "    [PreserveSig] int RegisterEndpointNotificationCallback(IntPtr client);",
+    "    [PreserveSig] int UnregisterEndpointNotificationCallback(IntPtr client);",
+    "  }",
+    "",
+    '  [Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]',
+    "  private interface IMMDevice {",
+    "    [PreserveSig] int Activate(ref Guid iid, int clsCtx, IntPtr activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object interfacePointer);",
+    "    [PreserveSig] int OpenPropertyStore(int access, out object properties);",
+    "    [PreserveSig] int GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);",
+    "    [PreserveSig] int GetState(out int state);",
+    "  }",
+    "",
+    '  [Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]',
+    "  private interface IAudioEndpointVolume {",
+    "    [PreserveSig] int RegisterControlChangeNotify(IntPtr client);",
+    "    [PreserveSig] int UnregisterControlChangeNotify(IntPtr client);",
+    "    [PreserveSig] int GetChannelCount(out uint channelCount);",
+    "    [PreserveSig] int SetMasterVolumeLevel(float level, ref Guid eventContext);",
+    "    [PreserveSig] int SetMasterVolumeLevelScalar(float level, ref Guid eventContext);",
+    "    [PreserveSig] int GetMasterVolumeLevel(out float level);",
+    "    [PreserveSig] int GetMasterVolumeLevelScalar(out float level);",
+    "    [PreserveSig] int SetChannelVolumeLevel(uint channel, float level, ref Guid eventContext);",
+    "    [PreserveSig] int SetChannelVolumeLevelScalar(uint channel, float level, ref Guid eventContext);",
+    "    [PreserveSig] int GetChannelVolumeLevel(uint channel, out float level);",
+    "    [PreserveSig] int GetChannelVolumeLevelScalar(uint channel, out float level);",
+    "    [PreserveSig] int SetMute(bool mute, ref Guid eventContext);",
+    "    [PreserveSig] int GetMute(out bool mute);",
+    "    [PreserveSig] int GetVolumeStepInfo(out uint step, out uint stepCount);",
+    "    [PreserveSig] int VolumeStepUp(ref Guid eventContext);",
+    "    [PreserveSig] int VolumeStepDown(ref Guid eventContext);",
+    "    [PreserveSig] int QueryHardwareSupport(out uint hardwareSupportMask);",
+    "    [PreserveSig] int GetVolumeRange(out float volumeMin, out float volumeMax, out float volumeStep);",
+    "  }",
+    "",
+    "  public static int SetMuteAndGetPrevious(bool mute) {",
+    "    try {",
+    "      var enumerator = (IMMDeviceEnumerator)(new MMDeviceEnumerator());",
+    "      IMMDevice device;",
+    "      int hr = enumerator.GetDefaultAudioEndpoint(0, 0, out device);",
+    "      if (hr != 0) return -1;",
+    '      var iid = new Guid("5CDF2C82-841E-4546-9722-0CF74078229A");',
+    "      object volumeObj;",
+    "      hr = device.Activate(ref iid, 7, IntPtr.Zero, out volumeObj);",
+    "      if (hr != 0) return -1;",
+    "      var volume = (IAudioEndpointVolume)volumeObj;",
+    "      bool previous;",
+    "      hr = volume.GetMute(out previous);",
+    "      if (hr != 0) return -1;",
+    "      var ctx = Guid.Empty;",
+    "      hr = volume.SetMute(mute, ref ctx);",
+    "      if (hr != 0) return -1;",
+    "      return previous ? 1 : 0;",
+    "    } catch {",
+    "      return -1;",
+    "    }",
+    "  }",
+    "}"
+  ].join("\n");
+  const ps = [
+    "$src = @'",
+    src,
+    "'@",
+    "Add-Type -TypeDefinition $src",
+    `$target = ${muted ? "$true" : "$false"}`,
+    "$prev = [VoxAudio]::SetMuteAndGetPrevious($target)",
+    "if ($prev -eq -1) { exit 1 }",
+    "Write-Output $prev"
+  ].join("\n");
+  return ps;
+}
+async function run(muted) {
+  if (process.platform !== "win32") return null;
+  try {
+    const encoded = Buffer.from(buildScript(muted), "utf16le").toString("base64");
+    const { stdout } = await execFileAsync$1(
+      "powershell",
+      ["-NoProfile", "-WindowStyle", "Hidden", "-EncodedCommand", encoded],
+      { timeout: 4e3, encoding: "utf8" }
+    );
+    const prev = stdout.trim();
+    if (prev === "1") return true;
+    if (prev === "0") return false;
+    return null;
+  } catch (err) {
+    console.warn("[AudioMute] Falha ao alterar o mute do sistema:", err);
+    return null;
+  }
+}
+async function muteSystemAudio() {
+  const prev = await run(true);
+  if (prev !== null) restoreMuteState = prev;
+}
+async function unmuteSystemAudio() {
+  if (restoreMuteState === null) return;
+  const target = restoreMuteState;
+  restoreMuteState = null;
+  await run(target);
+}
+function unmuteSystemAudioSync() {
+  if (process.platform !== "win32") return;
+  if (restoreMuteState === null) return;
+  const target = restoreMuteState;
+  restoreMuteState = null;
+  try {
+    const encoded = Buffer.from(buildScript(target), "utf16le").toString("base64");
+    child_process.execFileSync(
+      "powershell",
+      ["-NoProfile", "-WindowStyle", "Hidden", "-EncodedCommand", encoded],
+      { timeout: 4e3, encoding: "utf8" }
+    );
+  } catch (err) {
+    console.warn("[AudioMute] Falha ao restaurar o mute do sistema:", err);
+  }
+}
 const { app: app$1, ipcMain: ipcMain$1 } = require("electron");
 function initAutoUpdater(getMainWindow) {
   electronUpdater.autoUpdater.autoDownload = true;
@@ -2665,6 +2836,7 @@ let tray = null;
 let targetWindowRef = null;
 let isQuitting = false;
 let isDockHiding = false;
+let systemMutedByVox = false;
 async function captureActiveWindow() {
   try {
     const psScript = [
@@ -2726,6 +2898,34 @@ async function disableWindowsShadow(win) {
   } catch (err) {
     console.warn("[Main] Falha ao remover sombra da janela:", err);
   }
+}
+async function muteSystemAudioIfEnabled() {
+  if (process.platform !== "win32") return;
+  if (systemMutedByVox) return;
+  if (getSetting("muteSystemAudio", "false") !== "true") return;
+  systemMutedByVox = true;
+  await muteSystemAudio();
+}
+async function unmuteSystemAudioIfNeeded() {
+  if (!systemMutedByVox) return;
+  systemMutedByVox = false;
+  await unmuteSystemAudio();
+}
+function unmuteSystemAudioOnQuit() {
+  if (!systemMutedByVox) return;
+  systemMutedByVox = false;
+  unmuteSystemAudioSync();
+}
+function getSttLanguage() {
+  if (getSetting("autoDetectLanguage", "true") !== "false") return void 0;
+  const lang = getSetting("speechLanguage", "").trim();
+  return lang || void 0;
+}
+function getParserLanguage() {
+  if (getSetting("autoDetectLanguage", "true") !== "false") return "auto";
+  const lang = getSetting("speechLanguage", "pt").trim().toLowerCase();
+  if (lang === "pt" || lang.startsWith("pt-")) return "pt";
+  return "en";
 }
 function hideMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -3031,7 +3231,7 @@ async function processCommandSegments(parseResult, language) {
 }
 async function processTranscriptionResult(buffer) {
   if (!buffer || buffer.length === 0) return { text: "" };
-  const result = await transcribeAudio(buffer);
+  const result = await transcribeAudio(buffer, getSttLanguage());
   const rawText = result.text;
   console.log("[Main] Transcrição bruta:", result.text);
   if (result.text && !result.text.startsWith("[Erro")) {
@@ -3056,7 +3256,7 @@ async function processTranscriptionResult(buffer) {
         return result;
       }
     }
-    const parseResult = parser.parse(textToProcess, "auto");
+    const parseResult = parser.parse(textToProcess, getParserLanguage());
     const language = parser.getDetectedLanguage();
     if (parseResult.hasCommands) {
       const cancelled = await processCommandSegments(parseResult, language);
@@ -3148,12 +3348,14 @@ function setupIpcHandlers() {
   ipcMain.handle("vox:start-recording", () => {
     console.log("[Main] IPC vox:start-recording acionado");
     recorder.startRecording();
+    void muteSystemAudioIfEnabled();
     showDock();
     return true;
   });
   ipcMain.handle("vox:stop-recording", async (_event, audioData) => {
     console.log("[Main] IPC vox:stop-recording acionado");
     hideDock();
+    void unmuteSystemAudioIfNeeded();
     const hadSpeech = recorder.getHasSpoken();
     let buffer;
     if (audioData && audioData.byteLength > 0) {
@@ -3196,7 +3398,7 @@ function setupIpcHandlers() {
     if (!audioData || audioData.byteLength < 1e3) return { text: "" };
     try {
       const buffer = Buffer.from(audioData);
-      const result = await transcribeAudio(buffer);
+      const result = await transcribeAudio(buffer, getSttLanguage());
       const text = result.text || "";
       if (text && !text.startsWith("[Erro")) {
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -3317,6 +3519,9 @@ function setupIpcHandlers() {
   });
   ipcMain.handle("vox:search-sessions", (_event, query) => {
     return searchSessions(query);
+  });
+  ipcMain.handle("vox:get-dictation-stats", () => {
+    return getDictationStats();
   });
   ipcMain.handle("vox:list-api-logs", (_event, limit) => {
     return listApiLogs(limit || 200);
@@ -3460,6 +3665,7 @@ function startPushToTalk() {
   void captureActiveWindow();
   showDock();
   recorder.startRecording({ autoStopOnSilence: useAutoStop });
+  void muteSystemAudioIfEnabled();
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("vox:toggle-recording", true);
   }
@@ -3543,12 +3749,12 @@ app.whenReady().then(async () => {
     { name: "email_address", triggerPt: "inserir email", triggerEn: "insert email" },
     { name: "address", triggerPt: "inserir endereço", triggerEn: "insert address" }
   ]);
+  setupIpcHandlers();
+  setupCommandExecutorEvents();
   createMainWindow();
   createDockWindow();
   createClipboardWindow();
   initAutoUpdater(() => mainWindow);
-  setupIpcHandlers();
-  setupCommandExecutorEvents();
   const settings = getAllSettings();
   const sensitivity = parseFloat(settings.wakeWordSensitivity || "0.5");
   wakewordDetector.on("detected", () => {
@@ -3556,6 +3762,7 @@ app.whenReady().then(async () => {
     console.log('[Main] 🎙️ Wake Word "Vox" detectada! Capturando janela ativa e iniciando ditado por voz...');
     wakewordDetector.pause();
     recorder.startRecording({ autoStopOnSilence: true });
+    void muteSystemAudioIfEnabled();
     void captureActiveWindow();
     showDock();
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -3580,6 +3787,7 @@ app.whenReady().then(async () => {
     console.log("[Main] Finalizando gravação por encerramento de fala...");
     isPushToTalkActive = false;
     hideDock();
+    void unmuteSystemAudioIfNeeded();
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("vox:toggle-recording", false);
     }
@@ -3628,6 +3836,7 @@ app.whenReady().then(async () => {
 app.on("before-quit", () => {
   isQuitting = true;
   wakewordDetector.stop();
+  unmuteSystemAudioOnQuit();
 });
 app.on("will-quit", () => {
   globalShortcut.unregisterAll();
