@@ -2068,6 +2068,23 @@ async function injectText(text, windowRef, _delayMs = 150, legacyHwnd) {
   console.log(`[Injector] Injetando texto no cursor ativo (${text.length} chars)...`);
   clipboard$1.writeText(text);
   await new Promise((resolve) => setTimeout(resolve, 150));
+  if (process.platform === "darwin") {
+    const processName = ref.processName;
+    const script = processName ? `tell application "${processName.replace(/"/g, '\\"')}" to activate
+delay 0.05
+tell application "System Events" to keystroke "v" using command down` : `tell application "System Events" to keystroke "v" using command down`;
+    return new Promise((resolve) => {
+      child_process.execFile("osascript", ["-e", script], (err) => {
+        if (err) {
+          console.error("[Injector] Erro ao colar texto via AppleScript (macOS):", err);
+          resolve({ success: false, method: "applescript-darwin", error: err.message });
+        } else {
+          console.log("[Injector] Texto colado no cursor com sucesso (macOS)!");
+          resolve({ success: true, method: "applescript-darwin" });
+        }
+      });
+    });
+  }
   const targetHwnd = ref.hwnd;
   const psCommand = targetHwnd && targetHwnd !== "0" && targetHwnd !== "null" ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${targetHwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait('^v')` : `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`;
   return new Promise((resolve) => {
@@ -2237,6 +2254,22 @@ function runPowerShell(command) {
     });
   });
 }
+function runAppleScript(script) {
+  return new Promise((resolve, reject) => {
+    child_process.exec(`osascript -e '${script.replace(/'/g, "'\\''")}'`, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
+function runShell(command) {
+  return new Promise((resolve, reject) => {
+    child_process.exec(command, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
 const SEND_KEYS_MAP = {
   Enter: "{ENTER}",
   Backspace: "{BACKSPACE}",
@@ -2268,6 +2301,66 @@ const SEND_KEYS_MAP = {
   F11: "{F11}",
   F12: "{F12}"
 };
+const MAC_KEY_CODES = {
+  Enter: 36,
+  Backspace: 51,
+  Tab: 48,
+  Delete: 117,
+  Escape: 53,
+  Esc: 53,
+  Space: 49,
+  Home: 115,
+  End: 119,
+  PageUp: 116,
+  PageDown: 121,
+  Left: 123,
+  Right: 124,
+  Down: 125,
+  Up: 126,
+  F1: 122,
+  F2: 120,
+  F3: 99,
+  F4: 118,
+  F5: 96,
+  F6: 97,
+  F7: 98,
+  F8: 100,
+  F9: 101,
+  F10: 109,
+  F11: 103,
+  F12: 111
+};
+function toAppleScriptKeystroke(combo) {
+  const parts = combo.split("+").map((s) => s.trim()).filter(Boolean);
+  if (parts.length === 0) return "";
+  const key = parts[parts.length - 1];
+  const mods = parts.slice(0, -1);
+  const macMods = [];
+  for (const m of mods) {
+    if (m === "Ctrl" || m === "Cmd" || m === "Meta" || m === "Win") macMods.push("command down");
+    else if (m === "Alt" || m === "Option") macMods.push("option down");
+    else if (m === "Shift") macMods.push("shift down");
+    else if (m === "Control") macMods.push("control down");
+  }
+  const modClause = macMods.length > 0 ? ` using {${macMods.join(", ")}}` : "";
+  if (MAC_KEY_CODES[key] !== void 0) {
+    return `tell application "System Events" to key code ${MAC_KEY_CODES[key]}${modClause}`;
+  }
+  if (key.toLowerCase() === "home" && mods.length === 0) {
+    return `tell application "System Events" to key code 123 using command down`;
+  }
+  if (key.toLowerCase() === "end" && mods.length === 0) {
+    return `tell application "System Events" to key code 124 using command down`;
+  }
+  if (key.toLowerCase() === "home" && (mods.includes("Ctrl") || mods.includes("Cmd"))) {
+    return `tell application "System Events" to key code 126 using command down`;
+  }
+  if (key.toLowerCase() === "end" && (mods.includes("Ctrl") || mods.includes("Cmd"))) {
+    return `tell application "System Events" to key code 125 using command down`;
+  }
+  const char = key.toLowerCase();
+  return `tell application "System Events" to keystroke "${char}"${modClause}`;
+}
 function toSendKeys(combo) {
   const parts = combo.split("+").map((s) => s.trim()).filter(Boolean);
   if (parts.length === 0) return "";
@@ -2278,12 +2371,28 @@ function toSendKeys(combo) {
   return prefix + keyStr;
 }
 async function sendKeys(combos) {
+  if (process.platform === "darwin") {
+    const scripts = combos.map(toAppleScriptKeystroke).filter(Boolean);
+    if (scripts.length === 0) return;
+    await runAppleScript(scripts.join("\n"));
+    return;
+  }
   const keys = combos.map(toSendKeys).join("");
   if (!keys) return;
   await runPowerShell(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${keys}')`);
 }
 async function sendKeySequence(steps) {
   if (!steps || steps.length === 0) return;
+  if (process.platform === "darwin") {
+    const scriptLines = steps.map((s) => {
+      const line = toAppleScriptKeystroke(s.key);
+      const delay = Math.max(0, s.delayAfter || 0);
+      return delay > 0 ? `${line}
+delay ${(delay / 1e3).toFixed(3)}` : line;
+    }).filter(Boolean);
+    await runAppleScript(scriptLines.join("\n"));
+    return;
+  }
   const body = steps.map((s) => {
     const key = toSendKeys(s.key);
     const delay = Math.max(0, s.delayAfter || 0);
@@ -2405,8 +2514,75 @@ async function openApp(name) {
   }
   await openPlainApp(rawName);
 }
+const MAC_APP_MAP = {
+  chrome: "Google Chrome",
+  "google chrome": "Google Chrome",
+  chromium: "Chromium",
+  edge: "Microsoft Edge",
+  "microsoft edge": "Microsoft Edge",
+  firefox: "Firefox",
+  brave: "Brave Browser",
+  opera: "Opera",
+  safari: "Safari",
+  vscode: "Visual Studio Code",
+  "visual studio code": "Visual Studio Code",
+  "vs code": "Visual Studio Code",
+  code: "Visual Studio Code",
+  notepad: "TextEdit",
+  "bloco de notas": "TextEdit",
+  textedit: "TextEdit",
+  notes: "Notes",
+  notas: "Notes",
+  calculator: "Calculator",
+  calculadora: "Calculator",
+  terminal: "Terminal",
+  iterm: "iTerm",
+  iterm2: "iTerm",
+  explorer: "Finder",
+  "file explorer": "Finder",
+  "explorador de arquivos": "Finder",
+  finder: "Finder",
+  arquivos: "Finder",
+  pasta: "Finder",
+  pastas: "Finder",
+  files: "Finder",
+  spotify: "Spotify",
+  slack: "Slack",
+  discord: "Discord",
+  telegram: "Telegram",
+  whatsapp: "WhatsApp",
+  whats: "WhatsApp",
+  notion: "Notion",
+  figma: "Figma"
+};
 async function openPlainApp(name) {
   const target = APP_LAUNCH_MAP[name];
+  if (typeof target === "string" && /^https?:\/\//i.test(target)) {
+    await shell$2.openExternal(target);
+    return;
+  }
+  if (target === "browser") {
+    await shell$2.openExternal("https://www.google.com");
+    return;
+  }
+  if (process.platform === "darwin") {
+    const macApp = MAC_APP_MAP[name];
+    if (macApp) {
+      try {
+        await runShell(`open -a "${macApp.replace(/"/g, '\\"')}"`);
+        return;
+      } catch {
+      }
+    }
+    try {
+      await runShell(`open -a "${name.replace(/"/g, '\\"')}"`);
+      return;
+    } catch {
+      await shell$2.openExternal(`https://${name}`).catch(() => {
+      });
+      return;
+    }
+  }
   if (Array.isArray(target)) {
     for (const candidate of target) {
       try {
@@ -2416,16 +2592,6 @@ async function openPlainApp(name) {
       }
     }
     return;
-  }
-  if (typeof target === "string") {
-    if (/^https?:\/\//i.test(target)) {
-      await shell$2.openExternal(target);
-      return;
-    }
-    if (target === "browser") {
-      await shell$2.openExternal("https://");
-      return;
-    }
   }
   try {
     await runPowerShell(`Start-Process '${name.replace(/'/g, "''")}'`);
@@ -2441,6 +2607,16 @@ async function openPlainApp(name) {
 async function openAppWithSearch(app2, query) {
   const url = SEARCH_ENGINES.google + encodeURIComponent(query);
   const appKey = cleanAppName(app2).toLowerCase();
+  if (process.platform === "darwin") {
+    const macApp = MAC_APP_MAP[appKey] || (BROWSER_EXE[appKey] ? "Google Chrome" : "");
+    if (macApp) {
+      await runShell(`open -a "${macApp}" "${url}"`).catch(() => shell$2.openExternal(url).catch(() => {
+      }));
+    } else {
+      await shell$2.openExternal(url);
+    }
+    return;
+  }
   const exe = BROWSER_EXE[appKey];
   if (exe) {
     await runPowerShell(`Start-Process '${exe}' '${url}'`).catch(() => shell$2.openExternal(url).catch(() => {
@@ -2486,12 +2662,20 @@ async function deleteLastSentence(windowRef) {
   const text = clipboard.readText();
   const boundary = text ? findLastSentenceBoundary(text) : -1;
   if (!text || boundary <= 0) {
-    await sendKeySequence([{ key: "Ctrl+Shift+Home", delayAfter: 30 }, { key: "Delete", delayAfter: 0 }]);
+    if (process.platform === "darwin") {
+      await sendKeySequence([{ key: "Cmd+Shift+Left", delayAfter: 30 }, { key: "Delete", delayAfter: 0 }]);
+    } else {
+      await sendKeySequence([{ key: "Ctrl+Shift+Home", delayAfter: 30 }, { key: "Delete", delayAfter: 0 }]);
+    }
     return;
   }
   const newText = text.slice(0, boundary);
   clipboard.writeText(newText);
-  await sendKeySequence([{ key: "Ctrl+A", delayAfter: 30 }, { key: "Ctrl+V", delayAfter: 0 }]);
+  if (process.platform === "darwin") {
+    await sendKeySequence([{ key: "Cmd+A", delayAfter: 30 }, { key: "Cmd+V", delayAfter: 0 }]);
+  } else {
+    await sendKeySequence([{ key: "Ctrl+A", delayAfter: 30 }, { key: "Ctrl+V", delayAfter: 0 }]);
+  }
 }
 class CommandExecutor extends events.EventEmitter {
   async execute(command, context) {
@@ -3024,6 +3208,25 @@ function buildScript(muted) {
   return ps;
 }
 async function run(muted) {
+  if (process.platform === "darwin") {
+    try {
+      const { stdout: currentMute } = await execFileAsync$1(
+        "osascript",
+        ["-e", "output muted of (get volume settings)"],
+        { timeout: 2e3, encoding: "utf8" }
+      );
+      const wasMuted = currentMute.trim().toLowerCase() === "true";
+      await execFileAsync$1(
+        "osascript",
+        ["-e", `set volume output muted ${muted ? "true" : "false"}`],
+        { timeout: 2e3 }
+      );
+      return wasMuted;
+    } catch (err) {
+      console.warn("[AudioMute] Falha ao alterar o mute no macOS:", err);
+      return null;
+    }
+  }
   if (process.platform !== "win32") return null;
   try {
     const encoded = Buffer.from(buildScript(muted), "utf16le").toString("base64");
@@ -3052,10 +3255,22 @@ async function unmuteSystemAudio() {
   await run(target);
 }
 function unmuteSystemAudioSync() {
-  if (process.platform !== "win32") return;
   if (restoreMuteState === null) return;
   const target = restoreMuteState;
   restoreMuteState = null;
+  if (process.platform === "darwin") {
+    try {
+      child_process.execFileSync(
+        "osascript",
+        ["-e", `set volume output muted ${target ? "true" : "false"}`],
+        { timeout: 2e3 }
+      );
+    } catch (err) {
+      console.warn("[AudioMute] Falha ao restaurar o mute no macOS (sync):", err);
+    }
+    return;
+  }
+  if (process.platform !== "win32") return;
   try {
     const encoded = Buffer.from(buildScript(target), "utf16le").toString("base64");
     child_process.execFileSync(
@@ -3499,7 +3714,7 @@ function initAutoUpdater(getMainWindow) {
     }, 6e3);
   }
 }
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage, shell, systemPreferences } = require("electron");
 const execFileAsync = util.promisify(child_process.execFile);
 let mainWindow = null;
 let dockWindow = null;
@@ -3510,6 +3725,29 @@ let isQuitting = false;
 let isDockHiding = false;
 let systemMutedByVox = false;
 async function captureActiveWindow() {
+  if (process.platform === "darwin") {
+    try {
+      const script = `
+        tell application "System Events"
+          set frontApp to first application process whose frontmost is true
+          set appName to name of frontApp
+          set winTitle to ""
+          try
+            set winTitle to name of front window of frontApp
+          end try
+          return appName & "|" & winTitle
+        end tell
+      `;
+      const { stdout } = await execFileAsync("osascript", ["-e", script], { timeout: 2500, encoding: "utf8" });
+      const parts = stdout.trim().split("|");
+      const processName = parts[0];
+      const title = parts.slice(1).join("|");
+      targetWindowRef = processName ? { processName: processName.trim(), title: title?.trim() || void 0 } : null;
+    } catch {
+      targetWindowRef = null;
+    }
+    return targetWindowRef;
+  }
   try {
     const psScript = [
       "$src = @'",
@@ -3546,6 +3784,9 @@ async function captureActiveWindow() {
 }
 const getDevUrl = () => process.env["ELECTRON_RENDERER_URL"] || process.env["VITE_DEV_SERVER_URL"];
 function getAppIconPath() {
+  if (process.platform === "darwin") {
+    return app.isPackaged ? path.join(process.resourcesPath, "logo.png") : path.join(app.getAppPath(), "src/assets/logo.png");
+  }
   return app.isPackaged ? path.join(process.resourcesPath, "Logo-Vox1.ico") : path.join(app.getAppPath(), "src/assets/Logo-Vox1.ico");
 }
 async function disableWindowsShadow(win) {
@@ -3571,8 +3812,28 @@ async function disableWindowsShadow(win) {
     console.warn("[Main] Falha ao remover sombra da janela:", err);
   }
 }
+async function checkAndRequestMacPermissions() {
+  if (process.platform !== "darwin") return;
+  try {
+    const micStatus = systemPreferences.getMediaAccessStatus("microphone");
+    if (micStatus !== "granted") {
+      const granted = await systemPreferences.askForMediaAccess("microphone");
+      console.log("[Main] Acesso ao microfone no macOS:", granted ? "Concedido" : "Negado");
+    }
+  } catch (err) {
+    console.warn("[Main] Falha ao verificar permissão do microfone:", err);
+  }
+  try {
+    const isTrusted = systemPreferences.isTrustedAccessibilityClient(false);
+    if (!isTrusted) {
+      console.log("[Main] Solicitando permissão de Acessibilidade no macOS...");
+      systemPreferences.isTrustedAccessibilityClient(true);
+    }
+  } catch (err) {
+    console.warn("[Main] Falha ao verificar permissão de acessibilidade:", err);
+  }
+}
 async function muteSystemAudioIfEnabled() {
-  if (process.platform !== "win32") return;
   if (systemMutedByVox) return;
   if (getSetting("muteSystemAudio", "false") !== "true") return;
   systemMutedByVox = true;
@@ -4503,6 +4764,7 @@ function setupCommandExecutorEvents() {
   });
 }
 app.whenReady().then(async () => {
+  await checkAndRequestMacPermissions();
   initDatabase();
   seedSnippets([
     { name: "signature", triggerPt: "inserir assinatura", triggerEn: "insert signature" },

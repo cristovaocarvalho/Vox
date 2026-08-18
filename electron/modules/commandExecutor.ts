@@ -28,6 +28,24 @@ function runPowerShell(command: string): Promise<void> {
   })
 }
 
+function runAppleScript(script: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    exec(`osascript -e '${script.replace(/'/g, "'\\''")}'`, (err) => {
+      if (err) reject(err)
+      else resolve()
+    })
+  })
+}
+
+function runShell(command: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    exec(command, (err) => {
+      if (err) reject(err)
+      else resolve()
+    })
+  })
+}
+
 const SEND_KEYS_MAP: Record<string, string> = {
   Enter: '{ENTER}',
   Backspace: '{BACKSPACE}',
@@ -50,6 +68,64 @@ const SEND_KEYS_MAP: Record<string, string> = {
   F7: '{F7}', F8: '{F8}', F9: '{F9}', F10: '{F10}', F11: '{F11}', F12: '{F12}'
 }
 
+const MAC_KEY_CODES: Record<string, number> = {
+  Enter: 36,
+  Backspace: 51,
+  Tab: 48,
+  Delete: 117,
+  Escape: 53,
+  Esc: 53,
+  Space: 49,
+  Home: 115,
+  End: 119,
+  PageUp: 116,
+  PageDown: 121,
+  Left: 123,
+  Right: 124,
+  Down: 125,
+  Up: 126,
+  F1: 122, F2: 120, F3: 99, F4: 118, F5: 96, F6: 97,
+  F7: 98, F8: 100, F9: 101, F10: 109, F11: 103, F12: 111
+}
+
+function toAppleScriptKeystroke(combo: string): string {
+  const parts = combo.split('+').map((s) => s.trim()).filter(Boolean)
+  if (parts.length === 0) return ''
+  const key = parts[parts.length - 1]
+  const mods = parts.slice(0, -1)
+
+  const macMods: string[] = []
+  for (const m of mods) {
+    if (m === 'Ctrl' || m === 'Cmd' || m === 'Meta' || m === 'Win') macMods.push('command down')
+    else if (m === 'Alt' || m === 'Option') macMods.push('option down')
+    else if (m === 'Shift') macMods.push('shift down')
+    else if (m === 'Control') macMods.push('control down')
+  }
+
+  const modClause = macMods.length > 0 ? ` using {${macMods.join(', ')}}` : ''
+
+  if (MAC_KEY_CODES[key] !== undefined) {
+    return `tell application "System Events" to key code ${MAC_KEY_CODES[key]}${modClause}`
+  }
+
+  // Common macOS navigation shortcuts: Home -> Cmd+Left, End -> Cmd+Right
+  if (key.toLowerCase() === 'home' && mods.length === 0) {
+    return `tell application "System Events" to key code 123 using command down`
+  }
+  if (key.toLowerCase() === 'end' && mods.length === 0) {
+    return `tell application "System Events" to key code 124 using command down`
+  }
+  if (key.toLowerCase() === 'home' && (mods.includes('Ctrl') || mods.includes('Cmd'))) {
+    return `tell application "System Events" to key code 126 using command down`
+  }
+  if (key.toLowerCase() === 'end' && (mods.includes('Ctrl') || mods.includes('Cmd'))) {
+    return `tell application "System Events" to key code 125 using command down`
+  }
+
+  const char = key.toLowerCase()
+  return `tell application "System Events" to keystroke "${char}"${modClause}`
+}
+
 function toSendKeys(combo: string): string {
   const parts = combo.split('+').map((s) => s.trim()).filter(Boolean)
   if (parts.length === 0) return ''
@@ -63,6 +139,12 @@ function toSendKeys(combo: string): string {
 }
 
 async function sendKeys(combos: string[]): Promise<void> {
+  if (process.platform === 'darwin') {
+    const scripts = combos.map(toAppleScriptKeystroke).filter(Boolean)
+    if (scripts.length === 0) return
+    await runAppleScript(scripts.join('\n'))
+    return
+  }
   const keys = combos.map(toSendKeys).join('')
   if (!keys) return
   await runPowerShell(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${keys}')`)
@@ -70,6 +152,19 @@ async function sendKeys(combos: string[]): Promise<void> {
 
 async function sendKeySequence(steps: KeystrokeStep[]): Promise<void> {
   if (!steps || steps.length === 0) return
+
+  if (process.platform === 'darwin') {
+    const scriptLines = steps
+      .map((s) => {
+        const line = toAppleScriptKeystroke(s.key)
+        const delay = Math.max(0, s.delayAfter || 0)
+        return delay > 0 ? `${line}\ndelay ${(delay / 1000).toFixed(3)}` : line
+      })
+      .filter(Boolean)
+    await runAppleScript(scriptLines.join('\n'))
+    return
+  }
+
   const body = steps
     .map((s) => {
       const key = toSendKeys(s.key)
@@ -208,9 +303,82 @@ async function openApp(name: string): Promise<void> {
   await openPlainApp(rawName)
 }
 
+const MAC_APP_MAP: Record<string, string> = {
+  chrome: 'Google Chrome',
+  'google chrome': 'Google Chrome',
+  chromium: 'Chromium',
+  edge: 'Microsoft Edge',
+  'microsoft edge': 'Microsoft Edge',
+  firefox: 'Firefox',
+  brave: 'Brave Browser',
+  opera: 'Opera',
+  safari: 'Safari',
+  vscode: 'Visual Studio Code',
+  'visual studio code': 'Visual Studio Code',
+  'vs code': 'Visual Studio Code',
+  code: 'Visual Studio Code',
+  notepad: 'TextEdit',
+  'bloco de notas': 'TextEdit',
+  textedit: 'TextEdit',
+  notes: 'Notes',
+  notas: 'Notes',
+  calculator: 'Calculator',
+  calculadora: 'Calculator',
+  terminal: 'Terminal',
+  iterm: 'iTerm',
+  iterm2: 'iTerm',
+  explorer: 'Finder',
+  'file explorer': 'Finder',
+  'explorador de arquivos': 'Finder',
+  finder: 'Finder',
+  arquivos: 'Finder',
+  pasta: 'Finder',
+  pastas: 'Finder',
+  files: 'Finder',
+  spotify: 'Spotify',
+  slack: 'Slack',
+  discord: 'Discord',
+  telegram: 'Telegram',
+  whatsapp: 'WhatsApp',
+  whats: 'WhatsApp',
+  notion: 'Notion',
+  figma: 'Figma'
+}
+
 async function openPlainApp(name: string): Promise<void> {
   const target = APP_LAUNCH_MAP[name]
 
+  if (typeof target === 'string' && /^https?:\/\//i.test(target)) {
+    await shell.openExternal(target)
+    return
+  }
+
+  if (target === 'browser') {
+    await shell.openExternal('https://www.google.com')
+    return
+  }
+
+  // macOS (Darwin)
+  if (process.platform === 'darwin') {
+    const macApp = MAC_APP_MAP[name]
+    if (macApp) {
+      try {
+        await runShell(`open -a "${macApp.replace(/"/g, '\\"')}"`)
+        return
+      } catch {
+        // fallback
+      }
+    }
+    try {
+      await runShell(`open -a "${name.replace(/"/g, '\\"')}"`)
+      return
+    } catch {
+      await shell.openExternal(`https://${name}`).catch(() => {})
+      return
+    }
+  }
+
+  // Windows (Win32)
   if (Array.isArray(target)) {
     for (const candidate of target) {
       try {
@@ -221,17 +389,6 @@ async function openPlainApp(name: string): Promise<void> {
       }
     }
     return
-  }
-
-  if (typeof target === 'string') {
-    if (/^https?:\/\//i.test(target)) {
-      await shell.openExternal(target)
-      return
-    }
-    if (target === 'browser') {
-      await shell.openExternal('https://')
-      return
-    }
   }
 
   // Smart fallback: exe literal → .exe → URL.
@@ -249,6 +406,17 @@ async function openPlainApp(name: string): Promise<void> {
 async function openAppWithSearch(app: string, query: string): Promise<void> {
   const url = SEARCH_ENGINES.google + encodeURIComponent(query)
   const appKey = cleanAppName(app).toLowerCase()
+
+  if (process.platform === 'darwin') {
+    const macApp = MAC_APP_MAP[appKey] || (BROWSER_EXE[appKey] ? 'Google Chrome' : '')
+    if (macApp) {
+      await runShell(`open -a "${macApp}" "${url}"`).catch(() => shell.openExternal(url).catch(() => {}))
+    } else {
+      await shell.openExternal(url)
+    }
+    return
+  }
+
   const exe = BROWSER_EXE[appKey]
   if (exe) {
     await runPowerShell(`Start-Process '${exe}' '${url}'`).catch(() => shell.openExternal(url).catch(() => {}))
@@ -297,13 +465,20 @@ async function deleteLastSentence(windowRef?: WindowRef | null): Promise<void> {
   const text = clipboard.readText()
   const boundary = text ? findLastSentenceBoundary(text) : -1
   if (!text || boundary <= 0) {
-    // Fallback: select from caret to start and delete.
-    await sendKeySequence([{ key: 'Ctrl+Shift+Home', delayAfter: 30 }, { key: 'Delete', delayAfter: 0 }])
+    if (process.platform === 'darwin') {
+      await sendKeySequence([{ key: 'Cmd+Shift+Left', delayAfter: 30 }, { key: 'Delete', delayAfter: 0 }])
+    } else {
+      await sendKeySequence([{ key: 'Ctrl+Shift+Home', delayAfter: 30 }, { key: 'Delete', delayAfter: 0 }])
+    }
     return
   }
   const newText = text.slice(0, boundary)
   clipboard.writeText(newText)
-  await sendKeySequence([{ key: 'Ctrl+A', delayAfter: 30 }, { key: 'Ctrl+V', delayAfter: 0 }])
+  if (process.platform === 'darwin') {
+    await sendKeySequence([{ key: 'Cmd+A', delayAfter: 30 }, { key: 'Cmd+V', delayAfter: 0 }])
+  } else {
+    await sendKeySequence([{ key: 'Ctrl+A', delayAfter: 30 }, { key: 'Ctrl+V', delayAfter: 0 }])
+  }
 }
 
 export class CommandExecutor extends EventEmitter {

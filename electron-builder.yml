@@ -14,6 +14,40 @@ extraResources:
     filter: ["**/*"]
   - from: src/assets/Logo-Vox1.ico
     to: Logo-Vox1.ico
+  - from: src/assets/logo.png
+    to: logo.png
+mac:
+  icon: src/assets/logo.png
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+        - universal
+    - target: zip
+      arch:
+        - x64
+        - arm64
+        - universal
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.inherit.plist
+  extendInfo:
+    NSMicrophoneUsageDescription: "Vox precisa de acesso ao microfone para transcrever e ditar sua voz em tempo real."
+    NSAppleEventsUsageDescription: "Vox precisa de controle de eventos do sistema para digitar e colar texto no seu aplicativo ativo."
+    NSSpeechRecognitionUsageDescription: "Vox utiliza reconhecimento de fala para converter suas palavras em texto."
+dmg:
+  artifactName: "Vox-macOS-${arch}.${ext}"
+  title: "Vox Installer"
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
 win:
   icon: src/assets/Logo-Vox1.ico
   target:

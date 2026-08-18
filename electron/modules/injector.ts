@@ -39,7 +39,27 @@ export async function injectText(
   clipboard.writeText(text)
   await new Promise((resolve) => setTimeout(resolve, 150))
 
-  // 2. Restaura o foco na janela de destino e cola via Ctrl+V
+  // 2. macOS (Darwin): Restaura foco e cola via Command+V com AppleScript
+  if (process.platform === 'darwin') {
+    const processName = ref.processName
+    const script = processName
+      ? `tell application "${processName.replace(/"/g, '\\"')}" to activate\ndelay 0.05\ntell application "System Events" to keystroke "v" using command down`
+      : `tell application "System Events" to keystroke "v" using command down`
+
+    return new Promise((resolve) => {
+      execFile('osascript', ['-e', script], (err) => {
+        if (err) {
+          console.error('[Injector] Erro ao colar texto via AppleScript (macOS):', err)
+          resolve({ success: false, method: 'applescript-darwin', error: err.message })
+        } else {
+          console.log('[Injector] Texto colado no cursor com sucesso (macOS)!')
+          resolve({ success: true, method: 'applescript-darwin' })
+        }
+      })
+    })
+  }
+
+  // 3. Windows (Win32): Restaura o foco na janela de destino e cola via Ctrl+V com PowerShell
   const targetHwnd = ref.hwnd
   const psCommand = targetHwnd && targetHwnd !== '0' && targetHwnd !== 'null'
     ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${targetHwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait('^v')`

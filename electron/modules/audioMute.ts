@@ -93,6 +93,28 @@ function buildScript(muted: boolean): string {
 }
 
 async function run(muted: boolean): Promise<boolean | null> {
+  // macOS (Darwin): osascript volume controls
+  if (process.platform === 'darwin') {
+    try {
+      const { stdout: currentMute } = await execFileAsync(
+        'osascript',
+        ['-e', 'output muted of (get volume settings)'],
+        { timeout: 2000, encoding: 'utf8' }
+      )
+      const wasMuted = currentMute.trim().toLowerCase() === 'true'
+      await execFileAsync(
+        'osascript',
+        ['-e', `set volume output muted ${muted ? 'true' : 'false'}`],
+        { timeout: 2000 }
+      )
+      return wasMuted
+    } catch (err) {
+      console.warn('[AudioMute] Falha ao alterar o mute no macOS:', err)
+      return null
+    }
+  }
+
+  // Windows (Win32): COM CoreAudio script
   if (process.platform !== 'win32') return null
   try {
     const encoded = Buffer.from(buildScript(muted), 'utf16le').toString('base64')
@@ -124,10 +146,24 @@ export async function unmuteSystemAudio(): Promise<void> {
 }
 
 export function unmuteSystemAudioSync(): void {
-  if (process.platform !== 'win32') return
   if (restoreMuteState === null) return
   const target = restoreMuteState
   restoreMuteState = null
+
+  if (process.platform === 'darwin') {
+    try {
+      execFileSync(
+        'osascript',
+        ['-e', `set volume output muted ${target ? 'true' : 'false'}`],
+        { timeout: 2000 }
+      )
+    } catch (err) {
+      console.warn('[AudioMute] Falha ao restaurar o mute no macOS (sync):', err)
+    }
+    return
+  }
+
+  if (process.platform !== 'win32') return
   try {
     const encoded = Buffer.from(buildScript(target), 'utf16le').toString('base64')
     execFileSync(

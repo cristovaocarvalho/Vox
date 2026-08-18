@@ -1,6 +1,6 @@
 import type { BrowserWindow as BrowserWindowType } from 'electron'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage, shell, systemPreferences } = require('electron')
 import path from 'path'
 import recorder from './modules/recorder'
 import { transcribeAudio } from './modules/stt'
@@ -42,6 +42,34 @@ let isDockHiding = false
 let systemMutedByVox = false
 
 async function captureActiveWindow(): Promise<WindowRef | null> {
+  // macOS (Darwin): query frontmost app name and window title via AppleScript
+  if (process.platform === 'darwin') {
+    try {
+      const script = `
+        tell application "System Events"
+          set frontApp to first application process whose frontmost is true
+          set appName to name of frontApp
+          set winTitle to ""
+          try
+            set winTitle to name of front window of frontApp
+          end try
+          return appName & "|" & winTitle
+        end tell
+      `
+      const { stdout } = await execFileAsync('osascript', ['-e', script], { timeout: 2500, encoding: 'utf8' })
+      const parts = stdout.trim().split('|')
+      const processName = parts[0]
+      const title = parts.slice(1).join('|')
+      targetWindowRef = processName
+        ? { processName: processName.trim(), title: title?.trim() || undefined }
+        : null
+    } catch {
+      targetWindowRef = null
+    }
+    return targetWindowRef
+  }
+
+  // Windows (Win32): query user32.dll via PowerShell
   try {
     const psScript = [
       '$src = @\'',
@@ -82,6 +110,11 @@ async function captureActiveWindow(): Promise<WindowRef | null> {
 const getDevUrl = () => process.env['ELECTRON_RENDERER_URL'] || process.env['VITE_DEV_SERVER_URL']
 
 function getAppIconPath() {
+  if (process.platform === 'darwin') {
+    return app.isPackaged
+      ? path.join(process.resourcesPath, 'logo.png')
+      : path.join(app.getAppPath(), 'src/assets/logo.png')
+  }
   return app.isPackaged
     ? path.join(process.resourcesPath, 'Logo-Vox1.ico')
     : path.join(app.getAppPath(), 'src/assets/Logo-Vox1.ico')
@@ -111,8 +144,29 @@ async function disableWindowsShadow(win: BrowserWindowType | null): Promise<void
   }
 }
 
+async function checkAndRequestMacPermissions() {
+  if (process.platform !== 'darwin') return
+  try {
+    const micStatus = systemPreferences.getMediaAccessStatus('microphone')
+    if (micStatus !== 'granted') {
+      const granted = await systemPreferences.askForMediaAccess('microphone')
+      console.log('[Main] Acesso ao microfone no macOS:', granted ? 'Concedido' : 'Negado')
+    }
+  } catch (err) {
+    console.warn('[Main] Falha ao verificar permissão do microfone:', err)
+  }
+  try {
+    const isTrusted = systemPreferences.isTrustedAccessibilityClient(false)
+    if (!isTrusted) {
+      console.log('[Main] Solicitando permissão de Acessibilidade no macOS...')
+      systemPreferences.isTrustedAccessibilityClient(true)
+    }
+  } catch (err) {
+    console.warn('[Main] Falha ao verificar permissão de acessibilidade:', err)
+  }
+}
+
 async function muteSystemAudioIfEnabled() {
-  if (process.platform !== 'win32') return
   if (systemMutedByVox) return
   if (getSetting('muteSystemAudio', 'false') !== 'true') return
   systemMutedByVox = true
@@ -1222,6 +1276,7 @@ function setupCommandExecutorEvents() {
 }
 
 app.whenReady().then(async () => {
+  await checkAndRequestMacPermissions()
   initDatabase()
   seedSnippets([
     { name: 'signature', triggerPt: 'inserir assinatura', triggerEn: 'insert signature' },
