@@ -136,9 +136,16 @@ export class CommandParser {
 
   private prefixMatch(text: string, pattern: string): string | null {
     try {
-      const m = new RegExp(`^(?:${pattern})(?:\\s+|$)`, 'i').exec(text)
-      if (!m) return null
-      return text.slice(m[0].length).trim()
+      const cleanPat = pattern.replace(/^[\^]+|[\$]+$/g, '')
+      const m = new RegExp(`^(?:${cleanPat})(?:\\s+|$)`, 'i').exec(text)
+      if (m) return text.slice(m[0].length).trim()
+
+      const normText = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      const normPat = cleanPat.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      const m2 = new RegExp(`^(?:${normPat})(?:\\s+|$)`, 'i').exec(normText)
+      if (m2) return text.slice(m2[0].length).trim()
+
+      return null
     } catch {
       return null
     }
@@ -147,7 +154,12 @@ export class CommandParser {
   private fullMatch(text: string, pattern: string): boolean {
     try {
       const m = new RegExp(pattern, 'i').exec(text)
-      return !!m && m[0].length === text.length
+      if (m && m[0].length === text.length) return true
+
+      const normText = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      const normPat = pattern.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      const m2 = new RegExp(normPat, 'i').exec(normText)
+      return !!m2 && m2[0].length === normText.length
     } catch {
       return false
     }

@@ -59,14 +59,37 @@ export async function injectText(
     })
   }
 
-  // 3. Windows (Win32): Restaura o foco na janela de destino e cola via Ctrl+V com PowerShell
+  // 3. Windows (Win32): Restaura o foco na janela de destino e cola via Ctrl+V com keybd_event
   const targetHwnd = ref.hwnd
-  const psCommand = targetHwnd && targetHwnd !== '0' && targetHwnd !== 'null'
-    ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${targetHwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 30; [System.Windows.Forms.SendKeys]::SendWait('^v')`
-    : `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`
+  const psScript = [
+    '$src = @\'',
+    'using System;',
+    'using System.Runtime.InteropServices;',
+    'public static class VOXPaste {',
+    '  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);',
+    '  [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);',
+    '  public static void Paste(IntPtr hWnd) {',
+    '    if (hWnd != IntPtr.Zero) {',
+    '      keybd_event(0x12, 0, 0, UIntPtr.Zero);',
+    '      keybd_event(0x12, 0, 2, UIntPtr.Zero);',
+    '      SetForegroundWindow(hWnd);',
+    '      System.Threading.Thread.Sleep(30);',
+    '    }',
+    '    keybd_event(0x11, 0, 0, UIntPtr.Zero);',
+    '    keybd_event(0x56, 0, 0, UIntPtr.Zero);',
+    '    keybd_event(0x56, 0, 2, UIntPtr.Zero);',
+    '    keybd_event(0x11, 0, 2, UIntPtr.Zero);',
+    '  }',
+    '}',
+    '\'@',
+    'Add-Type -TypeDefinition $src',
+    `[VOXPaste]::Paste([IntPtr]${targetHwnd && targetHwnd !== '0' && targetHwnd !== 'null' ? targetHwnd : 0})`
+  ].join('\n')
+
+  const encoded = Buffer.from(psScript, 'utf16le').toString('base64')
 
   return new Promise((resolve) => {
-    execFile('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', psCommand], (err) => {
+    execFile('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', encoded], (err) => {
       if (err) {
         console.error('[Injector] Erro ao colar texto via PowerShell (Windows):', err)
         resolve({ success: false, method: 'powershell-win32', error: err.message })

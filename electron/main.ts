@@ -99,11 +99,12 @@ async function captureActiveWindow(): Promise<WindowRef | null> {
     const hwnd = parts[0]
     const processName = parts[parts.length - 1]
     const title = parts.slice(1, -1).join('|')
-    targetWindowRef = hwnd && hwnd !== '0'
-      ? { hwnd, title: title?.trim() || undefined, processName: processName?.trim() || undefined }
-      : null
+    const isVoxApp = /^vox|electron$/i.test((processName || '').trim())
+    if (hwnd && hwnd !== '0' && !isVoxApp) {
+      targetWindowRef = { hwnd, title: title?.trim() || undefined, processName: processName?.trim() || undefined }
+    }
   } catch {
-    targetWindowRef = null
+    // Keep existing targetWindowRef if error occurs
   }
   return targetWindowRef
 }

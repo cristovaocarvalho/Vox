@@ -135,19 +135,26 @@ export class TemplateManager {
     return null
   }
 
+  private stripAccents(str: string): string {
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  }
+
   private findPhraseIndex(normalized: string, phrase: string): number {
-    const p = phrase.toLowerCase().trim()
+    const p = this.stripAccents(phrase.trim())
     if (!p) return -1
-    const idx = normalized.indexOf(p)
+    const norm = this.stripAccents(normalized)
+    const idx = norm.indexOf(p)
     if (idx < 0) return -1
-    const before = idx === 0 ? ' ' : normalized[idx - 1]
-    const after = idx + p.length >= normalized.length ? ' ' : normalized[idx + p.length]
-    if (/[a-z0-9áéíóúâêôãõçà-ÿ]/.test(before) || /[a-z0-9áéíóúâêôãõçà-ÿ]/.test(after)) return -1
+    const before = idx === 0 ? ' ' : norm[idx - 1]
+    const after = idx + p.length >= norm.length ? ' ' : norm[idx + p.length]
+    if (/[a-z0-9]/.test(before) || /[a-z0-9]/.test(after)) return -1
     return idx
   }
 
   private removeAt(normalized: string, idx: number, phrase: string): string {
-    return (normalized.slice(0, idx) + ' ' + normalized.slice(idx + phrase.length)).replace(/\s+/g, ' ').trim()
+    const p = this.stripAccents(phrase.trim())
+    const length = p.length
+    return (normalized.slice(0, idx) + ' ' + normalized.slice(idx + length)).replace(/\s+/g, ' ').trim()
   }
 }
 
