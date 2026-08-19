@@ -187,17 +187,18 @@ const it: TranslationKeys = {
     download: 'Scarica',
     downloading: 'Download in corso',
     installed: 'Installato',
-    installedModels: 'Modelli installati',
-    noInstalledModels: 'Nessun modello locale installato.',
-    downloadHint: 'Scarica modelli in locale tramite Ollama per una correzione privata e offline.',
-    cloudProviderHint: 'Provider cloud — i modelli si gestiscono nel pannello del provider.',
+    providerModels: 'Modelli del Provider',
+    localModels: 'Modelli Locali',
+    localModelsHint: 'Scarica i modelli direttamente nell’app per un uso locale e privato.',
+    recommended: 'Consigliato',
     providerStatus: 'Connessione provider',
     downloadingProgress: 'Download in corso…',
     checking: 'Verifica…',
     downloadFailed: 'Impossibile scaricare il modello. Verifica che Ollama sia in esecuzione e raggiungibile.'
   },
   common: {
-    settings: 'Impostazioni'
+    settings: 'Impostazioni',
+    delete: 'Elimina'
   }
 }
 

@@ -187,17 +187,18 @@ const zhCN: TranslationKeys = {
     download: '下载',
     downloading: '正在下载',
     installed: '已安装',
-    installedModels: '已安装模型',
-    noInstalledModels: '尚未安装本地模型。',
-    downloadHint: '通过 Ollama 在本地下载模型，实现私密、离线的文本校正。',
-    cloudProviderHint: '云服务商 — 模型在提供商控制台中管理。',
+    providerModels: '服务商模型',
+    localModels: '本地模型',
+    localModelsHint: '直接在应用内下载模型，实现完全本地化与隐私保护。',
+    recommended: '推荐',
     providerStatus: '提供商连接',
     downloadingProgress: '正在下载…',
     checking: '检查中…',
     downloadFailed: '下载模型失败。请确保 Ollama 正在运行且可访问。'
   },
   common: {
-    settings: '设置'
+    settings: '设置',
+    delete: '删除'
   }
 }
 

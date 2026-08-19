@@ -187,17 +187,18 @@ const ja: TranslationKeys = {
     download: 'ダウンロード',
     downloading: 'ダウンロード中',
     installed: 'インストール済み',
-    installedModels: 'インストール済みモデル',
-    noInstalledModels: 'ローカルモデルはまだインストールされていません。',
-    downloadHint: 'Ollama経由でモデルをローカルにダウンロードし、プライベートでオフラインな補正を実現します。',
-    cloudProviderHint: 'クラウドプロバイダー — モデルはプロバイダーのダッシュボードで管理します。',
+    providerModels: 'プロバイダーモデル',
+    localModels: 'ローカルモデル',
+    localModelsHint: 'アプリ内で直接モデルをダウンロードし、完全にローカルでプライベートに使用できます。',
+    recommended: 'おすすめ',
     providerStatus: 'プロバイダー接続',
     downloadingProgress: 'ダウンロード中…',
     checking: '確認中…',
     downloadFailed: 'モデルをダウンロードできませんでした。Ollamaが起動していて到達可能か確認してください。'
   },
   common: {
-    settings: '設定'
+    settings: '設定',
+    delete: '削除'
   }
 }
 

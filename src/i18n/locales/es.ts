@@ -187,17 +187,18 @@ const es: TranslationKeys = {
     download: 'Descargar',
     downloading: 'Descargando',
     installed: 'Instalado',
-    installedModels: 'Modelos Instalados',
-    noInstalledModels: 'Aún no hay modelos locales instalados.',
-    downloadHint: 'Descarga modelos localmente a través de Ollama para corrección privada y sin conexión.',
-    cloudProviderHint: 'Proveedor en la nube — los modelos se gestionan en el panel del proveedor.',
+    providerModels: 'Modelos del Proveedor',
+    localModels: 'Modelos Locales',
+    localModelsHint: 'Descarga modelos directamente en la app para un uso local y privado.',
+    recommended: 'Recomendado',
     providerStatus: 'Conexión del proveedor',
     downloadingProgress: 'Descargando…',
     checking: 'Comprobando…',
     downloadFailed: 'No se pudo descargar el modelo. Asegúrate de que Ollama esté en ejecución y accesible.'
   },
   common: {
-    settings: 'Configuración'
+    settings: 'Configuración',
+    delete: 'Eliminar'
   }
 }
 
