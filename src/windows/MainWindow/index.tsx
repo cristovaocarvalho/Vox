@@ -26,8 +26,6 @@ import {
 } from '../../components'
 import logoImg from '../../assets/logo.png'
 import configImg from '../../assets/config.png'
-import onSound from '../../assets/On.mp3'
-import offSound from '../../assets/Off.mp3'
 import { CommandsTab } from './tabs/CommandsTab'
 import { TemplatesTab } from './tabs/TemplatesTab'
 import { ModelsTab } from './tabs/ModelsTab'
@@ -900,38 +898,14 @@ export const MainWindow: React.FC = () => {
       })
     }
 
-    const sfxCtx = new AudioContext()
-    const sfxGain = sfxCtx.createGain()
-    sfxGain.gain.value = 2.0
-    sfxGain.connect(sfxCtx.destination)
-
-    const playSound = (url: string) => {
-      const audio = new Audio(url)
-      const src = sfxCtx.createMediaElementSource(audio)
-      src.connect(sfxGain)
-      audio.play().catch(console.error)
-    }
-
-    let unsubscribeDockShow: (() => void) | undefined
-    if (window.vox?.onDockShow) {
-      unsubscribeDockShow = window.vox.onDockShow(() => playSound(onSound))
-    }
-
-    let unsubscribeDockHide: (() => void) | undefined
-    if (window.vox?.onDockHide) {
-      unsubscribeDockHide = window.vox.onDockHide(() => playSound(offSound))
-    }
-
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       unsubscribeToggle?.()
       unsubscribeTranscript?.()
       unsubscribePartial?.()
-      unsubscribeDockShow?.()
-      unsubscribeDockHide?.()
     }
-  }, [setIsRecording, setLastTranscript, isRecording])
+  }, [setIsRecording, setLastTranscript])
 
 
 

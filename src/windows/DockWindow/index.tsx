@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import logoImg from '../../assets/logo.png'
+import onSound from '../../assets/On.mp3'
+import offSound from '../../assets/Off.mp3'
+
+const onAudio = new Audio(onSound)
+onAudio.preload = 'auto'
+const offAudio = new Audio(offSound)
+offAudio.preload = 'auto'
 
 export const DockWindow: React.FC = () => {
   const bars = 7
@@ -19,11 +26,23 @@ export const DockWindow: React.FC = () => {
     }
 
     if (window.vox?.onDockShow) {
-      unsubShow = window.vox.onDockShow(() => setIsVisible(true))
+      unsubShow = window.vox.onDockShow(() => {
+        setIsVisible(true)
+        try {
+          onAudio.currentTime = 0
+          onAudio.play().catch(() => {})
+        } catch {}
+      })
     }
 
     if (window.vox?.onDockHide) {
-      unsubHide = window.vox.onDockHide(() => setIsVisible(false))
+      unsubHide = window.vox.onDockHide(() => {
+        setIsVisible(false)
+        try {
+          offAudio.currentTime = 0
+          offAudio.play().catch(() => {})
+        } catch {}
+      })
     }
 
     return () => {

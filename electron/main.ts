@@ -310,7 +310,8 @@ function createDockWindow() {
       preload: path.join(__dirname, '../preload/preload.js'),
       sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      backgroundThrottling: false
     }
   })
 
