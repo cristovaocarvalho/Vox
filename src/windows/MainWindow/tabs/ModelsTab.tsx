@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { useI18n } from '../../../i18n'
 import { IconCheck, IconTrash } from '../../../components'
+import { useVoxStore } from '../../../stores/useVoxStore'
 
 // ─── Data ───────────────────────────────────────────────────────────────────
 
@@ -210,6 +211,36 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
     'distil-whisper-large-v3-en': { speed: 4.0, accuracy: 4.2 }
   }
 
+  // Default fallback provider LLM models when API has not yet synced
+  const DEFAULT_LLM_MODELS: Record<string, string[]> = {
+    groq: [
+      'llama-3.3-70b-versatile',
+      'llama-3.1-8b-instant',
+      'llama-3.1-70b-versatile',
+      'mixtral-8x7b-32768',
+      'gemma2-9b-it'
+    ],
+    openai: [
+      'gpt-4o',
+      'gpt-4o-mini',
+      'gpt-4-turbo',
+      'gpt-3.5-turbo'
+    ],
+    azure: [
+      'gpt-4o',
+      'gpt-4o-mini'
+    ],
+    ollama: [
+      'llama3.1:latest',
+      'mistral:latest',
+      'qwen2.5:7b',
+      'gemma2:9b'
+    ],
+    lmstudio: [
+      'local-model'
+    ]
+  }
+
   // Dynamic synchronized provider speech models
   const effectiveApiModels: WhisperModelInfo[] = React.useMemo(() => {
     if (availableModels.stt && availableModels.stt.length > 0) {
@@ -227,6 +258,32 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
     }
     return API_MODELS
   }, [availableModels.stt])
+
+  // Dynamic synchronized provider LLM models
+  const effectiveLlmModels: string[] = React.useMemo(() => {
+    if (availableModels.llm && availableModels.llm.length > 0) {
+      return availableModels.llm
+    }
+    const prov = (draftProvider || 'groq').toLowerCase()
+    return DEFAULT_LLM_MODELS[prov] || DEFAULT_LLM_MODELS.groq
+  }, [availableModels.llm, draftProvider])
+
+  // Instant selection and persistence handlers
+  const handleSelectStt = (modelId: string) => {
+    setDraftSttModel(modelId)
+    useVoxStore.getState().setSttModel(modelId)
+    if (window.vox?.saveSettings) {
+      window.vox.saveSettings({ sttModel: modelId }).catch(console.error)
+    }
+  }
+
+  const handleSelectLlm = (modelId: string) => {
+    setDraftLlmModel(modelId)
+    useVoxStore.getState().setLlmModel(modelId)
+    if (window.vox?.saveSettings) {
+      window.vox.saveSettings({ llmModel: modelId }).catch(console.error)
+    }
+  }
 
   // Automatically sync provider models if not yet loaded
   useEffect(() => {
@@ -392,7 +449,7 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
         key={`${model.id}-${isLocalList ? 'local' : 'api'}`}
         onClick={() => {
           if (!isLocalList || isInstalled) {
-            setDraftSttModel(model.id)
+            handleSelectStt(model.id)
           }
         }}
         className={`group flex items-center justify-between gap-4 sm:gap-6 px-4 py-3 cursor-pointer transition-colors duration-150 border-l-2 ${
@@ -471,7 +528,7 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
                 <div className="flex items-center gap-1 w-full justify-end">
                   <button
                     type="button"
-                    onClick={() => setDraftSttModel(model.id)}
+                    onClick={() => handleSelectStt(model.id)}
                     className={`flex-1 py-1 px-1 text-[10px] font-medium border flex items-center justify-center gap-1 transition-colors cursor-pointer ${
                       isSelected
                         ? 'border-accent/40 bg-accent/10 text-accent font-semibold'
@@ -511,15 +568,17 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
               )
             ) : (
               // Provider Models (API): Select
-              <span
-                className={`w-full py-1 text-[10px] font-medium border text-center transition-colors ${
+              <button
+                type="button"
+                onClick={() => handleSelectStt(model.id)}
+                className={`w-full py-1 text-[10px] font-medium border text-center transition-colors cursor-pointer ${
                   isSelected
                     ? 'border-accent/40 bg-accent/10 text-accent font-semibold'
-                    : 'border-border/30 text-text-muted'
+                    : 'border-border/30 text-text-muted hover:border-border/60 hover:text-text-secondary'
                 }`}
               >
                 {isSelected ? t('modelsTab.selected') : t('modelsTab.select')}
-              </span>
+              </button>
             )}
           </div>
         </div>
@@ -650,26 +709,27 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
               </div>
             )}
 
-            {availableModels.llm.length === 0 ? (
+            {effectiveLlmModels.length === 0 ? (
               <div className="py-8 text-center border border-border/30 bg-background/10">
                 <p className="text-[11px] text-text-muted">{t('modelsTab.noModelsSynced')}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-52 overflow-y-auto custom-scrollbar">
-                {availableModels.llm.map((modelId) => {
+                {effectiveLlmModels.map((modelId) => {
                   const isSelected = draftLlmModel === modelId
                   return (
                     <button
                       key={modelId}
                       type="button"
-                      onClick={() => setDraftLlmModel(modelId)}
-                      className={`px-3 py-2.5 text-xs text-left border transition-all cursor-pointer truncate ${
+                      onClick={() => handleSelectLlm(modelId)}
+                      className={`px-3 py-2.5 text-xs text-left border transition-all cursor-pointer truncate flex items-center justify-between gap-2 ${
                         isSelected
                           ? 'bg-accent/[0.07] border-accent/25 text-accent font-semibold'
                           : 'bg-background/20 border-border/40 text-text-muted hover:text-text-secondary hover:border-border/60'
                       }`}
                     >
-                      {prettyModelName(modelId)}
+                      <span className="truncate">{prettyModelName(modelId)}</span>
+                      {isSelected && <IconCheck className="w-3.5 h-3.5 shrink-0" strokeWidth={2.6} />}
                     </button>
                   )
                 })}
@@ -743,9 +803,19 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
                           </div>
                         </div>
                       ) : installed ? (
-                        <div className="flex items-center justify-center gap-1.5 py-1.5 border border-emerald-500/20 text-[11px] font-semibold text-emerald-400">
-                          <IconCheck className="w-3.5 h-3.5" strokeWidth={2.6} />
-                          {t('modelsTab.installed')}
+                        <div className="flex items-center gap-1 w-full justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleSelectLlm(model.id)}
+                            className={`w-full py-1.5 px-2 text-[11px] font-medium border flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                              draftLlmModel === model.id
+                                ? 'border-accent/40 bg-accent/10 text-accent font-semibold'
+                                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+                            }`}
+                          >
+                            <IconCheck className="w-3.5 h-3.5 shrink-0" strokeWidth={2.6} />
+                            <span className="truncate">{draftLlmModel === model.id ? t('modelsTab.selected') : t('modelsTab.installed')}</span>
+                          </button>
                         </div>
                       ) : (
                         <button
