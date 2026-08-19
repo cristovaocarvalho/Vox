@@ -10,6 +10,12 @@ exports.default = async function (context) {
   const targetPlatform = context.electronPlatformName // 'win32' | 'darwin' | 'linux'
   const appOutDir = context.appOutDir
 
+  // Ignorar pastas temporárias intermediárias de build universal do macOS para não quebrar o merge do @electron/universal
+  if (appOutDir && (appOutDir.endsWith('-temp') || appOutDir.includes('-temp/') || appOutDir.includes('-temp\\'))) {
+    console.log(`[afterPack] Ignorando diretório temporário intermediário: ${appOutDir}`)
+    return
+  }
+
   console.log(`[afterPack] Iniciando pruning do onnxruntime-node para a plataforma: ${targetPlatform}...`)
 
   const candidateRoots = [
