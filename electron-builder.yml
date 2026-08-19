@@ -13,6 +13,8 @@ extraResources:
   - from: resources/models/
     to: models/
     filter: ["**/*"]
+  - from: resources/win-key-helper.exe
+    to: win-key-helper.exe
   - from: src/assets/Logo-Vox1.ico
     to: Logo-Vox1.ico
   - from: src/assets/logo.png

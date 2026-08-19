@@ -356,7 +356,7 @@ function hideDock() {
   setTimeout(() => {
     dockWindow?.hide()
     isDockHiding = false
-  }, 280)
+  }, 120)
 }
 
 function positionClipboardWindow() {
@@ -1188,6 +1188,14 @@ function getPushToTalkVk(): number | null {
   return 0x70 + (parseInt(m[1], 10) - 1)
 }
 
+function getWinKeyHelperPath(): string {
+  const isDev = !app.isPackaged
+  if (isDev) {
+    return path.join(__dirname, '../../resources/win-key-helper.exe')
+  }
+  return path.join(process.resourcesPath, 'win-key-helper.exe')
+}
+
 function startPushToTalk() {
   if (!dockWindow) return
   if (recorder.getIsRecording()) return
@@ -1205,11 +1213,18 @@ function startPushToTalk() {
   isPushToTalkActive = true
 
   if (process.platform === 'win32' && vk !== null) {
-    const psScript = `Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);' -Name KS -Namespace VOX; while (([VOX.KS]::GetAsyncKeyState(${vk}) -band 0x8000) -ne 0) { Start-Sleep -Milliseconds 30 }`
-    const encoded = Buffer.from(psScript, 'utf16le').toString('base64')
-    execFileAsync('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', encoded], { timeout: 60000 })
-      .then(() => stopPushToTalk())
-      .catch(() => stopPushToTalk())
+    const helperPath = getWinKeyHelperPath()
+    if (fs.existsSync(helperPath)) {
+      execFile(helperPath, [String(vk)], () => {
+        stopPushToTalk()
+      })
+    } else {
+      const psScript = `Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);' -Name KS -Namespace VOX; while (([VOX.KS]::GetAsyncKeyState(${vk}) -band 0x8000) -ne 0) { Start-Sleep -Milliseconds 15 }`
+      const encoded = Buffer.from(psScript, 'utf16le').toString('base64')
+      execFile('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', encoded], { timeout: 60000 }, () => {
+        stopPushToTalk()
+      })
+    }
   }
 }
 

@@ -98,8 +98,8 @@ export const DockWindow: React.FC = () => {
             key="dock"
             initial={{ scale: 0.85, opacity: 0, y: 10 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.85, opacity: 0, y: 10 }}
-            transition={{ duration: 0.25, type: 'spring', stiffness: 320, damping: 22 }}
+            exit={{ scale: 0.85, opacity: 0, y: 10, transition: { duration: 0.1, ease: 'easeOut' } }}
+            transition={{ duration: 0.2, type: 'spring', stiffness: 380, damping: 24 }}
             className="px-4 py-2.5 bg-black/40 backdrop-blur-xl border border-white/15 rounded-full flex items-center justify-center gap-3 text-white shadow-none"
           >
             {/* Logo + Waveform visualization */}
