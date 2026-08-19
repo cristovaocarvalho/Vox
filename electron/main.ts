@@ -1183,9 +1183,55 @@ let isPushToTalkActive = false
 
 function getPushToTalkVk(): number | null {
   const shortcut = getSetting('shortcutPushToTalk', 'F9').trim()
-  const m = /^F([1-9]|1[0-9]|2[0-4])$/i.exec(shortcut)
-  if (!m) return null
-  return 0x70 + (parseInt(m[1], 10) - 1)
+  const parts = shortcut.split('+').map((s) => s.trim()).filter(Boolean)
+  if (parts.length === 0) return null
+  const key = parts[parts.length - 1].toUpperCase()
+
+  // Function keys F1 - F24 (VK_F1 = 0x70, VK_F24 = 0x87)
+  const fnMatch = /^F([1-9]|1[0-9]|2[0-4])$/i.exec(key)
+  if (fnMatch) {
+    return 0x70 + (parseInt(fnMatch[1], 10) - 1)
+  }
+
+  // A-Z (VK 0x41 - 0x5A)
+  if (/^[A-Z]$/.test(key)) {
+    return key.charCodeAt(0)
+  }
+
+  // 0-9 (VK 0x30 - 0x39)
+  if (/^[0-9]$/.test(key)) {
+    return key.charCodeAt(0)
+  }
+
+  // Common Special Keys
+  const VK_MAP: Record<string, number> = {
+    SPACE: 0x20,
+    RETURN: 0x0D,
+    ENTER: 0x0D,
+    TAB: 0x09,
+    ESCAPE: 0x1B,
+    ESC: 0x1B,
+    BACKSPACE: 0x08,
+    DELETE: 0x2E,
+    INSERT: 0x2D,
+    HOME: 0x24,
+    END: 0x23,
+    PAGEUP: 0x21,
+    PAGEDOWN: 0x22,
+    UP: 0x26,
+    DOWN: 0x28,
+    LEFT: 0x25,
+    RIGHT: 0x27,
+    CAPSLOCK: 0x14,
+    NUMLOCK: 0x90,
+    SCROLLLOCK: 0x91,
+    CONTROL: 0x11,
+    CTRL: 0x11,
+    ALT: 0x12,
+    SHIFT: 0x10
+  }
+
+  return VK_MAP[key] ?? null
 }
 
 function getWinKeyHelperPath(): string {

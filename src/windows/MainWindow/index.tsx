@@ -101,6 +101,30 @@ const formatLogTime = (iso: string): string => {
   return d.toLocaleString()
 }
 
+const matchShortcut = (e: KeyboardEvent, shortcut: string): boolean => {
+  if (!shortcut) return false
+  const parts = shortcut.split('+').map((s) => s.trim()).filter(Boolean)
+  if (parts.length === 0) return false
+  const key = parts[parts.length - 1]
+  const hasCtrl = parts.includes('Ctrl')
+  const hasAlt = parts.includes('Alt')
+  const hasShift = parts.includes('Shift')
+  const hasCmd = parts.includes('Cmd')
+
+  if (e.ctrlKey !== hasCtrl) return false
+  if (e.altKey !== hasAlt) return false
+  if (e.shiftKey !== hasShift) return false
+  if (e.metaKey !== hasCmd) return false
+
+  if (key.length === 1) {
+    return e.key.toUpperCase() === key.toUpperCase()
+  }
+  if (key === 'Space') {
+    return e.key === ' ' || e.code === 'Space'
+  }
+  return e.key.toLowerCase() === key.toLowerCase() || e.code.toLowerCase() === key.toLowerCase()
+}
+
 export const MainWindow: React.FC = () => {
   const { t, localeTag } = useI18n()
   const {
@@ -519,9 +543,18 @@ export const MainWindow: React.FC = () => {
         if (saved.azureApiVersion !== undefined) settingsToUpdate.azureApiVersion = saved.azureApiVersion
         if (saved.sttModel) settingsToUpdate.sttModel = saved.sttModel
         if (saved.llmModel) settingsToUpdate.llmModel = saved.llmModel
-        if (saved.shortcutToggle) settingsToUpdate.shortcutToggle = saved.shortcutToggle
-        if (saved.shortcutPushToTalk) settingsToUpdate.shortcutPushToTalk = saved.shortcutPushToTalk
-        if (saved.shortcutClipboard) settingsToUpdate.shortcutClipboard = saved.shortcutClipboard
+        if (saved.shortcutToggle) {
+          settingsToUpdate.shortcutToggle = saved.shortcutToggle
+          setDraftShortcutToggle(saved.shortcutToggle)
+        }
+        if (saved.shortcutPushToTalk) {
+          settingsToUpdate.shortcutPushToTalk = saved.shortcutPushToTalk
+          setDraftShortcutPushToTalk(saved.shortcutPushToTalk)
+        }
+        if (saved.shortcutClipboard) {
+          settingsToUpdate.shortcutClipboard = saved.shortcutClipboard
+          setDraftShortcutClipboard(saved.shortcutClipboard)
+        }
         if (saved.commandInlineMode !== undefined) settingsToUpdate.commandInlineMode = saved.commandInlineMode === 'true'
         if (saved.wakeWordEnabled !== undefined) settingsToUpdate.wakeWordEnabled = saved.wakeWordEnabled === 'true'
         if (saved.wakeWordSensitivity) settingsToUpdate.wakeWordSensitivity = parseFloat(saved.wakeWordSensitivity)
@@ -852,11 +885,16 @@ export const MainWindow: React.FC = () => {
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'F10') {
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return
+      }
+
+      if (matchShortcut(e, shortcutToggle)) {
         if (e.repeat) return
         e.preventDefault()
         handleToggleRecording()
-      } else if (e.key === 'F9') {
+      } else if (matchShortcut(e, shortcutPushToTalk)) {
         e.preventDefault()
         if (!e.repeat) {
           setIsRecording(true)
@@ -865,7 +903,12 @@ export const MainWindow: React.FC = () => {
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'F9') {
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return
+      }
+
+      if (matchShortcut(e, shortcutPushToTalk)) {
         e.preventDefault()
         setIsRecording(false)
       }
@@ -905,7 +948,7 @@ export const MainWindow: React.FC = () => {
       unsubscribeTranscript?.()
       unsubscribePartial?.()
     }
-  }, [setIsRecording, setLastTranscript])
+  }, [shortcutToggle, shortcutPushToTalk, handleToggleRecording, setIsRecording, setLastTranscript, fetchHistory])
 
 
 
@@ -979,11 +1022,11 @@ export const MainWindow: React.FC = () => {
                         <span className="text-xs text-text-secondary font-medium">{t('type.voiceCommand')}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">F10</kbd>
+                        <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">{shortcutToggle || 'F10'}</kbd>
                         <span className="text-xs text-text-secondary font-medium">{t('type.toggle')}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">F9</kbd>
+                        <kbd className="px-2 py-0.5 bg-surface border border-border/80 text-accent text-[11px] font-mono font-semibold rounded-md">{shortcutPushToTalk || 'F9'}</kbd>
                         <span className="text-xs text-text-secondary font-medium">{t('type.pushToTalk')}</span>
                       </div>
                     </div>
