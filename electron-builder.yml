@@ -1,5 +1,6 @@
 appId: com.vox.app
 productName: Vox
+afterPack: scripts/afterPack.js
 directories:
   output: dist-build
 publish:
