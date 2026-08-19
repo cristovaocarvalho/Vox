@@ -11,10 +11,16 @@ import { getSetting } from './db'
 const SAMPLE_RATE = 16000
 const MAX_BUFFER_SECONDS = 3
 const MIN_UTTERANCE_SECONDS = 0.3
-const SILENCE_END_SECONDS = 0.4
+const SILENCE_END_SECONDS = 0.6
 const LEAD_IN_SECONDS = 0.15
 
-const KEYWORD_VARIANTS = ['vox', 'vocs', 'voks', 'voxs']
+const KEYWORD_VARIANTS = [
+  'vox', 'vocs', 'voks', 'voxs', 'vox!', 'box', 'fox', 'boks',
+  'vós', 'vos', 'voks', 'vaux', 'vóx', 'vôx', 'voz', 'bóx',
+  'woks', 'wox', 'vex', 'vax', 'vock', 'voque', 'voques',
+  'blocks', 'rocks', 'walks', 'docks', 'socks', 'talks', 'hawks',
+  'volk', 'volks', 'vogue'
+]
 
 function float32ToWav(samples: number[], sampleRate = SAMPLE_RATE): Buffer {
   const dataLength = samples.length * 2
@@ -59,7 +65,7 @@ export class WakeWordDetector extends EventEmitter {
   private hasSpeech = false
   private transcribing = false
   private lastTriggerTime = 0
-  private cooldownMs = 2500
+  private cooldownMs = 1500
   private warnedNoApiKey = false
 
   constructor() {
@@ -77,7 +83,7 @@ export class WakeWordDetector extends EventEmitter {
   public setSensitivity(value: number) {
     const normalized = Math.max(0.0, Math.min(1.0, value))
     this.sensitivity = normalized
-    this.vadThreshold = 0.04 - normalized * 0.03
+    this.vadThreshold = 0.025 - normalized * 0.015
     console.log(`[WakeWord] Sensibilidade ajustada: ${Math.round(normalized * 100)}% (VAD Threshold: ${this.vadThreshold.toFixed(3)})`)
   }
 

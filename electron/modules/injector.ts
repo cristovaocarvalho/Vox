@@ -37,7 +37,7 @@ export async function injectText(
 
   // 1. Sempre escreve na área de transferência do sistema
   clipboard.writeText(text)
-  await new Promise((resolve) => setTimeout(resolve, 150))
+  await new Promise((resolve) => setTimeout(resolve, 50))
 
   // 2. macOS (Darwin): Restaura foco e cola via Command+V com AppleScript
   if (process.platform === 'darwin') {
@@ -62,7 +62,7 @@ export async function injectText(
   // 3. Windows (Win32): Restaura o foco na janela de destino e cola via Ctrl+V com PowerShell
   const targetHwnd = ref.hwnd
   const psCommand = targetHwnd && targetHwnd !== '0' && targetHwnd !== 'null'
-    ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${targetHwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 80; [System.Windows.Forms.SendKeys]::SendWait('^v')`
+    ? `$t=(Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);' -Name SFW -Namespace VOX -PassThru); $t::SetForegroundWindow([IntPtr]${targetHwnd}); Add-Type -AssemblyName System.Windows.Forms; Start-Sleep -Milliseconds 30; [System.Windows.Forms.SendKeys]::SendWait('^v')`
     : `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')`
 
   return new Promise((resolve) => {

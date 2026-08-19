@@ -790,7 +790,7 @@ export const MainWindow: React.FC = () => {
         } catch {
           // ignore chunk errors
         }
-      }, 2000)
+      }, 1500)
     } catch (err) {
       console.error('[MainWindow] Erro ao acessar microfone:', err)
       setIsRecording(false)

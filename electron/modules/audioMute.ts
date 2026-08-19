@@ -126,9 +126,20 @@ async function run(muted: boolean): Promise<boolean | null> {
     const prev = stdout.trim()
     if (prev === '1') return true
     if (prev === '0') return false
-    return null
+    // COM approach returned unexpected output — try SendInput fallback
+    console.warn('[AudioMute] COM retornou valor inesperado, tentando fallback SendInput...')
   } catch (err) {
-    console.warn('[AudioMute] Falha ao alterar o mute do sistema:', err)
+    console.warn('[AudioMute] COM falhou, tentando fallback SendInput:', err)
+  }
+
+  // Fallback: SendInput com VK_VOLUME_MUTE (0xAD)
+  try {
+    const fallbackScript = `Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);' -Name KI -Namespace VOX; [VOX.KI]::keybd_event(0xAD, 0, 0, [UIntPtr]::Zero); [VOX.KI]::keybd_event(0xAD, 0, 2, [UIntPtr]::Zero)`
+    const enc = Buffer.from(fallbackScript, 'utf16le').toString('base64')
+    await execFileAsync('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', enc], { timeout: 3000 })
+    return false // assume was not muted (best effort)
+  } catch (err2) {
+    console.warn('[AudioMute] Fallback SendInput também falhou:', err2)
     return null
   }
 }

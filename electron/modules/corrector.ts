@@ -3,7 +3,7 @@ import { resolveProvider, getChatEndpoint, getAuthHeaders } from './providers'
 import { templateManager } from './templateManager'
 import type { DictationTemplate } from '../../src/types/templates'
 
-const DEFAULT_LLM_MODEL = 'llama-3.1-8b-instant'
+
 const CALIBRATION_SESSIONS = 25
 
 function buildDictionaryLine(): string {
@@ -32,7 +32,11 @@ export async function correctTranscription(text: string, context?: string, templ
     console.warn('[Corrector] API Key não configurada, retornando texto original.')
     return text
   }
-  const model = (getSetting('llmModel') || process.env.LLM_MODEL || DEFAULT_LLM_MODEL).trim()
+  const model = (getSetting('llmModel') || process.env.LLM_MODEL || '').trim()
+  if (!model) {
+    console.warn('[Corrector] Nenhum modelo LLM configurado, retornando texto original.')
+    return text
+  }
 
   const endpoint = getChatEndpoint(model)
 

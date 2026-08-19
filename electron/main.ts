@@ -181,7 +181,11 @@ async function muteSystemAudioIfEnabled() {
   if (systemMutedByVox) return
   if (getSetting('muteSystemAudio', 'false') !== 'true') return
   systemMutedByVox = true
-  await muteSystemAudio()
+  try {
+    await muteSystemAudio()
+  } catch {
+    systemMutedByVox = false
+  }
 }
 
 async function unmuteSystemAudioIfNeeded() {
@@ -728,8 +732,11 @@ function setupIpcHandlers() {
 
   ipcMain.handle('vox:start-recording', () => {
     console.log('[Main] IPC vox:start-recording acionado')
-    recorder.startRecording()
-    void muteSystemAudioIfEnabled()
+    // Se já está gravando (ex: wake word já iniciou com autoStopOnSilence), não resetar
+    if (!recorder.getIsRecording()) {
+      recorder.startRecording()
+      void muteSystemAudioIfEnabled()
+    }
     showDock()
     return true
   })
