@@ -187,6 +187,8 @@ const zhCN: TranslationKeys = {
     download: '下载',
     downloading: '正在下载',
     installed: '已安装',
+    installedModels: '已安装模型',
+    noInstalledModels: '尚未安装本地模型。',
     providerModels: '服务商模型',
     localModels: '本地模型',
     localModelsHint: '直接在应用内下载模型，实现完全本地化与隐私保护。',

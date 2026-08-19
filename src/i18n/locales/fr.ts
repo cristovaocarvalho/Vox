@@ -187,6 +187,8 @@ const fr: TranslationKeys = {
     download: 'Télécharger',
     downloading: 'Téléchargement',
     installed: 'Installé',
+    installedModels: 'Modèles installés',
+    noInstalledModels: 'Aucun modèle local installé pour le moment.',
     providerModels: 'Modèles du Fournisseur',
     localModels: 'Modèles Locaux',
     localModelsHint: 'Téléchargez les modèles directement dans l’app pour une utilisation locale et privée.',

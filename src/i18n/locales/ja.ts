@@ -187,6 +187,8 @@ const ja: TranslationKeys = {
     download: 'ダウンロード',
     downloading: 'ダウンロード中',
     installed: 'インストール済み',
+    installedModels: 'インストール済みモデル',
+    noInstalledModels: 'ローカルモデルはまだインストールされていません。',
     providerModels: 'プロバイダーモデル',
     localModels: 'ローカルモデル',
     localModelsHint: 'アプリ内で直接モデルをダウンロードし、完全にローカルでプライベートに使用できます。',
