@@ -15,9 +15,14 @@ export const CATEGORY_LABELS: Record<CommandCategory, string> = {
 
 export function displayPattern(pattern: string): string {
   return pattern
+    .replace(/^\^|\$$/g, '')
     .replace(/\\s\*/g, ' ')
+    .replace(/\\s\+/g, ' ')
+    .replace(/\(\?:/g, '(')
+    .replace(/\(([a-zA-Záéíóúâêôãõç\s]+)\|[a-zA-Záéíóúâêôãõç\s|]+\)/gi, '$1')
     .replace(/\\([()[\]{}?+|^$.])/g, '$1')
-    .replace(/\[\^?([a-záéíóúâêôãõç]+)\]/gi, (m, chars) => (chars.length <= 2 ? chars : m))
+    .replace(/\[\^?([a-záéíóúâêôãõç]+)\]/gi, (m, chars) => (chars.length <= 2 ? chars : chars[0]))
+    .replace(/\?|\*|\+/g, '')
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -75,15 +80,21 @@ interface Props {
 
 export const CommandCard: React.FC<Props> = ({ command, onToggle, onToggleMatchMode, onEdit, onDelete }) => {
   const { t, language } = useI18n()
+  const isPt = language === 'pt-BR'
   const isEn = language === 'en'
 
   const displayLabel = command.isDefault && command.label.includes(' / ')
-    ? (isEn ? command.label.split(' / ')[0] : command.label.split(' / ')[1])
-    : (isEn ? (command.labelEn || command.label) : (command.labelPt || command.label))
+    ? (isPt ? command.label.split(' / ')[1] : command.label.split(' / ')[0])
+    : (isPt ? (command.labelPt || command.label) : (command.labelEn || command.label))
 
-  const displayDesc = isEn
-    ? (command.descriptionEn || command.description)
-    : (command.descriptionPt || COMMAND_DESCRIPTIONS_PT[command.id] || command.description)
+  const displayDesc = isPt
+    ? (command.descriptionPt || COMMAND_DESCRIPTIONS_PT[command.id] || command.description)
+    : (command.descriptionEn || command.description)
+
+  const triggersList = isPt ? command.triggers.pt : command.triggers.en
+  const activeTriggers = (triggersList && triggersList.length > 0)
+    ? triggersList
+    : (command.triggers.en && command.triggers.en.length > 0 ? command.triggers.en : command.triggers.pt)
 
   return (
     <div className="p-3 bg-background/40 border border-border/50 rounded-xl flex items-start gap-3">
@@ -104,14 +115,17 @@ export const CommandCard: React.FC<Props> = ({ command, onToggle, onToggleMatchM
           <p className="text-[11px] text-text-muted mt-0.5">{displayDesc}</p>
         )}
 
-        <div className="flex items-center gap-2 flex-wrap mt-1.5">
-          <span className="text-[9px] font-mono uppercase text-text-muted">{t('commands.triggersPtShort')}:</span>
-          {command.triggers.pt.map((p, i) => (
-            <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-background/60 border border-border/40 text-text-secondary font-mono">{displayPattern(p)}</span>
-          ))}
-          <span className="text-[9px] font-mono uppercase text-text-muted ml-2">{t('commands.triggersEnShort')}:</span>
-          {command.triggers.en.map((p, i) => (
-            <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-background/60 border border-border/40 text-text-secondary font-mono">{displayPattern(p)}</span>
+        <div className="flex items-center gap-1.5 flex-wrap mt-2">
+          <span className="text-[9px] font-mono uppercase text-text-muted">
+            {isPt ? 'Diga:' : 'Say:'}
+          </span>
+          {activeTriggers.map((p, i) => (
+            <span
+              key={i}
+              className="text-[10px] px-2 py-0.5 rounded bg-background/60 border border-border/40 text-text-secondary font-mono tracking-tight"
+            >
+              {displayPattern(p)}
+            </span>
           ))}
         </div>
       </div>
