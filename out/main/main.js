@@ -139,7 +139,7 @@ class AudioRecorder extends events.EventEmitter {
   }
 }
 const recorder = new AudioRecorder();
-const { app: app$3, safeStorage } = require("electron");
+const { app: app$2, safeStorage } = require("electron");
 let Database = null;
 try {
   Database = require("better-sqlite3");
@@ -197,7 +197,7 @@ function cachedStmt(sql) {
 }
 function initDatabase() {
   try {
-    const userDataPath = app$3.getPath("userData");
+    const userDataPath = app$2.getPath("userData");
     if (!fs.existsSync(userDataPath)) {
       fs.mkdirSync(userDataPath, { recursive: true });
     }
@@ -371,7 +371,7 @@ function setSetting(key, value) {
 function getAllSettings() {
   let systemLanguage = "pt-BR";
   try {
-    const locale = app$3.getLocale() || "pt-BR";
+    const locale = app$2.getLocale() || "pt-BR";
     if (locale.toLowerCase().startsWith("en")) {
       systemLanguage = "en";
     }
@@ -2245,7 +2245,7 @@ class CommandParser {
     return { segments, hasCommands, hasContent, isMixed: hasCommands && hasContent };
   }
 }
-const { shell: shell$2, clipboard } = require("electron");
+const { shell: shell$1, clipboard } = require("electron");
 function runPowerShell(command) {
   return new Promise((resolve, reject) => {
     child_process.exec(`powershell -NoProfile -WindowStyle Hidden -Command ${command}`, (err) => {
@@ -2558,11 +2558,11 @@ const MAC_APP_MAP = {
 async function openPlainApp(name) {
   const target = APP_LAUNCH_MAP[name];
   if (typeof target === "string" && /^https?:\/\//i.test(target)) {
-    await shell$2.openExternal(target);
+    await shell$1.openExternal(target);
     return;
   }
   if (target === "browser") {
-    await shell$2.openExternal("https://www.google.com");
+    await shell$1.openExternal("https://www.google.com");
     return;
   }
   if (process.platform === "darwin") {
@@ -2578,7 +2578,7 @@ async function openPlainApp(name) {
       await runShell(`open -a "${name.replace(/"/g, '\\"')}"`);
       return;
     } catch {
-      await shell$2.openExternal(`https://${name}`).catch(() => {
+      await shell$1.openExternal(`https://${name}`).catch(() => {
       });
       return;
     }
@@ -2599,7 +2599,7 @@ async function openPlainApp(name) {
     try {
       await runPowerShell(`Start-Process '${name.replace(/'/g, "''")}.exe'`);
     } catch {
-      await shell$2.openExternal(`https://${name}`).catch(() => {
+      await shell$1.openExternal(`https://${name}`).catch(() => {
       });
     }
   }
@@ -2610,19 +2610,19 @@ async function openAppWithSearch(app2, query) {
   if (process.platform === "darwin") {
     const macApp = MAC_APP_MAP[appKey] || (BROWSER_EXE[appKey] ? "Google Chrome" : "");
     if (macApp) {
-      await runShell(`open -a "${macApp}" "${url}"`).catch(() => shell$2.openExternal(url).catch(() => {
+      await runShell(`open -a "${macApp}" "${url}"`).catch(() => shell$1.openExternal(url).catch(() => {
       }));
     } else {
-      await shell$2.openExternal(url);
+      await shell$1.openExternal(url);
     }
     return;
   }
   const exe = BROWSER_EXE[appKey];
   if (exe) {
-    await runPowerShell(`Start-Process '${exe}' '${url}'`).catch(() => shell$2.openExternal(url).catch(() => {
+    await runPowerShell(`Start-Process '${exe}' '${url}'`).catch(() => shell$1.openExternal(url).catch(() => {
     }));
   } else {
-    await shell$2.openExternal(url);
+    await shell$1.openExternal(url);
   }
 }
 function parseSearchIntent(query, defaultEngine) {
@@ -2644,11 +2644,11 @@ async function openSearch(defaultEngine, query) {
   const cleanedQuery = (query || "").replace(/^(the|o|a|os|as|um|uma|my|meu|minha|meus|minhas)\s+/i, "").trim();
   const { engine, query: finalQuery } = parseSearchIntent(cleanedQuery, defaultEngine);
   if (!finalQuery) {
-    await shell$2.openExternal(SEARCH_ENGINES[engine || defaultEngine].replace(/=.*$/, ""));
+    await shell$1.openExternal(SEARCH_ENGINES[engine || defaultEngine].replace(/=.*$/, ""));
     return;
   }
   const base = SEARCH_ENGINES[engine] || SEARCH_ENGINES.google;
-  await shell$2.openExternal(base + encodeURIComponent(finalQuery));
+  await shell$1.openExternal(base + encodeURIComponent(finalQuery));
 }
 function findLastSentenceBoundary(text) {
   for (let i = text.length - 2; i >= 0; i--) {
@@ -2725,7 +2725,7 @@ class CommandExecutor extends events.EventEmitter {
           this.emit("change_profile", String(action.parameter));
           break;
         case "open_url":
-          await shell$2.openExternal(String(action.parameter));
+          await shell$1.openExternal(String(action.parameter));
           break;
         case "open_search":
           await openSearch(String(action.parameter || "google"), context.params?.[0] || "");
@@ -3352,7 +3352,7 @@ async function pullOllamaModel(model, baseUrl, onProgress) {
     return false;
   }
 }
-const { app: app$2 } = require("electron");
+const { app: app$1 } = require("electron");
 const WHISPER_LOCAL_CATALOG = [
   {
     id: "whisper-large-v3-turbo",
@@ -3418,7 +3418,7 @@ const WHISPER_LOCAL_CATALOG = [
 ];
 const activeDownloads = /* @__PURE__ */ new Map();
 function getModelsDirectory() {
-  const modelsDir = path__namespace.join(app$2.getPath("userData"), "models");
+  const modelsDir = path__namespace.join(app$1.getPath("userData"), "models");
   if (!fs__namespace.existsSync(modelsDir)) {
     fs__namespace.mkdirSync(modelsDir, { recursive: true });
   }
@@ -3647,13 +3647,8 @@ async function downloadWhisperModel(modelId, onProgress) {
     });
   });
 }
-const { app: app$1, ipcMain: ipcMain$1, shell: shell$1 } = require("electron");
+const { ipcMain: ipcMain$1 } = require("electron");
 function initAutoUpdater(getMainWindow) {
-  ipcMain$1.handle("vox:open-external", (_event, url) => {
-    if (typeof url === "string" && (url.startsWith("https://") || url.startsWith("http://"))) {
-      shell$1.openExternal(url);
-    }
-  });
   electronUpdater.autoUpdater.autoDownload = true;
   electronUpdater.autoUpdater.autoInstallOnAppQuit = true;
   electronUpdater.autoUpdater.setFeedURL({
