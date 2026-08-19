@@ -14,31 +14,6 @@ interface WhisperModelInfo {
   recommended?: boolean
 }
 
-// Models available via API (Groq / OpenAI / Azure)
-const API_MODELS: WhisperModelInfo[] = [
-  {
-    id: 'whisper-large-v3-turbo',
-    name: 'Whisper Large v3 Turbo',
-    speed: 3.5, accuracy: 4.6, size: '—',
-    recommended: true
-  },
-  {
-    id: 'whisper-large-v3',
-    name: 'Whisper Large v3',
-    speed: 1.5, accuracy: 4.7, size: '—'
-  },
-  {
-    id: 'whisper-medium',
-    name: 'Whisper Medium',
-    speed: 2.0, accuracy: 4.3, size: '—'
-  },
-  {
-    id: 'whisper-small',
-    name: 'Whisper Small',
-    speed: 3.0, accuracy: 3.8, size: '—'
-  }
-]
-
 // Models that can be installed locally (whisper.cpp GGML format)
 const LOCAL_MODELS: WhisperModelInfo[] = [
   {
@@ -211,37 +186,7 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
     'distil-whisper-large-v3-en': { speed: 4.0, accuracy: 4.2 }
   }
 
-  // Default fallback provider LLM models when API has not yet synced
-  const DEFAULT_LLM_MODELS: Record<string, string[]> = {
-    groq: [
-      'llama-3.3-70b-versatile',
-      'llama-3.1-8b-instant',
-      'llama-3.1-70b-versatile',
-      'mixtral-8x7b-32768',
-      'gemma2-9b-it'
-    ],
-    openai: [
-      'gpt-4o',
-      'gpt-4o-mini',
-      'gpt-4-turbo',
-      'gpt-3.5-turbo'
-    ],
-    azure: [
-      'gpt-4o',
-      'gpt-4o-mini'
-    ],
-    ollama: [
-      'llama3.1:latest',
-      'mistral:latest',
-      'qwen2.5:7b',
-      'gemma2:9b'
-    ],
-    lmstudio: [
-      'local-model'
-    ]
-  }
-
-  // Dynamic synchronized provider speech models
+  // Dynamic synchronized provider speech models (only truly available models)
   const effectiveApiModels: WhisperModelInfo[] = React.useMemo(() => {
     if (availableModels.stt && availableModels.stt.length > 0) {
       return availableModels.stt.map((id) => {
@@ -256,17 +201,13 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
         }
       })
     }
-    return API_MODELS
+    return []
   }, [availableModels.stt])
 
-  // Dynamic synchronized provider LLM models
+  // Dynamic synchronized provider LLM models (only truly available models)
   const effectiveLlmModels: string[] = React.useMemo(() => {
-    if (availableModels.llm && availableModels.llm.length > 0) {
-      return availableModels.llm
-    }
-    const prov = (draftProvider || 'groq').toLowerCase()
-    return DEFAULT_LLM_MODELS[prov] || DEFAULT_LLM_MODELS.groq
-  }, [availableModels.llm, draftProvider])
+    return availableModels.llm || []
+  }, [availableModels.llm])
 
   // Instant selection and persistence handlers
   const handleSelectStt = (modelId: string) => {
@@ -646,7 +587,13 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
               </button>
             }
           >
-            {effectiveApiModels.map((m) => renderModelCard(m, false))}
+            {effectiveApiModels.length === 0 ? (
+              <div className="py-6 text-center border border-border/20 bg-background/10 my-1">
+                <p className="text-[11px] text-text-muted">{t('modelsTab.noModelsSynced')}</p>
+              </div>
+            ) : (
+              effectiveApiModels.map((m) => renderModelCard(m, false))
+            )}
           </CollapsibleSection>
 
           <CollapsibleSection label={t('modelsTab.localModels')} defaultOpen={false}>
