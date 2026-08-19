@@ -2,6 +2,7 @@ import type { BrowserWindow as BrowserWindowType } from 'electron'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage, shell, systemPreferences } = require('electron')
 import path from 'path'
+import fs from 'fs'
 import recorder from './modules/recorder'
 import { transcribeAudio } from './modules/stt'
 import { correctTranscription } from './modules/corrector'
@@ -110,14 +111,24 @@ async function captureActiveWindow(): Promise<WindowRef | null> {
 const getDevUrl = () => process.env['ELECTRON_RENDERER_URL'] || process.env['VITE_DEV_SERVER_URL']
 
 function getAppIconPath() {
-  if (process.platform === 'darwin') {
-    return app.isPackaged
-      ? path.join(process.resourcesPath, 'logo.png')
-      : path.join(app.getAppPath(), 'src/assets/logo.png')
+  const isMac = process.platform === 'darwin'
+  const iconFile = isMac ? 'logo.png' : 'Logo-Vox1.ico'
+  const fallbackFile = 'logo.png'
+
+  if (app.isPackaged) {
+    const packagedPath = path.join(process.resourcesPath, iconFile)
+    if (fs.existsSync(packagedPath)) return packagedPath
+    return path.join(process.resourcesPath, fallbackFile)
   }
-  return app.isPackaged
-    ? path.join(process.resourcesPath, 'Logo-Vox1.ico')
-    : path.join(app.getAppPath(), 'src/assets/Logo-Vox1.ico')
+
+  const appPath = app.getAppPath()
+  const devPath = path.join(appPath, 'src/assets', iconFile)
+  if (fs.existsSync(devPath)) return devPath
+
+  const fallbackDevPath = path.join(appPath, 'src/assets', fallbackFile)
+  if (fs.existsSync(fallbackDevPath)) return fallbackDevPath
+
+  return path.join(__dirname, '../../src/assets', iconFile)
 }
 
 async function disableWindowsShadow(win: BrowserWindowType | null): Promise<void> {
@@ -1359,8 +1370,14 @@ app.whenReady().then(async () => {
 
   // Tray icon para manter o app vivo quando a janela principal é fechada
   const iconPath = getAppIconPath()
-  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 })
-  tray = new Tray(trayIcon)
+  let trayImage: any = iconPath
+  if (process.platform === 'darwin') {
+    trayImage = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 })
+  } else {
+    const img = nativeImage.createFromPath(iconPath)
+    trayImage = !img.isEmpty() ? img : iconPath
+  }
+  tray = new Tray(trayImage)
   tray.setToolTip('Vox')
   const lang = (settings.language || 'pt-BR').toLowerCase()
   const isEn = lang === 'en' || lang.startsWith('en')
@@ -1369,6 +1386,7 @@ app.whenReady().then(async () => {
     { type: 'separator' },
     { label: isEn ? 'Quit' : 'Sair', click: () => { tray?.destroy(); wakewordDetector.stop(); app.exit(0) } }
   ]))
+  tray.on('click', () => { showMainWindow() })
   tray.on('double-click', () => { showMainWindow() })
 
   app.on('activate', () => {

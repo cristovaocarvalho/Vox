@@ -13,6 +13,12 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null) {
 
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'cristovaocarvalho',
+    repo: 'Vox'
+  })
+  autoUpdater.forceDevUpdateConfig = true
 
   const notify = (data: any) => {
     const win = getMainWindow()
@@ -54,9 +60,6 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null) {
   })
 
   ipcMain.handle('vox:check-for-updates', async () => {
-    if (!app.isPackaged) {
-      return { success: false, message: 'Em modo de desenvolvimento (não empacotado)' }
-    }
     try {
       const result = await autoUpdater.checkForUpdates()
       return { success: true, version: result?.updateInfo?.version }
@@ -73,11 +76,9 @@ export function initAutoUpdater(getMainWindow: () => BrowserWindow | null) {
     autoUpdater.quitAndInstall(true, true)
   })
 
-  if (app.isPackaged) {
-    setTimeout(() => {
-      autoUpdater.checkForUpdatesAndNotify().catch((e) => {
-        console.warn('[AutoUpdater] Falha na checagem automática inicial:', e)
-      })
-    }, 6000)
-  }
+  setTimeout(() => {
+    autoUpdater.checkForUpdatesAndNotify().catch((e) => {
+      console.warn('[AutoUpdater] Falha na checagem automática inicial:', e)
+    })
+  }, 6000)
 }

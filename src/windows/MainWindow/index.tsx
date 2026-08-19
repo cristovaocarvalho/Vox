@@ -220,8 +220,8 @@ export const MainWindow: React.FC = () => {
   const handleCheckUpdates = async () => {
     setUpdaterState({ status: 'checking' })
     const res = await window.vox?.checkForUpdates?.()
-    if (!res?.success && res?.message) {
-      setUpdaterState({ status: 'error', error: res.message })
+    if (!res?.success) {
+      setUpdaterState({ status: 'error', error: res?.error || res?.message || 'Erro ao verificar atualizações' })
     }
   }
 

@@ -1,7 +1,7 @@
 "use strict";
 const path = require("path");
-const events = require("events");
 const fs = require("fs");
+const events = require("events");
 const crypto = require("crypto");
 const child_process = require("child_process");
 const util = require("util");
@@ -3656,6 +3656,12 @@ function initAutoUpdater(getMainWindow) {
   });
   electronUpdater.autoUpdater.autoDownload = true;
   electronUpdater.autoUpdater.autoInstallOnAppQuit = true;
+  electronUpdater.autoUpdater.setFeedURL({
+    provider: "github",
+    owner: "cristovaocarvalho",
+    repo: "Vox"
+  });
+  electronUpdater.autoUpdater.forceDevUpdateConfig = true;
   const notify = (data) => {
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {
@@ -3689,9 +3695,6 @@ function initAutoUpdater(getMainWindow) {
     notify({ status: "error", error: msg });
   });
   ipcMain$1.handle("vox:check-for-updates", async () => {
-    if (!app$1.isPackaged) {
-      return { success: false, message: "Em modo de desenvolvimento (não empacotado)" };
-    }
     try {
       const result = await electronUpdater.autoUpdater.checkForUpdates();
       return { success: true, version: result?.updateInfo?.version };
@@ -3706,13 +3709,11 @@ function initAutoUpdater(getMainWindow) {
   ipcMain$1.handle("vox:restart-and-install-update", () => {
     electronUpdater.autoUpdater.quitAndInstall(true, true);
   });
-  if (app$1.isPackaged) {
-    setTimeout(() => {
-      electronUpdater.autoUpdater.checkForUpdatesAndNotify().catch((e) => {
-        console.warn("[AutoUpdater] Falha na checagem automática inicial:", e);
-      });
-    }, 6e3);
-  }
+  setTimeout(() => {
+    electronUpdater.autoUpdater.checkForUpdatesAndNotify().catch((e) => {
+      console.warn("[AutoUpdater] Falha na checagem automática inicial:", e);
+    });
+  }, 6e3);
 }
 const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage, shell, systemPreferences } = require("electron");
 const execFileAsync = util.promisify(child_process.execFile);
@@ -3784,10 +3785,20 @@ async function captureActiveWindow() {
 }
 const getDevUrl = () => process.env["ELECTRON_RENDERER_URL"] || process.env["VITE_DEV_SERVER_URL"];
 function getAppIconPath() {
-  if (process.platform === "darwin") {
-    return app.isPackaged ? path.join(process.resourcesPath, "logo.png") : path.join(app.getAppPath(), "src/assets/logo.png");
+  const isMac = process.platform === "darwin";
+  const iconFile = isMac ? "logo.png" : "Logo-Vox1.ico";
+  const fallbackFile = "logo.png";
+  if (app.isPackaged) {
+    const packagedPath = path.join(process.resourcesPath, iconFile);
+    if (fs.existsSync(packagedPath)) return packagedPath;
+    return path.join(process.resourcesPath, fallbackFile);
   }
-  return app.isPackaged ? path.join(process.resourcesPath, "Logo-Vox1.ico") : path.join(app.getAppPath(), "src/assets/Logo-Vox1.ico");
+  const appPath = app.getAppPath();
+  const devPath = path.join(appPath, "src/assets", iconFile);
+  if (fs.existsSync(devPath)) return devPath;
+  const fallbackDevPath = path.join(appPath, "src/assets", fallbackFile);
+  if (fs.existsSync(fallbackDevPath)) return fallbackDevPath;
+  return path.join(__dirname, "../../src/assets", iconFile);
 }
 async function disableWindowsShadow(win) {
   if (process.platform !== "win32" || !win) return;
@@ -4832,8 +4843,14 @@ app.whenReady().then(async () => {
   }
   registerShortcuts();
   const iconPath = getAppIconPath();
-  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
-  tray = new Tray(trayIcon);
+  let trayImage = iconPath;
+  if (process.platform === "darwin") {
+    trayImage = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  } else {
+    const img = nativeImage.createFromPath(iconPath);
+    trayImage = !img.isEmpty() ? img : iconPath;
+  }
+  tray = new Tray(trayImage);
   tray.setToolTip("Vox");
   const lang = (settings.language || "pt-BR").toLowerCase();
   const isEn = lang === "en" || lang.startsWith("en");
@@ -4848,6 +4865,9 @@ app.whenReady().then(async () => {
       app.exit(0);
     } }
   ]));
+  tray.on("click", () => {
+    showMainWindow();
+  });
   tray.on("double-click", () => {
     showMainWindow();
   });
