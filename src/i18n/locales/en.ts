@@ -187,15 +187,18 @@ const en = {
     installed: 'Installed',
     installedModels: 'Installed Models',
     noInstalledModels: 'No local models installed yet.',
-    downloadHint: 'Download models locally via Ollama for fully private, offline correction.',
-    cloudProviderHint: 'Cloud provider — models are managed in the provider dashboard.',
+    providerModels: 'Provider Models',
+    localModels: 'Local Models',
+    localModelsHint: 'Download models directly in-app for fully local and private use.',
+    recommended: 'Recommended',
     providerStatus: 'Provider Connection',
     downloadingProgress: 'Downloading…',
     checking: 'Checking…',
     downloadFailed: 'Failed to download the model. Make sure Ollama is running and reachable.'
   },
   common: {
-    settings: 'Settings'
+    settings: 'Settings',
+    delete: 'Delete'
   }
 }
 

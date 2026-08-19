@@ -189,15 +189,18 @@ const ptBR: TranslationKeys = {
     installed: 'Instalado',
     installedModels: 'Modelos Instalados',
     noInstalledModels: 'Nenhum modelo local instalado ainda.',
-    downloadHint: 'Baixe modelos localmente via Ollama para correção privada e offline.',
-    cloudProviderHint: 'Provedor em nuvem — os modelos são gerenciados no painel do provedor.',
+    providerModels: 'Modelos do Provedor',
+    localModels: 'Modelos Locais',
+    localModelsHint: 'Baixe os modelos diretamente no app para uso local e privado.',
+    recommended: 'Recomendado',
     providerStatus: 'Conexão do Provedor',
     downloadingProgress: 'Baixando…',
     checking: 'Verificando…',
     downloadFailed: 'Falha ao baixar o modelo. Verifique se o Ollama está em execução e acessível.'
   },
   common: {
-    settings: 'Configurações'
+    settings: 'Configurações',
+    delete: 'Excluir'
   }
 }
 

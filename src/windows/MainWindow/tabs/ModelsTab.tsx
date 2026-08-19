@@ -372,7 +372,7 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
               </span>
               {model.recommended && (
                 <span className="text-[8px] font-semibold text-accent/90 uppercase tracking-wider bg-accent/10 px-1.5 py-0.5 rounded border border-accent/20 shrink-0">
-                  Recommended
+                  {t('modelsTab.recommended')}
                 </span>
               )}
             </div>
@@ -527,13 +527,13 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
             </div>
           )}
 
-          <CollapsibleSection label="Provider Models" defaultOpen={true}>
+          <CollapsibleSection label={t('modelsTab.providerModels')} defaultOpen={true}>
             {API_MODELS.map((m) => renderModelCard(m, false))}
           </CollapsibleSection>
 
-          <CollapsibleSection label="Local Models" defaultOpen={false}>
+          <CollapsibleSection label={t('modelsTab.localModels')} defaultOpen={false}>
             <p className="px-3 pb-1 text-[10px] text-text-muted leading-relaxed">
-              Baixe os modelos diretamente no app para uso local e privado.
+              {t('modelsTab.localModelsHint')}
             </p>
             {LOCAL_MODELS.map((m) => renderModelCard(m, true))}
           </CollapsibleSection>
