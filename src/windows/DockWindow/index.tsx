@@ -4,10 +4,48 @@ import logoImg from '../../assets/logo.png'
 import onSound from '../../assets/On.mp3'
 import offSound from '../../assets/Off.mp3'
 
-const onAudio = new Audio(onSound)
-onAudio.preload = 'auto'
-const offAudio = new Audio(offSound)
-offAudio.preload = 'auto'
+let audioCtx: AudioContext | null = null
+let gainNode: GainNode | null = null
+let onBuffer: AudioBuffer | null = null
+let offBuffer: AudioBuffer | null = null
+
+const initAudio = async () => {
+  try {
+    const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext
+    if (!audioCtx) {
+      audioCtx = new AudioCtxClass()
+      gainNode = audioCtx.createGain()
+      gainNode.gain.value = 2.2 // Volume amplificado para máxima presença e clareza
+      gainNode.connect(audioCtx.destination)
+    }
+    if (!onBuffer || !offBuffer) {
+      const [onRes, offRes] = await Promise.all([
+        fetch(onSound).then((r) => r.arrayBuffer()),
+        fetch(offSound).then((r) => r.arrayBuffer())
+      ])
+      onBuffer = await audioCtx.decodeAudioData(onRes)
+      offBuffer = await audioCtx.decodeAudioData(offRes)
+    }
+  } catch (err) {
+    console.error('[DockWindow] Erro ao carregar SFX:', err)
+  }
+}
+
+void initAudio()
+
+const playSfx = (type: 'on' | 'off') => {
+  try {
+    const buffer = type === 'on' ? onBuffer : offBuffer
+    if (!audioCtx || !gainNode || !buffer) return
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {})
+    }
+    const source = audioCtx.createBufferSource()
+    source.buffer = buffer
+    source.connect(gainNode)
+    source.start(0)
+  } catch {}
+}
 
 export const DockWindow: React.FC = () => {
   const bars = 7
@@ -28,20 +66,14 @@ export const DockWindow: React.FC = () => {
     if (window.vox?.onDockShow) {
       unsubShow = window.vox.onDockShow(() => {
         setIsVisible(true)
-        try {
-          onAudio.currentTime = 0
-          onAudio.play().catch(() => {})
-        } catch {}
+        playSfx('on')
       })
     }
 
     if (window.vox?.onDockHide) {
       unsubHide = window.vox.onDockHide(() => {
         setIsVisible(false)
-        try {
-          offAudio.currentTime = 0
-          offAudio.play().catch(() => {})
-        } catch {}
+        playSfx('off')
       })
     }
 
