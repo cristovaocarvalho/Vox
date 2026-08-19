@@ -24,20 +24,17 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
-          cache-dependency-path: code/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: code
         run: npm ci
 
       - name: Build and Package (Windows)
         if: runner.os == 'Windows'
-        working-directory: code
         run: npm run build:win
 
       - name: Build and Package (macOS)
         if: runner.os == 'macOS'
-        working-directory: code
         run: npm run build:mac:universal
 
       - name: Upload Release Assets
@@ -45,10 +42,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            code/dist-build/*.exe
-            code/dist-build/*.dmg
-            code/dist-build/*.zip
-            code/dist-build/latest*.yml
-            code/dist-build/latest*.json
+            dist-build/*.exe
+            dist-build/*.dmg
+            dist-build/*.zip
+            dist-build/latest*.yml
+            dist-build/latest*.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
