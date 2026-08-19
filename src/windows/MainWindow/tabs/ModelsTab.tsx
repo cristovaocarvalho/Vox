@@ -125,29 +125,34 @@ export interface ModelsTabProps {
 function CollapsibleSection({
   label,
   defaultOpen = true,
+  action,
   children
 }: {
   label: string
   defaultOpen?: boolean
+  action?: React.ReactNode
   children: React.ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
     <div className="border border-border/40 overflow-hidden bg-background/20">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-3.5 py-2.5 bg-surface/20 hover:bg-surface/30 transition-colors cursor-pointer"
-      >
-        <span className="text-[11px] font-semibold text-text-muted uppercase tracking-label-wide">
-          {label}
-        </span>
-        <span
-          className={`text-[10px] text-text-muted transition-transform duration-200 ${open ? 'rotate-0' : '-rotate-90'}`}
+      <div className="w-full flex items-center justify-between px-3.5 py-2 bg-surface/20 hover:bg-surface/30 transition-colors">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex-1 flex items-center justify-between text-left cursor-pointer py-0.5"
         >
-          ▾
-        </span>
-      </button>
+          <span className="text-[11px] font-semibold text-text-muted uppercase tracking-label-wide">
+            {label}
+          </span>
+          <span
+            className={`text-[10px] text-text-muted transition-transform duration-200 mr-2 ${open ? 'rotate-0' : '-rotate-90'}`}
+          >
+            ▾
+          </span>
+        </button>
+        {action && <div className="shrink-0 ml-2">{action}</div>}
+      </div>
       {open && <div className="p-1.5 space-y-1">{children}</div>}
     </div>
   )
@@ -189,8 +194,46 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
 
   const prettyModelName = (id: string): string => {
     const base = id.split('/').pop() || id
+    if (base.toLowerCase() === 'whisper-1') return 'Whisper 1 (OpenAI)'
     return base.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
   }
+
+  // Known benchmark/quality details for popular speech models
+  const knownSpeechModelDetails: Record<string, Partial<WhisperModelInfo>> = {
+    'whisper-large-v3-turbo': { speed: 3.5, accuracy: 4.6, recommended: true },
+    'whisper-large-v3': { speed: 1.5, accuracy: 4.7 },
+    'whisper-medium': { speed: 2.0, accuracy: 4.3 },
+    'whisper-small': { speed: 3.0, accuracy: 3.8 },
+    'whisper-base': { speed: 4.0, accuracy: 3.0 },
+    'whisper-tiny': { speed: 5.0, accuracy: 2.5 },
+    'whisper-1': { speed: 2.5, accuracy: 4.5, recommended: true },
+    'distil-whisper-large-v3-en': { speed: 4.0, accuracy: 4.2 }
+  }
+
+  // Dynamic synchronized provider speech models
+  const effectiveApiModels: WhisperModelInfo[] = React.useMemo(() => {
+    if (availableModels.stt && availableModels.stt.length > 0) {
+      return availableModels.stt.map((id) => {
+        const known = knownSpeechModelDetails[id] || {}
+        return {
+          id,
+          name: prettyModelName(id),
+          speed: known.speed ?? 3.0,
+          accuracy: known.accuracy ?? 4.0,
+          size: '—',
+          recommended: known.recommended ?? false
+        }
+      })
+    }
+    return API_MODELS
+  }, [availableModels.stt])
+
+  // Automatically sync provider models if not yet loaded
+  useEffect(() => {
+    if (availableModels.stt.length === 0 && availableModels.llm.length === 0) {
+      onRefreshModels()
+    }
+  }, [availableModels.stt.length, availableModels.llm.length, onRefreshModels])
 
   // Load downloaded Whisper local models from disk
   const loadDownloadedWhisperModels = React.useCallback(async () => {
@@ -527,8 +570,24 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
             </div>
           )}
 
-          <CollapsibleSection label={t('modelsTab.providerModels')} defaultOpen={true}>
-            {API_MODELS.map((m) => renderModelCard(m, false))}
+          <CollapsibleSection
+            label={t('modelsTab.providerModels')}
+            defaultOpen={true}
+            action={
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRefreshModels()
+                }}
+                disabled={modelsLoading}
+                className="px-2.5 py-1 text-[11px] font-medium border border-border/50 text-text-muted hover:text-text-secondary hover:border-border/80 transition-colors cursor-pointer disabled:opacity-40"
+              >
+                {modelsLoading ? t('modelsTab.syncing') : t('modelsTab.syncModels')}
+              </button>
+            }
+          >
+            {effectiveApiModels.map((m) => renderModelCard(m, false))}
           </CollapsibleSection>
 
           <CollapsibleSection label={t('modelsTab.localModels')} defaultOpen={false}>
