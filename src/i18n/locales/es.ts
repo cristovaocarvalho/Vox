@@ -117,6 +117,7 @@ const es: TranslationKeys = {
     triggersEn: 'Activadores (EN) — uno por línea',
     triggersPtShort: 'PT',
     triggersEnShort: 'EN',
+    say: 'Di:',
     action: 'Acción',
     parameter: 'Parámetro',
     default: 'Comando integrado (no se puede eliminar)',

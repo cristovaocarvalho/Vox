@@ -117,6 +117,7 @@ const ja: TranslationKeys = {
     triggersEn: 'トリガー語 (EN) — 1行に1つ',
     triggersPtShort: 'PT',
     triggersEnShort: 'EN',
+    say: '発話:',
     action: 'アクション',
     parameter: 'パラメータ',
     default: '組み込みコマンド (削除不可)',

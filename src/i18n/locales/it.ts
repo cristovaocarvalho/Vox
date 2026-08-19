@@ -117,6 +117,7 @@ const it: TranslationKeys = {
     triggersEn: 'Attivatori (EN) — uno per riga',
     triggersPtShort: 'PT',
     triggersEnShort: 'EN',
+    say: 'Pronuncia:',
     action: 'Azione',
     parameter: 'Parametro',
     default: 'Comando integrato (non eliminabile)',

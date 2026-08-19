@@ -117,6 +117,7 @@ const zhCN: TranslationKeys = {
     triggersEn: '触发词 (EN) — 每行一个',
     triggersPtShort: 'PT',
     triggersEnShort: 'EN',
+    say: '说：',
     action: '动作',
     parameter: '参数',
     default: '内置指令 (不可删除)',

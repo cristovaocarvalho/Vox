@@ -117,6 +117,7 @@ const fr: TranslationKeys = {
     triggersEn: 'Déclencheurs (EN) — un par ligne',
     triggersPtShort: 'PT',
     triggersEnShort: 'EN',
+    say: 'Dites :',
     action: 'Action',
     parameter: 'Paramètre',
     default: 'Commande intégrée (non supprimable)',

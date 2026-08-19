@@ -117,6 +117,7 @@ const de: TranslationKeys = {
     triggersEn: 'Auslöser (EN) — einer pro Zeile',
     triggersPtShort: 'PT',
     triggersEnShort: 'EN',
+    say: 'Sprich:',
     action: 'Aktion',
     parameter: 'Parameter',
     default: 'Integrierter Befehl (kann nicht gelöscht werden)',

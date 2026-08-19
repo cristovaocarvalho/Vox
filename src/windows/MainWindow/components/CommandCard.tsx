@@ -2,6 +2,7 @@ import React from 'react'
 import type { VoiceCommand, CommandCategory } from '../../../types/commands'
 import { IconTrash, IconCopy, IconClock, IconMic, IconTerminal, IconGlobe, IconFile } from '../../../components'
 import { useI18n } from '../../../i18n'
+import { COMMAND_TRANSLATIONS } from '../../../data/commandTranslations'
 
 export const CATEGORY_LABELS: Record<CommandCategory, string> = {
   punctuation: 'Punctuation',
@@ -27,24 +28,14 @@ export function displayPattern(pattern: string): string {
     .trim()
 }
 
-const COMMAND_DESCRIPTIONS_PT: Record<string, string> = {
-  punct_comma: 'Insere uma vírgula seguida de espaço',
-  punct_period: 'Insere um ponto final seguido de espaço',
-  punct_semicolon: 'Insere um ponto e vírgula seguido de espaço',
-  punct_colon: 'Insere dois pontos seguidos de espaço',
-  punct_ellipsis: 'Insere reticências seguidas de espaço',
-  punct_exclamation: 'Insere um ponto de exclamação seguido de espaço',
-  punct_question: 'Insere um ponto de interrogação seguido de espaço',
-  nav_new_line: 'Pressiona Enter uma vez',
-  nav_new_paragraph: 'Pressiona Enter duas vezes',
-  edit_delete_last_sentence: 'Seleciona e apaga o texto até a pontuação anterior',
-  vox_cancel: 'Para a gravação e descarta a transcrição sem injetar',
-  vox_clear: 'Limpa o buffer de transcrição atual sem parar',
-  vox_repeat: 'Reinserir a última transcrição bem-sucedida'
-}
-
-function actionBadge(action: VoiceCommand['action'], isEn: boolean): React.ReactNode {
-  const keysLabel = isEn ? ' keys' : ' teclas'
+function actionBadge(action: VoiceCommand['action'], language: string): React.ReactNode {
+  const keysLabel = language === 'pt-BR' || language === 'es' ? ' teclas'
+    : language === 'fr' ? ' touches'
+    : language === 'de' ? ' Tasten'
+    : language === 'it' ? ' tasti'
+    : language === 'zh-CN' ? ' 个按键'
+    : language === 'ja' ? ' キー'
+    : ' keys'
   const param = Array.isArray(action.parameter) ? action.parameter.length + keysLabel : String(action.parameter ?? '')
   switch (action.type) {
     case 'keystroke':
@@ -80,18 +71,21 @@ interface Props {
 
 export const CommandCard: React.FC<Props> = ({ command, onToggle, onToggleMatchMode, onEdit, onDelete }) => {
   const { t, language } = useI18n()
-  const isPt = language === 'pt-BR'
-  const isEn = language === 'en'
 
-  const displayLabel = command.isDefault && command.label.includes(' / ')
-    ? (isPt ? command.label.split(' / ')[1] : command.label.split(' / ')[0])
-    : (isPt ? (command.labelPt || command.label) : (command.labelEn || command.label))
+  const tr = COMMAND_TRANSLATIONS[command.id]?.[language]
 
-  const displayDesc = isPt
-    ? (command.descriptionPt || COMMAND_DESCRIPTIONS_PT[command.id] || command.description)
-    : (command.descriptionEn || command.description)
+  const displayLabel = tr?.label
+    || (command.isDefault && command.label.includes(' / ')
+      ? (language === 'pt-BR' ? command.label.split(' / ')[1] : command.label.split(' / ')[0])
+      : (language === 'pt-BR' ? (command.labelPt || command.label) : (command.labelEn || command.label)))
 
-  const triggersList = isPt ? command.triggers.pt : command.triggers.en
+  const displayDesc = tr?.description
+    || (language === 'pt-BR' ? (command.descriptionPt || command.description) : (command.descriptionEn || command.description))
+
+  const triggersList = tr?.triggers
+    || (language === 'pt-BR' ? command.triggers.pt : (command.triggers as any)[language])
+    || command.triggers.en
+
   const activeTriggers = (triggersList && triggersList.length > 0)
     ? triggersList
     : (command.triggers.en && command.triggers.en.length > 0 ? command.triggers.en : command.triggers.pt)
@@ -117,7 +111,7 @@ export const CommandCard: React.FC<Props> = ({ command, onToggle, onToggleMatchM
 
         <div className="flex items-center gap-1.5 flex-wrap mt-2">
           <span className="text-[9px] font-mono uppercase text-text-muted">
-            {isPt ? 'Diga:' : 'Say:'}
+            {t('commands.say')}
           </span>
           {activeTriggers.map((p, i) => (
             <span
@@ -132,7 +126,7 @@ export const CommandCard: React.FC<Props> = ({ command, onToggle, onToggleMatchM
 
       <div className="flex items-center gap-2 shrink-0">
         <span className="text-[10px] px-2 py-1 rounded-lg bg-background/60 border border-border/40 text-text-secondary inline-flex items-center gap-1">
-          {actionBadge(command.action, isEn)}
+          {actionBadge(command.action, language)}
         </span>
         {!command.isDefault && (
           <button

@@ -6,11 +6,12 @@ import { CommandCard, CATEGORY_LABELS } from '../components/CommandCard'
 import { CommandEditor } from '../components/CommandEditor'
 import { SnippetEditor } from '../components/SnippetEditor'
 import { useI18n } from '../../../i18n'
+import { COMMAND_TRANSLATIONS } from '../../../data/commandTranslations'
 
 const CATEGORY_ORDER: CommandCategory[] = ['punctuation', 'navigation', 'editing', 'vox_control', 'system', 'custom']
 
 export const CommandsTab: React.FC = () => {
-  const { t } = useI18n()
+  const { t, language } = useI18n()
   const {
     commands,
     snippets,
@@ -45,10 +46,25 @@ export const CommandsTab: React.FC = () => {
     const q = search.trim().toLowerCase()
     if (!q) return commands
     return commands.filter((c) => {
-      const hay = [c.label, c.description, c.category, ...c.triggers.pt, ...c.triggers.en].join(' ').toLowerCase()
+      const tr = COMMAND_TRANSLATIONS[c.id]?.[language]
+      const trAll = COMMAND_TRANSLATIONS[c.id]
+        ? Object.values(COMMAND_TRANSLATIONS[c.id]!).flatMap((item) => (item ? [item.label, item.description || '', ...item.triggers] : []))
+        : []
+      const hay = [
+        c.label,
+        c.description,
+        c.category,
+        tr?.label || '',
+        tr?.description || '',
+        ...trAll,
+        ...(c.triggers.pt || []),
+        ...(c.triggers.en || [])
+      ]
+        .join(' ')
+        .toLowerCase()
       return hay.includes(q)
     })
-  }, [commands, search])
+  }, [commands, search, language])
 
   const grouped = useMemo(() => {
     const map = new Map<CommandCategory, VoiceCommand[]>()

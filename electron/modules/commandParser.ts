@@ -1,4 +1,5 @@
 import type { VoiceCommand, ParseResult, ParsedSegment } from '../../src/types/commands'
+import { COMMAND_TRANSLATIONS } from '../../src/data/commandTranslations'
 
 interface CommandSpan {
   start: number
@@ -115,13 +116,22 @@ export class CommandParser {
   }
 
   private patterns(cmd: VoiceCommand): string[] {
-    if (cmd.dynamic) {
-      return [...(cmd.triggers.en || []), ...(cmd.triggers.pt || [])]
+    const list: string[] = []
+    if (cmd.triggers) {
+      for (const langKey of Object.keys(cmd.triggers)) {
+        const arr = (cmd.triggers as any)[langKey]
+        if (Array.isArray(arr)) list.push(...arr)
+      }
     }
-    const list = cmd.triggers[this.detectedLanguage] && cmd.triggers[this.detectedLanguage].length > 0
-      ? cmd.triggers[this.detectedLanguage]
-      : cmd.triggers.en
-    return list || []
+    const tr = (COMMAND_TRANSLATIONS as any)[cmd.id]
+    if (tr) {
+      for (const langKey of Object.keys(tr)) {
+        if (Array.isArray(tr[langKey]?.triggers)) {
+          list.push(...tr[langKey].triggers)
+        }
+      }
+    }
+    return Array.from(new Set(list))
   }
 
   private prefixMatch(text: string, pattern: string): string | null {
