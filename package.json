@@ -8,11 +8,11 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "build:win": "electron-vite build && electron-builder --win",
+    "build:win": "electron-vite build && electron-builder --win --publish never",
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:mac:arm64": "electron-vite build && electron-builder --mac --arm64",
     "build:mac:x64": "electron-vite build && electron-builder --mac --x64",
-    "build:mac:universal": "electron-vite build && electron-builder --mac --universal",
+    "build:mac:universal": "electron-vite build && electron-builder --mac --universal --publish never",
     "build:all": "electron-vite build && electron-builder -mw",
     "release": "node scripts/release.js",
     "preview": "electron-vite preview",
