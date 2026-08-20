@@ -94,11 +94,13 @@ const en = {
     autoStart: 'Start with System',
     autoStartHint: 'Automatically launch Vox when you log in',
     muteSystemAudio: 'Mute system audio during recording',
-    muteSystemAudioHint: 'Silences playback while you dictate, preventing music or videos from being picked up by the microphone.',
+    muteSystemAudioHint: 'Mutes playback while you dictate, preventing music or videos from being picked up by the microphone.',
+    soundEffects: 'Sound effects',
+    soundEffectsHint: 'Play sound effects when recording dock opens and closes.',
     microphone: 'Preferred microphone',
     microphoneDefault: 'Default microphone',
-    autoDetectLanguage: 'Automatically detect spoken language',
-    autoDetectLanguageHint: 'Turn off to select specific languages.',
+    autoDetectLanguage: 'Detect language automatically',
+    autoDetectLanguageHint: 'Disable to select specific speech languages.',
     speechLanguage: 'Spoken language'
   },
   commands: {

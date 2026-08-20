@@ -97,6 +97,8 @@ const ja: TranslationKeys = {
     autoStartHint: 'ログイン時にVoxを自動的に起動します',
     muteSystemAudio: '録音中にシステム音声をミュート',
     muteSystemAudioHint: 'ディクテーション中のメディア再生音を消音し、マイクへの回り込みを防止します。',
+    soundEffects: '効果音',
+    soundEffectsHint: '録音ドックの表示・非表示時に効果音を再生します。',
     microphone: '優先マイク',
     microphoneDefault: '既定のマイク',
     autoDetectLanguage: '話されている言語を自動検出',

@@ -97,6 +97,8 @@ const it: TranslationKeys = {
     autoStartHint: 'Avvia automaticamente Vox all’accesso',
     muteSystemAudio: 'Disattiva audio di sistema durante la registrazione',
     muteSystemAudioHint: 'Silenzia la riproduzione multimediale durante la dettatura per evitare rientri nel microfono.',
+    soundEffects: 'Effetti sonori',
+    soundEffectsHint: 'Riproduci effetti sonori all’apertura e chiusura del dock di registrazione.',
     microphone: 'Microfono preferito',
     microphoneDefault: 'Microfono predefinito',
     autoDetectLanguage: 'Rileva automaticamente la lingua parlata',

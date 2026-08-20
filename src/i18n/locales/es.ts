@@ -96,11 +96,13 @@ const es: TranslationKeys = {
     autoStart: 'Iniciar con el Sistema',
     autoStartHint: 'Inicia Vox automáticamente al iniciar sesión',
     muteSystemAudio: 'Silenciar audio del sistema durante la grabación',
-    muteSystemAudioHint: 'Silencia la reproducción mientras dicta para evitar que la música o videos sean captados por el micrófono.',
+    muteSystemAudioHint: 'Silencia la reproducción mientras dictas para evitar que se capte música o videos.',
+    soundEffects: 'Efectos de sonido',
+    soundEffectsHint: 'Reproducir sonido al abrir y cerrar el dock de grabación.',
     microphone: 'Micrófono preferido',
     microphoneDefault: 'Micrófono predeterminado',
     autoDetectLanguage: 'Detectar idioma automáticamente',
-    autoDetectLanguageHint: 'Desactívalo para seleccionar idiomas específicos.',
+    autoDetectLanguageHint: 'Desactiva para seleccionar idiomas específicos.',
     speechLanguage: 'Idioma hablado'
   },
   commands: {

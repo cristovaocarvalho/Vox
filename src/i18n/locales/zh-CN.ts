@@ -97,6 +97,8 @@ const zhCN: TranslationKeys = {
     autoStartHint: '登录系统时自动启动 Vox',
     muteSystemAudio: '录音时静音系统音频',
     muteSystemAudioHint: '听写时静音媒体播放，防止扬声器声音被麦克风录入。',
+    soundEffects: '提示音效',
+    soundEffectsHint: '展开和收起录音指示条时播放提示音效。',
     microphone: '首选麦克风',
     microphoneDefault: '默认麦克风',
     autoDetectLanguage: '自动检测口语语言',

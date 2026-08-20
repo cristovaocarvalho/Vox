@@ -104,11 +104,8 @@ export class TemplateManager {
   }
 
   buildCorrectorPrompt(basePrompt: string, template: DictationTemplate | null): string {
-    if (!template || !template.systemPrompt) return basePrompt
-    const combined = `${basePrompt}\n\n---\nADDITIONAL FORMATTING INSTRUCTIONS:\n${template.systemPrompt}`
-    if (combined.length <= MAX_PROMPT_CHARS) return combined
-    const maxTemplate = MAX_PROMPT_CHARS - basePrompt.length - 60
-    return `${basePrompt}\n\n---\nADDITIONAL FORMATTING INSTRUCTIONS:\n${template.systemPrompt.slice(0, Math.max(0, maxTemplate))}`
+    if (!template || !template.systemPrompt || template.id === 'none') return basePrompt
+    return `Você é um formatador profissional de textos ditados por voz. O usuário escolheu o template: "${template.label || template.labelPt || 'Personalizado'}".\n\nINSTRUÇÕES OBRIGATÓRIAS DO TEMPLATE:\n${template.systemPrompt}\n\nREGRAS GERAIS:\n- Mantenha rigorosamente o IDIOMA ORIGINAL do texto ditado.\n- É estritamente proibido traduzir.\n- Retorne APENAS o texto final formatado, sem saudações ou comentários.`
   }
 
   resolveVoiceActivation(text: string, language: 'pt' | 'en'): { templateId: string; remainingText: string } | null {

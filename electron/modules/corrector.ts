@@ -3,7 +3,6 @@ import { resolveProvider, getChatEndpoint, getAuthHeaders } from './providers'
 import { templateManager } from './templateManager'
 import type { DictationTemplate } from '../../src/types/templates'
 
-
 const CALIBRATION_SESSIONS = 25
 
 function buildDictionaryLine(): string {
@@ -24,18 +23,32 @@ function buildVocabularyLine(): string {
   return ` Vocabulário pessoal do usuário (nomes próprios, siglas e termos técnicos que devem ser reconhecidos e mantidos exatamente como escritos): ${items}.`
 }
 
+function applyVocabularyReplacements(text: string): string {
+  const terms = listVocabulary()
+  if (!terms || terms.length === 0 || !text) return text
+
+  let result = text
+  for (const term of terms) {
+    if (!term || term.length < 2) continue
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regex = new RegExp(`\\b${escaped}\\b`, 'gi')
+    result = result.replace(regex, term)
+  }
+  return result
+}
+
 export async function correctTranscription(text: string, context?: string, template?: DictationTemplate | null): Promise<string> {
   if (!text || text.trim().length === 0) return text
 
   const provider = resolveProvider()
   if (provider.requiresApiKey && !provider.apiKey) {
     console.warn('[Corrector] API Key não configurada, retornando texto original.')
-    return text
+    return applyVocabularyReplacements(text)
   }
   const model = (getSetting('llmModel') || process.env.LLM_MODEL || '').trim()
   if (!model) {
     console.warn('[Corrector] Nenhum modelo LLM configurado, retornando texto original.')
-    return text
+    return applyVocabularyReplacements(text)
   }
 
   const endpoint = getChatEndpoint(model)
@@ -65,7 +78,7 @@ export async function correctTranscription(text: string, context?: string, templ
         }
       ],
       temperature: 0.1,
-      max_tokens: 512
+      max_tokens: 1024
     }
     if (!provider.isAzure) {
       body.model = model
@@ -92,7 +105,7 @@ export async function correctTranscription(text: string, context?: string, templ
     if (!response.ok) {
       const errText = await response.text().catch(() => '')
       console.warn(`[Corrector] Erro da API (${response.status}):`, errText)
-      return text
+      return applyVocabularyReplacements(text)
     }
 
     const data = await response.json()
@@ -100,12 +113,16 @@ export async function correctTranscription(text: string, context?: string, templ
 
     if (corrected) {
       console.log('[Corrector] Texto revisado com sucesso')
-      return corrected
+      return applyVocabularyReplacements(corrected)
     }
 
-    return text
+    return applyVocabularyReplacements(text)
   } catch (error) {
     console.error('[Corrector] Erro ao se comunicar com a LLM API:', error)
-    return text
+    return applyVocabularyReplacements(text)
   }
+}
+
+export default {
+  correctTranscription
 }

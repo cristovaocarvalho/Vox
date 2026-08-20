@@ -37,6 +37,8 @@ export interface VoxState {
   setAutoStartEnabled: (enabled: boolean) => void
   muteSystemAudio: boolean
   setMuteSystemAudio: (enabled: boolean) => void
+  soundEffectsEnabled: boolean
+  setSoundEffectsEnabled: (enabled: boolean) => void
   autoDetectLanguage: boolean
   setAutoDetectLanguage: (enabled: boolean) => void
   speechLanguage: string
@@ -110,6 +112,8 @@ export const useVoxStore = create<VoxState>((set) => ({
   setAutoStartEnabled: (autoStartEnabled) => set({ autoStartEnabled }),
   muteSystemAudio: false,
   setMuteSystemAudio: (muteSystemAudio) => set({ muteSystemAudio }),
+  soundEffectsEnabled: true,
+  setSoundEffectsEnabled: (soundEffectsEnabled) => set({ soundEffectsEnabled }),
   autoDetectLanguage: true,
   setAutoDetectLanguage: (autoDetectLanguage) => set({ autoDetectLanguage }),
   speechLanguage: 'pt',

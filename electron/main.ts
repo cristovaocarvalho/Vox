@@ -1,6 +1,6 @@
 import type { BrowserWindow as BrowserWindowType } from 'electron'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage, shell, systemPreferences } = require('electron')
+const { app, BrowserWindow, ipcMain, globalShortcut, screen, Tray, Menu, nativeImage, shell, systemPreferences, clipboard } = require('electron')
 import path from 'path'
 import fs from 'fs'
 import recorder from './modules/recorder'
@@ -33,6 +33,8 @@ import crypto from 'crypto'
 
 const execFileAsync = promisify(execFile)
 
+import { getActiveWindowWin32 } from './modules/win32'
+
 let mainWindow: BrowserWindowType | null = null
 let dockWindow: BrowserWindowType | null = null
 let clipboardWindow: BrowserWindowType | null = null
@@ -43,6 +45,32 @@ let isDockHiding = false
 let systemMutedByVox = false
 
 async function captureActiveWindow(): Promise<WindowRef | null> {
+  // Windows (Win32): query user32.dll instantly via koffi FFI (<0.1ms)
+  if (process.platform === 'win32') {
+    try {
+      const win = getActiveWindowWin32()
+      if (win && win.hwnd && win.hwnd !== '0') {
+        const isVoxApp = /^vox|electron$/i.test((win.processName || '').trim())
+        if (!isVoxApp) {
+          targetWindowRef = {
+            hwnd: win.hwnd,
+            title: win.title || undefined,
+            processName: win.processName || undefined
+          }
+        } else {
+          // Quando o próprio Vox estiver em foco, reseta o targetWindowRef para nunca desviar o foco do Vox
+          targetWindowRef = null
+        }
+      } else {
+        targetWindowRef = null
+      }
+    } catch (err) {
+      console.warn('[Main] Erro ao capturar janela ativa (Win32):', err)
+      targetWindowRef = null
+    }
+    return targetWindowRef
+  }
+
   // macOS (Darwin): query frontmost app name and window title via AppleScript
   if (process.platform === 'darwin') {
     try {
@@ -61,7 +89,8 @@ async function captureActiveWindow(): Promise<WindowRef | null> {
       const parts = stdout.trim().split('|')
       const processName = parts[0]
       const title = parts.slice(1).join('|')
-      targetWindowRef = processName
+      const isVoxApp = /^vox|electron$/i.test((processName || '').trim())
+      targetWindowRef = (processName && !isVoxApp)
         ? { processName: processName.trim(), title: title?.trim() || undefined }
         : null
     } catch {
@@ -70,42 +99,6 @@ async function captureActiveWindow(): Promise<WindowRef | null> {
     return targetWindowRef
   }
 
-  // Windows (Win32): query user32.dll via PowerShell
-  try {
-    const psScript = [
-      '$src = @\'',
-      'using System;',
-      'using System.Text;',
-      'using System.Runtime.InteropServices;',
-      'public static class VOXWin {',
-      '  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();',
-      '  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);',
-      '  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);',
-      '}',
-      '\'@',
-      'Add-Type -TypeDefinition $src',
-      '$h = [VOXWin]::GetForegroundWindow()',
-      'if ($h -eq [IntPtr]::Zero) { Write-Output "||"; exit }',
-      '$sb = New-Object System.Text.StringBuilder 512',
-      '[void][VOXWin]::GetWindowText($h, $sb, 512)',
-      '$pid2 = [uint32]0',
-      '[void][VOXWin]::GetWindowThreadProcessId($h, [ref]$pid2)',
-      '$p = Get-Process -Id $pid2 -ErrorAction SilentlyContinue',
-      'Write-Output ("{0}|{1}|{2}" -f $h, $sb.ToString(), $p.ProcessName)'
-    ].join('\n')
-    const encoded = Buffer.from(psScript, 'utf16le').toString('base64')
-    const { stdout } = await execFileAsync('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', encoded], { timeout: 2500, encoding: 'utf8' })
-    const parts = stdout.trim().split('|')
-    const hwnd = parts[0]
-    const processName = parts[parts.length - 1]
-    const title = parts.slice(1, -1).join('|')
-    const isVoxApp = /^vox|electron$/i.test((processName || '').trim())
-    if (hwnd && hwnd !== '0' && !isVoxApp) {
-      targetWindowRef = { hwnd, title: title?.trim() || undefined, processName: processName?.trim() || undefined }
-    }
-  } catch {
-    // Keep existing targetWindowRef if error occurs
-  }
   return targetWindowRef
 }
 
@@ -181,18 +174,24 @@ async function checkAndRequestMacPermissions() {
 async function muteSystemAudioIfEnabled() {
   if (systemMutedByVox) return
   if (getSetting('muteSystemAudio', 'false') !== 'true') return
-  systemMutedByVox = true
-  try {
-    await muteSystemAudio()
-  } catch {
-    systemMutedByVox = false
-  }
+  // Aguarda 250ms para que o efeito sonoro "On.mp3" toque completamente antes de silenciar o áudio de fundo
+  setTimeout(async () => {
+    if (recorder.getIsRecording() && !systemMutedByVox) {
+      systemMutedByVox = true
+      try {
+        await muteSystemAudio()
+      } catch {
+        systemMutedByVox = false
+      }
+    }
+  }, 250)
 }
 
 async function unmuteSystemAudioIfNeeded() {
   if (!systemMutedByVox) return
   systemMutedByVox = false
   await unmuteSystemAudio()
+  await new Promise((r) => setTimeout(r, 40))
 }
 
 function unmuteSystemAudioOnQuit() {
@@ -310,6 +309,7 @@ function createDockWindow() {
     resizable: false,
     show: false,
     skipTaskbar: true,
+    focusable: false,
     hasShadow: false,
     webPreferences: {
       preload: path.join(__dirname, '../preload/preload.js'),
@@ -647,9 +647,15 @@ async function processTranscriptionResult(buffer: Buffer): Promise<{ text: strin
     }
     saveSession(sessionData)
 
-    const injectRes = await injectText(result.text, targetWindowRef || undefined)
-    if (!injectRes.success) {
-      console.warn('[Main] Falha ao injetar texto:', injectRes.error)
+    if (targetWindowRef && targetWindowRef.hwnd) {
+      const injectRes = await injectText(result.text, targetWindowRef)
+      if (!injectRes.success) {
+        console.warn('[Main] Falha ao injetar texto:', injectRes.error)
+      }
+    } else {
+      // Se o usuário estiver utilizando a própria janela do Vox, apenas copia para a área de transferência
+      // sem forçar a troca de foco do sistema operacional
+      clipboard.writeText(result.text)
     }
     lastSuccessfulTranscription = result.text
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -731,8 +737,9 @@ function setupIpcHandlers() {
     }
   })
 
-  ipcMain.handle('vox:start-recording', () => {
+  ipcMain.handle('vox:start-recording', async () => {
     console.log('[Main] IPC vox:start-recording acionado')
+    await captureActiveWindow()
     // Se já está gravando (ex: wake word já iniciou com autoStopOnSilence), não resetar
     if (!recorder.getIsRecording()) {
       recorder.startRecording()
@@ -744,8 +751,8 @@ function setupIpcHandlers() {
 
   ipcMain.handle('vox:stop-recording', async (_event: unknown, audioData?: ArrayBuffer) => {
     console.log('[Main] IPC vox:stop-recording acionado')
+    await unmuteSystemAudioIfNeeded()
     hideDock()
-    void unmuteSystemAudioIfNeeded()
 
     const hadSpeech = recorder.getHasSpoken()
 

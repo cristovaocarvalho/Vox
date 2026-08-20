@@ -33,7 +33,10 @@ const initAudio = async () => {
 
 void initAudio()
 
+let isSfxEnabled = true
+
 const playSfx = (type: 'on' | 'off') => {
+  if (!isSfxEnabled) return
   try {
     const buffer = type === 'on' ? onBuffer : offBuffer
     if (!audioCtx || !gainNode || !buffer) return
@@ -57,6 +60,14 @@ export const DockWindow: React.FC = () => {
     let unsubShow: (() => void) | undefined
     let unsubHide: (() => void) | undefined
 
+    if (window.vox?.getSettings) {
+      window.vox.getSettings().then((s: Record<string, string>) => {
+        if (s && s.soundEffectsEnabled !== undefined) {
+          isSfxEnabled = s.soundEffectsEnabled !== 'false'
+        }
+      })
+    }
+
     if (window.vox?.onVolumeUpdate) {
       unsubVolume = window.vox.onVolumeUpdate(({ energy }) => {
         setEnergyLevel(Math.min(1, energy * 4))
@@ -65,6 +76,13 @@ export const DockWindow: React.FC = () => {
 
     if (window.vox?.onDockShow) {
       unsubShow = window.vox.onDockShow(() => {
+        if (window.vox?.getSettings) {
+          window.vox.getSettings().then((s: Record<string, string>) => {
+            if (s && s.soundEffectsEnabled !== undefined) {
+              isSfxEnabled = s.soundEffectsEnabled !== 'false'
+            }
+          })
+        }
         setIsVisible(true)
         playSfx('on')
       })

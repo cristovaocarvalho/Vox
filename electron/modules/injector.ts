@@ -1,4 +1,5 @@
 import { execFile } from 'child_process'
+import { focusAndPasteWin32 } from './win32'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { clipboard } = require('electron')
 
@@ -37,7 +38,13 @@ export async function injectText(
 
   // 1. Sempre escreve na área de transferência do sistema
   clipboard.writeText(text)
-  await new Promise((resolve) => setTimeout(resolve, 50))
+  let attempts = 3
+  while (attempts > 0 && clipboard.readText() !== text) {
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    clipboard.writeText(text)
+    attempts--
+  }
+  await new Promise((resolve) => setTimeout(resolve, 30))
 
   // 2. macOS (Darwin): Restaura foco e cola via Command+V com AppleScript
   if (process.platform === 'darwin') {
@@ -59,42 +66,43 @@ export async function injectText(
     })
   }
 
-  // 3. Windows (Win32): Restaura o foco na janela de destino e cola via Ctrl+V com keybd_event
+  // 3. Windows (Win32): Foco instantâneo e colagem via Win32 FFI direto
   const targetHwnd = ref.hwnd
-  const psScript = [
-    '$src = @\'',
-    'using System;',
-    'using System.Runtime.InteropServices;',
-    'public static class VOXPaste {',
-    '  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);',
-    '  [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);',
-    '  public static void Paste(IntPtr hWnd) {',
-    '    if (hWnd != IntPtr.Zero) {',
-    '      keybd_event(0x12, 0, 0, UIntPtr.Zero);',
-    '      keybd_event(0x12, 0, 2, UIntPtr.Zero);',
-    '      SetForegroundWindow(hWnd);',
-    '      System.Threading.Thread.Sleep(30);',
-    '    }',
-    '    keybd_event(0x11, 0, 0, UIntPtr.Zero);',
-    '    keybd_event(0x56, 0, 0, UIntPtr.Zero);',
-    '    keybd_event(0x56, 0, 2, UIntPtr.Zero);',
-    '    keybd_event(0x11, 0, 2, UIntPtr.Zero);',
-    '  }',
-    '}',
-    '\'@',
-    'Add-Type -TypeDefinition $src',
-    `[VOXPaste]::Paste([IntPtr]${targetHwnd && targetHwnd !== '0' && targetHwnd !== 'null' ? targetHwnd : 0})`
-  ].join('\n')
+  const nativeOk = await focusAndPasteWin32(targetHwnd)
+  if (nativeOk) {
+    console.log('[Injector] Texto colado no cursor com sucesso (Win32 Nativo)!')
+    return { success: true, method: 'win32-native' }
+  }
 
-  const encoded = Buffer.from(psScript, 'utf16le').toString('base64')
-
+  // Fallback rápido se FFI não estiver disponível
   return new Promise((resolve) => {
+    const psScript = [
+      '$src = @\'',
+      'using System;',
+      'using System.Runtime.InteropServices;',
+      'public static class VOXPaste {',
+      '  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);',
+      '  [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);',
+      '  public static void Paste(IntPtr hWnd) {',
+      '    if (hWnd != IntPtr.Zero) { SetForegroundWindow(hWnd); }',
+      '    keybd_event(0x11, 0, 0, UIntPtr.Zero);',
+      '    keybd_event(0x56, 0, 0, UIntPtr.Zero);',
+      '    keybd_event(0x56, 0, 2, UIntPtr.Zero);',
+      '    keybd_event(0x11, 0, 2, UIntPtr.Zero);',
+      '  }',
+      '}',
+      '\'@',
+      'Add-Type -TypeDefinition $src',
+      `[VOXPaste]::Paste([IntPtr]${targetHwnd && targetHwnd !== '0' && targetHwnd !== 'null' ? targetHwnd : 0})`
+    ].join('\n')
+
+    const encoded = Buffer.from(psScript, 'utf16le').toString('base64')
     execFile('powershell', ['-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', encoded], (err) => {
       if (err) {
-        console.error('[Injector] Erro ao colar texto via PowerShell (Windows):', err)
+        console.error('[Injector] Erro ao colar texto via PowerShell (Windows fallback):', err)
         resolve({ success: false, method: 'powershell-win32', error: err.message })
       } else {
-        console.log('[Injector] Texto colado no cursor com sucesso (Windows)!')
+        console.log('[Injector] Texto colado no cursor com sucesso (Windows fallback)!')
         resolve({ success: true, method: 'powershell-win32' })
       }
     })
@@ -104,3 +112,4 @@ export async function injectText(
 export default {
   injectText
 }
+

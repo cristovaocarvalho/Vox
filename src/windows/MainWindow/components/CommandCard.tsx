@@ -5,13 +5,13 @@ import { useI18n } from '../../../i18n'
 import { COMMAND_TRANSLATIONS } from '../../../data/commandTranslations'
 
 export const CATEGORY_LABELS: Record<CommandCategory, string> = {
-  punctuation: 'Punctuation',
-  navigation: 'Navigation',
-  editing: 'Editing',
-  vox_control: 'Vox Control',
+  punctuation: 'Pontuação',
+  navigation: 'Navegação',
+  editing: 'Edição',
+  vox_control: 'Controle do Vox',
   snippets: 'Snippets',
-  system: 'System',
-  custom: 'Custom'
+  system: 'Sistema',
+  custom: 'Personalizados'
 }
 
 export function displayPattern(pattern: string): string {
@@ -22,7 +22,7 @@ export function displayPattern(pattern: string): string {
     .replace(/\(\?:/g, '(')
     .replace(/\(([a-zA-Záéíóúâêôãõç\s]+)\|[a-zA-Záéíóúâêôãõç\s|]+\)/gi, '$1')
     .replace(/\\([()[\]{}?+|^$.])/g, '$1')
-    .replace(/\[\^?([a-záéíóúâêôãõç]+)\]/gi, (m, chars) => (chars.length <= 2 ? chars : chars[0]))
+    .replace(/\[\^?([a-záéíóúâêôãõç]+)\]/gi, (_m, chars) => (chars.length <= 2 ? chars : chars[0]))
     .replace(/\?|\*|\+/g, '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -86,7 +86,7 @@ export const CommandCard: React.FC<Props> = ({ command, onToggle, onToggleMatchM
     || (language === 'pt-BR' ? command.triggers.pt : (command.triggers as any)[language])
     || command.triggers.en
 
-  const activeTriggers = (triggersList && triggersList.length > 0)
+  const activeTriggers: string[] = (triggersList && triggersList.length > 0)
     ? triggersList
     : (command.triggers.en && command.triggers.en.length > 0 ? command.triggers.en : command.triggers.pt)
 
@@ -113,7 +113,7 @@ export const CommandCard: React.FC<Props> = ({ command, onToggle, onToggleMatchM
           <span className="text-[9px] font-mono uppercase text-text-muted">
             {t('commands.say')}
           </span>
-          {activeTriggers.map((p, i) => (
+          {activeTriggers.map((p: string, i: number) => (
             <span
               key={i}
               className="text-[10px] px-2 py-0.5 rounded bg-background/60 border border-border/40 text-text-secondary font-mono tracking-tight"

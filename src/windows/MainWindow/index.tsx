@@ -160,6 +160,8 @@ export const MainWindow: React.FC = () => {
     setAutoStartEnabled,
     muteSystemAudio,
     setMuteSystemAudio,
+    soundEffectsEnabled,
+    setSoundEffectsEnabled,
     autoDetectLanguage,
     setAutoDetectLanguage,
     speechLanguage,
@@ -191,6 +193,7 @@ export const MainWindow: React.FC = () => {
   const [draftLanguage, setDraftLanguage] = useState<AppLocale>(language)
   const [draftAutoStartEnabled, setDraftAutoStartEnabled] = useState(autoStartEnabled)
   const [draftMuteSystemAudio, setDraftMuteSystemAudio] = useState(muteSystemAudio)
+  const [draftSoundEffectsEnabled, setDraftSoundEffectsEnabled] = useState(soundEffectsEnabled)
   const [draftAutoDetectLanguage, setDraftAutoDetectLanguage] = useState(autoDetectLanguage)
   const [draftSpeechLanguage, setDraftSpeechLanguage] = useState(speechLanguage)
   const [draftMicrophoneDeviceId, setDraftMicrophoneDeviceId] = useState(microphoneDeviceId)
@@ -391,6 +394,7 @@ export const MainWindow: React.FC = () => {
     setDraftLanguage(language)
     setDraftAutoStartEnabled(autoStartEnabled)
     setDraftMuteSystemAudio(muteSystemAudio)
+    setDraftSoundEffectsEnabled(soundEffectsEnabled)
     setDraftAutoDetectLanguage(autoDetectLanguage)
     setDraftSpeechLanguage(speechLanguage)
     setDraftMicrophoneDeviceId(microphoneDeviceId)
@@ -481,6 +485,26 @@ export const MainWindow: React.FC = () => {
 
   const handleSaveSettings = () => {
     const trimmedKey = draftApiKey.trim()
+    const store = useVoxStore.getState()
+    store.setApiKey(trimmedKey)
+    store.setProvider(draftProvider)
+    store.setBaseUrl(draftBaseUrl)
+    store.setAzureApiVersion(draftAzureApiVersion)
+    store.setSttModel(draftSttModel)
+    store.setLlmModel(draftLlmModel)
+    store.setShortcutToggle(draftShortcutToggle)
+    store.setShortcutPushToTalk(draftShortcutPushToTalk)
+    store.setShortcutClipboard(draftShortcutClipboard)
+    store.setWakeWordEnabled(draftWakeWordEnabled)
+    store.setWakeWordSensitivity(draftWakeWordSensitivity)
+    store.setLanguage(draftLanguage)
+    store.setAutoStartEnabled(draftAutoStartEnabled)
+    store.setMuteSystemAudio(draftMuteSystemAudio)
+    store.setSoundEffectsEnabled(draftSoundEffectsEnabled)
+    store.setAutoDetectLanguage(draftAutoDetectLanguage)
+    store.setSpeechLanguage(draftSpeechLanguage)
+    store.setMicrophoneDeviceId(draftMicrophoneDeviceId)
+
     updateSettings({
       apiKey: trimmedKey,
       provider: draftProvider,
@@ -496,6 +520,7 @@ export const MainWindow: React.FC = () => {
       language: draftLanguage,
       autoStartEnabled: draftAutoStartEnabled,
       muteSystemAudio: draftMuteSystemAudio,
+      soundEffectsEnabled: draftSoundEffectsEnabled,
       autoDetectLanguage: draftAutoDetectLanguage,
       speechLanguage: draftSpeechLanguage,
       microphoneDeviceId: draftMicrophoneDeviceId
@@ -518,6 +543,7 @@ export const MainWindow: React.FC = () => {
         language: draftLanguage,
         autoStartEnabled: String(draftAutoStartEnabled),
         muteSystemAudio: String(draftMuteSystemAudio),
+        soundEffectsEnabled: String(draftSoundEffectsEnabled),
         autoDetectLanguage: String(draftAutoDetectLanguage),
         speechLanguage: draftSpeechLanguage,
         microphoneDeviceId: draftMicrophoneDeviceId
@@ -568,6 +594,12 @@ export const MainWindow: React.FC = () => {
           const muteSystemAudioEnabled = saved.muteSystemAudio === 'true'
           settingsToUpdate.muteSystemAudio = muteSystemAudioEnabled
           setDraftMuteSystemAudio(muteSystemAudioEnabled)
+        }
+
+        if (saved.soundEffectsEnabled !== undefined) {
+          const sfxEnabled = saved.soundEffectsEnabled !== 'false'
+          settingsToUpdate.soundEffectsEnabled = sfxEnabled
+          setDraftSoundEffectsEnabled(sfxEnabled)
         }
 
         if (saved.autoDetectLanguage !== undefined) {
@@ -777,20 +809,6 @@ export const MainWindow: React.FC = () => {
       }
 
       mediaRecorder.start(200)
-
-      // Transcrição incremental: a cada 2s, envia áudio acumulado para Whisper
-      chunkIntervalRef.current = setInterval(async () => {
-        if (audioChunksRef.current.length === 0) return
-        try {
-          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-          const arrayBuffer = await blob.arrayBuffer()
-          if (window.vox?.transcribeChunk) {
-            window.vox.transcribeChunk(arrayBuffer)
-          }
-        } catch {
-          // ignore chunk errors
-        }
-      }, 1500)
     } catch (err) {
       console.error('[MainWindow] Erro ao acessar microfone:', err)
       setIsRecording(false)
@@ -1573,6 +1591,29 @@ export const MainWindow: React.FC = () => {
                                   type="checkbox"
                                   checked={draftMuteSystemAudio}
                                   onChange={(e) => setDraftMuteSystemAudio(e.target.checked)}
+                                />
+                                <div className="button">
+                                  <div className="button-toggle"></div>
+                                  <div className="button-indicator"></div>
+                                </div>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Sound Effects */}
+                        <div className="p-4 bg-background/50 border border-border/60 rounded-xl">
+                          <div className="flex items-center justify-between gap-4">
+                            <div>
+                              <span className="text-xs font-semibold text-text-primary block leading-relaxed">{t('settings.soundEffects')}</span>
+                              <span className="text-[11px] text-text-secondary leading-relaxed">{t('settings.soundEffectsHint')}</span>
+                            </div>
+                            <div className="switch-button">
+                              <label className="switch-outer">
+                                <input
+                                  type="checkbox"
+                                  checked={draftSoundEffectsEnabled}
+                                  onChange={(e) => setDraftSoundEffectsEnabled(e.target.checked)}
                                 />
                                 <div className="button">
                                   <div className="button-toggle"></div>

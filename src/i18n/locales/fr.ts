@@ -97,6 +97,8 @@ const fr: TranslationKeys = {
     autoStartHint: 'Lancer automatiquement Vox à l’ouverture de session',
     muteSystemAudio: 'Couper l’audio système pendant l’enregistrement',
     muteSystemAudioHint: 'Coupe le son des médias pendant que vous dictez pour éviter qu’ils ne soient captés par le microphone.',
+    soundEffects: 'Effets sonores',
+    soundEffectsHint: 'Jouer des effets sonores à l’ouverture et à la fermeture du dock.',
     microphone: 'Microphone préféré',
     microphoneDefault: 'Microphone par défaut',
     autoDetectLanguage: 'Détecter automatiquement la langue parlée',

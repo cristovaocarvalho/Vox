@@ -97,6 +97,8 @@ const de: TranslationKeys = {
     autoStartHint: 'Startet Vox automatisch beim Anmelden',
     muteSystemAudio: 'Systemaudio während der Aufnahme stummschalten',
     muteSystemAudioHint: 'Schaltet Medien während des Diktierens stumm, damit keine Musik über das Mikrofon aufgenommen wird.',
+    soundEffects: 'Soundeffekte',
+    soundEffectsHint: 'Soundeffekte beim Öffnen und Schließen des Aufnahme-Docks abspielen.',
     microphone: 'Bevorzugtes Mikrofon',
     microphoneDefault: 'Standardmikrofon',
     autoDetectLanguage: 'Gesprochene Sprache automatisch erkennen',

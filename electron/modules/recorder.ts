@@ -3,11 +3,13 @@ import { EventEmitter } from 'events'
 export class AudioRecorder extends EventEmitter {
   private isRecording = false
   private chunks: Buffer[] = []
-  private vadThreshold = 0.02 // Limiar de energia RMS para fala
+  private vadThreshold = 0.018 // Limiar de energia RMS para fala
   private autoStopOnSilence = false
   private hasSpoken = false
   private silenceTimer: NodeJS.Timeout | null = null
-  private silenceDurationMs = 1500 // 1.5s de silêncio para encerramento automático
+  private noSpeechTimer: NodeJS.Timeout | null = null
+  private silenceDurationMs = 1400 // 1.4s de silêncio pós-fala para encerramento
+  private noSpeechTimeoutMs = 5000 // 5s sem fala para cancelamento automático
   private totalLength = 0
 
   public startRecording(options?: { autoStopOnSilence?: boolean }) {
@@ -18,10 +20,17 @@ export class AudioRecorder extends EventEmitter {
       this.autoStopOnSilence = options.autoStopOnSilence
     }
     this.hasSpoken = false
-    if (this.silenceTimer) {
-      clearTimeout(this.silenceTimer)
-      this.silenceTimer = null
+    this.clearTimers()
+
+    if (this.autoStopOnSilence) {
+      this.noSpeechTimer = setTimeout(() => {
+        if (!this.hasSpoken && this.isRecording) {
+          console.log('[Recorder] 🛑 Nenhuma fala detectada após acionamento, cancelando gravação...')
+          this.emit('auto-stop')
+        }
+      }, this.noSpeechTimeoutMs)
     }
+
     console.log('[Recorder] Iniciando gravação PCM 16kHz mono...', options?.autoStopOnSilence ? '(Auto-stop ativo)' : '')
     this.emit('start')
   }
@@ -45,6 +54,10 @@ export class AudioRecorder extends EventEmitter {
 
     if (isSpeech) {
       this.hasSpoken = true
+      if (this.noSpeechTimer) {
+        clearTimeout(this.noSpeechTimer)
+        this.noSpeechTimer = null
+      }
     }
 
     if (!this.autoStopOnSilence) return
@@ -54,9 +67,9 @@ export class AudioRecorder extends EventEmitter {
         clearTimeout(this.silenceTimer)
         this.silenceTimer = null
       }
-    } else if (!this.silenceTimer) {
+    } else if (this.hasSpoken && !this.silenceTimer) {
       this.silenceTimer = setTimeout(() => {
-        console.log('[Recorder] 🛑 Silêncio detectado, encerrando gravação automaticamente...')
+        console.log('[Recorder] 🛑 Silêncio pós-fala detectado, encerrando gravação automaticamente...')
         this.emit('auto-stop')
       }, this.silenceDurationMs)
     }
@@ -69,10 +82,7 @@ export class AudioRecorder extends EventEmitter {
   public stopRecording(): Buffer {
     this.isRecording = false
     this.autoStopOnSilence = false
-    if (this.silenceTimer) {
-      clearTimeout(this.silenceTimer)
-      this.silenceTimer = null
-    }
+    this.clearTimers()
     console.log('[Recorder] Parando gravação...')
     this.emit('stop')
 
@@ -92,6 +102,17 @@ export class AudioRecorder extends EventEmitter {
 
   public setVadThreshold(threshold: number) {
     this.vadThreshold = threshold
+  }
+
+  private clearTimers() {
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer)
+      this.silenceTimer = null
+    }
+    if (this.noSpeechTimer) {
+      clearTimeout(this.noSpeechTimer)
+      this.noSpeechTimer = null
+    }
   }
 
   private calculateRmsEnergy(buffer: Buffer): number {
@@ -138,4 +159,3 @@ export class AudioRecorder extends EventEmitter {
 
 export const recorder = new AudioRecorder()
 export default recorder
-

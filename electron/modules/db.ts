@@ -103,7 +103,9 @@ function cachedStmt(sql: string) {
 
 export function initDatabase() {
   try {
-    const userDataPath = app.getPath('userData')
+    const userDataPath = (app && typeof app.getPath === 'function')
+      ? app.getPath('userData')
+      : path.join(process.env.APPDATA || process.env.HOME || '.', 'vox')
     if (!fs.existsSync(userDataPath)) {
       fs.mkdirSync(userDataPath, { recursive: true })
     }

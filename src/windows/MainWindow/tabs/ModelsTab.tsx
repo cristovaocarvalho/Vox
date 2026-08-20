@@ -186,28 +186,44 @@ export const ModelsTab: React.FC<ModelsTabProps> = ({
     'distil-whisper-large-v3-en': { speed: 4.0, accuracy: 4.2 }
   }
 
-  // Dynamic synchronized provider speech models (only truly available models)
-  const effectiveApiModels: WhisperModelInfo[] = React.useMemo(() => {
-    if (availableModels.stt && availableModels.stt.length > 0) {
-      return availableModels.stt.map((id) => {
-        const known = knownSpeechModelDetails[id] || {}
-        return {
-          id,
-          name: prettyModelName(id),
-          speed: known.speed ?? 3.0,
-          accuracy: known.accuracy ?? 4.0,
-          size: '—',
-          recommended: known.recommended ?? false
-        }
-      })
-    }
-    return []
-  }, [availableModels.stt])
+  const DEFAULT_PROVIDER_STT: Record<string, string[]> = {
+    groq: ['whisper-large-v3-turbo', 'whisper-large-v3', 'distil-whisper-large-v3-en'],
+    openai: ['whisper-1'],
+    azure: ['whisper']
+  }
 
-  // Dynamic synchronized provider LLM models (only truly available models)
+  const DEFAULT_PROVIDER_LLM: Record<string, string[]> = {
+    groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it'],
+    openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
+    azure: ['gpt-4o-mini', 'gpt-4o']
+  }
+
+  // Dynamic synchronized provider speech models
+  const effectiveApiModels: WhisperModelInfo[] = React.useMemo(() => {
+    const list = (availableModels.stt && availableModels.stt.length > 0)
+      ? availableModels.stt
+      : (DEFAULT_PROVIDER_STT[draftProvider] || ['whisper-large-v3-turbo'])
+
+    return list.map((id) => {
+      const known = knownSpeechModelDetails[id] || {}
+      return {
+        id,
+        name: prettyModelName(id),
+        speed: known.speed ?? 3.0,
+        accuracy: known.accuracy ?? 4.0,
+        size: '—',
+        recommended: known.recommended ?? (id === 'whisper-large-v3-turbo' || id === 'whisper-1')
+      }
+    })
+  }, [availableModels.stt, draftProvider])
+
+  // Dynamic synchronized provider LLM models
   const effectiveLlmModels: string[] = React.useMemo(() => {
-    return availableModels.llm || []
-  }, [availableModels.llm])
+    if (availableModels.llm && availableModels.llm.length > 0) {
+      return availableModels.llm
+    }
+    return DEFAULT_PROVIDER_LLM[draftProvider] || []
+  }, [availableModels.llm, draftProvider])
 
   // Instant selection and persistence handlers
   const handleSelectStt = (modelId: string) => {

@@ -97,6 +97,8 @@ const ptBR: TranslationKeys = {
     autoStartHint: 'Inicia o Vox automaticamente ao fazer login',
     muteSystemAudio: 'Silenciar áudio do sistema durante a gravação',
     muteSystemAudioHint: 'Muta a reprodução enquanto você dita, evitando que músicas ou vídeos sejam captados pelo microfone.',
+    soundEffects: 'Efeitos sonoros',
+    soundEffectsHint: 'Reproduzir som ao abrir e fechar o dock de gravação.',
     microphone: 'Microfone preferido',
     microphoneDefault: 'Microfone padrão',
     autoDetectLanguage: 'Detectar idioma automaticamente',

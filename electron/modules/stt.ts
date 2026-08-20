@@ -16,6 +16,31 @@ export interface TranscriptionResult {
 
 const DEFAULT_MODEL = 'whisper-large-v3-turbo'
 
+const KNOWN_HALLUCINATIONS = [
+  /^a cidade (no|do|de) brasil$/i,
+  /^a cidade de s[aã]o paulo$/i,
+  /^legendas (pela|por|da|para)/i,
+  /^subt[ií]tulos/i,
+  /^sous-titres/i,
+  /^transcri[cç][aã]o/i,
+  /^obrigad[oa]( por assistir)?$/i,
+  /^thank you( for watching)?$/i,
+  /^thanks( for watching)?$/i,
+  /^inscreva-se/i,
+  /^deixe seu (like|joinha)/i,
+  /^amara\.org/i,
+  /^(tchau|bye bye|you|sil[eê]ncio|m[uú]sica|aplausos|amado|rivoak)$/i,
+  /^\[(música|music|silence|inaudible|aplausos|som de fundo)\]$/i,
+  /^\((música|music|silence|inaudible|aplausos|som de fundo)\)$/i
+]
+
+export function isWhisperHallucination(text: string): boolean {
+  if (!text) return true
+  const lower = text.toLowerCase().replace(/[.!?,:;]/g, '').trim()
+  if (!lower) return true
+  return KNOWN_HALLUCINATIONS.some((regex) => regex.test(lower))
+}
+
 export async function transcribeAudio(
   audioBuffer: Buffer,
   language?: string
@@ -46,28 +71,39 @@ export async function transcribeAudio(
   const mimeType = isWebm ? 'audio/webm' : 'audio/wav'
   const fileName = isWebm ? 'audio.webm' : 'audio.wav'
 
+  // Normalização do código de idioma (ex: 'pt-BR' -> 'pt', 'en-US' -> 'en')
+  let cleanLang = language
+  if (cleanLang) {
+    if (cleanLang.includes('-')) {
+      cleanLang = cleanLang.split('-')[0]
+    }
+    if (cleanLang === 'auto' || cleanLang === 'auto-detect') {
+      cleanLang = undefined
+    }
+  }
+
   console.log('[STT] Transcrevendo mídia:', {
     provider: provider.id,
     model,
     audioSize: audioBuffer.length,
     mimeType,
-    specifiedLanguage: language || 'auto-detect'
+    specifiedLanguage: cleanLang || 'auto-detect'
   })
 
   try {
-    const file = new File([new Uint8Array(audioBuffer)], fileName, { type: mimeType })
+    const arrayBuffer = audioBuffer.buffer.slice(audioBuffer.byteOffset, audioBuffer.byteOffset + audioBuffer.byteLength) as ArrayBuffer
+    const blob = new Blob([arrayBuffer], { type: mimeType })
     const formData = new FormData()
-    formData.append('file', file)
+    formData.append('file', blob, fileName)
     formData.append('model', model)
     
-    // Se language for informado explicitamente (ex: 'pt'), adiciona a flag
-    if (language) {
-      formData.append('language', language)
+    if (cleanLang) {
+      formData.append('language', cleanLang)
     }
     
     formData.append('response_format', 'verbose_json')
 
-    // Usar apenas vocabulário pessoal como prompt de apoio ao Whisper para evitar alucinações
+    // Vocabulário pessoal para suporte ao Whisper
     const customVocab = listVocabulary()
     if (customVocab && customVocab.length > 0) {
       formData.append('prompt', customVocab.slice(0, 50).join(', '))
@@ -102,26 +138,8 @@ export async function transcribeAudio(
     const data = await response.json()
     let text = (data.text || '').trim()
 
-    // Filtrar alucinações conhecidas do Whisper em áudios curtos ou com ruído/silêncio
-    const lower = text.toLowerCase().replace(/[.!?,:;]/g, '').trim()
-    const isHallucination =
-      /^a cidade (no|do|de) brasil$/i.test(lower) ||
-      /^a cidade de s[aã]o paulo$/i.test(lower) ||
-      /^legendas (pela|por|da|para)/i.test(lower) ||
-      /^subt[ií]tulos/i.test(lower) ||
-      /^sous-titres/i.test(lower) ||
-      /^transcri[cç][aã]o/i.test(lower) ||
-      /^obrigad[oa]( por assistir)?$/i.test(lower) ||
-      /^thank you( for watching)?$/i.test(lower) ||
-      /^thanks( for watching)?$/i.test(lower) ||
-      /^inscreva-se/i.test(lower) ||
-      /^deixe seu (like|joinha)/i.test(lower) ||
-      /^amara\.org/i.test(lower) ||
-      /^(tchau|bye bye|you|sil[eê]ncio|m[uú]sica|aplausos)$/i.test(lower) ||
-      /^\[(música|music|silence|inaudible|aplausos|som de fundo)\]$/i.test(lower) ||
-      /^\((música|music|silence|inaudible|aplausos|som de fundo)\)$/i.test(lower)
-
-    if (isHallucination) {
+    // Filtrar alucinações conhecidas do Whisper
+    if (isWhisperHallucination(text)) {
       console.log(`[STT] Alucinação ignorada: "${text}"`)
       text = ''
     }
@@ -134,7 +152,7 @@ export async function transcribeAudio(
     })
 
     if (rawSegments.length > 0 && validSegments.length === 0) {
-      console.log(`[STT] Segmentos descartados por alta probabilidade de silêncio/ruído: "${text}"`)
+      console.log(`[STT] Segmentos descartados por alta probabilidade de ruído: "${text}"`)
       text = ''
     }
 
@@ -148,15 +166,20 @@ export async function transcribeAudio(
 
     return {
       text: text.trim(),
+      rawText: data.text || '',
       segments,
       duration
     }
-  } catch (error: any) {
-    console.error('[STT] Exceção na API:', error)
+  } catch (err: any) {
+    console.error('[STT] Falha na transcrição:', err)
     return {
-      text: `[Erro na transcrição] ${error?.message || 'Ocorreu um erro ao processar o áudio.'}`,
+      text: `[Erro de conexão: ${err?.message || 'Falha de rede'}]`,
       segments: [],
       duration: 0
     }
   }
+}
+
+export default {
+  transcribeAudio
 }
