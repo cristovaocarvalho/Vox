@@ -18,10 +18,11 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
 
+    "types": ["node"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
     }
   },
-  "include": ["src", "electron"]
+  "include": ["src", "electron", "scripts"]
 }
