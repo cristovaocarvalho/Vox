@@ -1,18 +1,11 @@
 import React from 'react'
-import type { VoiceCommand, CommandCategory } from '../../../types/commands'
+import type { VoiceCommand } from '../../../types/commands'
+import { CATEGORY_LABELS } from '../../../types/commands'
 import { IconTrash, IconCopy, IconClock, IconMic, IconTerminal, IconGlobe, IconFile } from '../../../components'
 import { useI18n } from '../../../i18n'
 import { COMMAND_TRANSLATIONS } from '../../../data/commandTranslations'
 
-export const CATEGORY_LABELS: Record<CommandCategory, string> = {
-  punctuation: 'Pontuação',
-  navigation: 'Navegação',
-  editing: 'Edição',
-  vox_control: 'Controle do Vox',
-  snippets: 'Snippets',
-  system: 'Sistema',
-  custom: 'Personalizados'
-}
+export { CATEGORY_LABELS }
 
 export function displayPattern(pattern: string): string {
   return pattern

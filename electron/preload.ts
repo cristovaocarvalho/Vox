@@ -140,13 +140,13 @@ export const voxApi = {
     ipcRenderer.on('vox:wakeword-error', handler)
     return () => ipcRenderer.removeListener('vox:wakeword-error', handler)
   },
-  onDockShow: (callback: () => void) => {
-    const handler = () => callback()
+  onDockShow: (callback: (data?: any) => void) => {
+    const handler = (_event: unknown, data?: any) => callback(data)
     ipcRenderer.on('vox:dock-show', handler)
     return () => ipcRenderer.removeListener('vox:dock-show', handler)
   },
-  onDockHide: (callback: () => void) => {
-    const handler = () => callback()
+  onDockHide: (callback: (data?: any) => void) => {
+    const handler = (_event: unknown, data?: any) => callback(data)
     ipcRenderer.on('vox:dock-hide', handler)
     return () => ipcRenderer.removeListener('vox:dock-hide', handler)
   },

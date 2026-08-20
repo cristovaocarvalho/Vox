@@ -340,11 +340,12 @@ function showDock() {
   if (dockWindow.isMinimized()) dockWindow.restore()
   dockWindow.showInactive()
   dockWindow.setAlwaysOnTop(true, 'screen-saver')
+  const sfxEnabled = getSetting('soundEffectsEnabled', 'true') !== 'false'
   if (dockWindow && !dockWindow.isDestroyed()) {
-    dockWindow.webContents.send('vox:dock-show')
+    dockWindow.webContents.send('vox:dock-show', { soundEffectsEnabled: sfxEnabled })
   }
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('vox:dock-show')
+    mainWindow.webContents.send('vox:dock-show', { soundEffectsEnabled: sfxEnabled })
   }
 }
 
@@ -352,11 +353,12 @@ function hideDock() {
   if (!dockWindow) return
   if (!dockWindow.isVisible() || isDockHiding) return
   isDockHiding = true
+  const sfxEnabled = getSetting('soundEffectsEnabled', 'true') !== 'false'
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('vox:dock-hide')
+    mainWindow.webContents.send('vox:dock-hide', { soundEffectsEnabled: sfxEnabled })
   }
   if (dockWindow && !dockWindow.isDestroyed()) {
-    dockWindow.webContents.send('vox:dock-hide')
+    dockWindow.webContents.send('vox:dock-hide', { soundEffectsEnabled: sfxEnabled })
   }
   setTimeout(() => {
     dockWindow?.hide()

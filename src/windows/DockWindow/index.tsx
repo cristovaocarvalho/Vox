@@ -75,23 +75,26 @@ export const DockWindow: React.FC = () => {
     }
 
     if (window.vox?.onDockShow) {
-      unsubShow = window.vox.onDockShow(() => {
-        if (window.vox?.getSettings) {
-          window.vox.getSettings().then((s: Record<string, string>) => {
-            if (s && s.soundEffectsEnabled !== undefined) {
-              isSfxEnabled = s.soundEffectsEnabled !== 'false'
-            }
-          })
+      unsubShow = window.vox.onDockShow((data?: { soundEffectsEnabled?: boolean }) => {
+        if (data && data.soundEffectsEnabled !== undefined) {
+          isSfxEnabled = data.soundEffectsEnabled
         }
         setIsVisible(true)
-        playSfx('on')
+        if (isSfxEnabled) {
+          playSfx('on')
+        }
       })
     }
 
     if (window.vox?.onDockHide) {
-      unsubHide = window.vox.onDockHide(() => {
+      unsubHide = window.vox.onDockHide((data?: { soundEffectsEnabled?: boolean }) => {
+        if (data && data.soundEffectsEnabled !== undefined) {
+          isSfxEnabled = data.soundEffectsEnabled
+        }
         setIsVisible(false)
-        playSfx('off')
+        if (isSfxEnabled) {
+          playSfx('off')
+        }
       })
     }
 

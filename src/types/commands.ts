@@ -40,6 +40,16 @@ export type CommandCategory =
   | 'system'
   | 'custom'
 
+export const CATEGORY_LABELS: Record<CommandCategory, string> = {
+  punctuation: 'Pontuação',
+  navigation: 'Navegação',
+  editing: 'Edição',
+  vox_control: 'Controle do Vox',
+  snippets: 'Snippets',
+  system: 'Sistema',
+  custom: 'Personalizados'
+}
+
 export interface VoiceCommand {
   id: string
   isDefault: boolean
