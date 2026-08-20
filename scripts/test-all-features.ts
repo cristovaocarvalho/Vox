@@ -98,6 +98,30 @@ async function runAll() {
     assert.strictEqual(cmdSeg?.command?.id, 'sys_search')
   })
 
+  test('Command Parser: Navigation ("nova linha")', () => {
+    const res = parser.parse('primeira linha nova linha segunda linha', 'pt')
+    assert.strictEqual(res.hasCommands, true)
+    const cmdSeg = res.segments.find(s => s.type === 'command')
+    assert.ok(cmdSeg)
+    assert.strictEqual(cmdSeg?.command?.id, 'nav_new_line')
+  })
+
+  test('Command Parser: Editing ("desfazer")', () => {
+    const res = parser.parse('desfazer', 'pt')
+    assert.strictEqual(res.hasCommands, true)
+    const cmdSeg = res.segments.find(s => s.type === 'command')
+    assert.ok(cmdSeg)
+    assert.strictEqual(cmdSeg?.command?.id, 'edit_undo')
+  })
+
+  test('Command Parser: System / Dynamic Date ("inserir data")', () => {
+    const res = parser.parse('inserir data', 'pt')
+    assert.strictEqual(res.hasCommands, true)
+    const cmdSeg = res.segments.find(s => s.type === 'command')
+    assert.ok(cmdSeg)
+    assert.strictEqual(cmdSeg?.command?.id, 'snippet_date')
+  })
+
   test('Command Parser: Dynamic App Launch ("abrir chrome")', () => {
     const res = parser.parse('abrir chrome', 'pt')
     assert.strictEqual(res.hasCommands, true)

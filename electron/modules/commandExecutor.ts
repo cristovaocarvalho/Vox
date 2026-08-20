@@ -4,6 +4,7 @@ import { EventEmitter } from 'events'
 const { shell, clipboard } = require('electron')
 import type { VoiceCommand, KeystrokeStep, UserSnippet } from '../../src/types/commands'
 import { injectText, WindowRef } from './injector'
+import { sendComboWin32, sendKeySequenceWin32 } from './win32'
 
 export interface ExecutionContext {
   windowRef: WindowRef
@@ -138,19 +139,27 @@ function toSendKeys(combo: string): string {
   return prefix + keyStr
 }
 
-async function sendKeys(combos: string[]): Promise<void> {
+async function sendKeys(combos: string[], windowRef?: WindowRef): Promise<void> {
   if (process.platform === 'darwin') {
     const scripts = combos.map(toAppleScriptKeystroke).filter(Boolean)
     if (scripts.length === 0) return
     await runAppleScript(scripts.join('\n'))
     return
   }
+
+  if (process.platform === 'win32') {
+    for (const combo of combos) {
+      await sendComboWin32(combo, windowRef?.hwnd)
+    }
+    return
+  }
+
   const keys = combos.map(toSendKeys).join('')
   if (!keys) return
   await runPowerShell(`Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${keys}')`)
 }
 
-async function sendKeySequence(steps: KeystrokeStep[]): Promise<void> {
+async function sendKeySequence(steps: KeystrokeStep[], windowRef?: WindowRef): Promise<void> {
   if (!steps || steps.length === 0) return
 
   if (process.platform === 'darwin') {
@@ -162,6 +171,11 @@ async function sendKeySequence(steps: KeystrokeStep[]): Promise<void> {
       })
       .filter(Boolean)
     await runAppleScript(scriptLines.join('\n'))
+    return
+  }
+
+  if (process.platform === 'win32') {
+    await sendKeySequenceWin32(steps, windowRef?.hwnd)
     return
   }
 
@@ -489,7 +503,7 @@ export class CommandExecutor extends EventEmitter {
     try {
       switch (action.type) {
         case 'keystroke':
-          await sendKeys([String(action.parameter)])
+          await sendKeys([String(action.parameter)], context.windowRef)
           break
 
         case 'keystroke_sequence': {
@@ -497,7 +511,7 @@ export class CommandExecutor extends EventEmitter {
           const steps: KeystrokeStep[] = Array.isArray(raw)
             ? raw.map((s: any) => (typeof s === 'string' ? { key: s, delayAfter: 0 } : s))
             : []
-          await sendKeySequence(steps)
+          await sendKeySequence(steps, context.windowRef)
           break
         }
 
